@@ -4,6 +4,9 @@ import ArchitectureDiagram from "./ArchitectureDiagram";
 import AICodePanel from "./AICodePanel";
 import DevOpsPanel from "./DevOpsPanel";
 import BenchmarkPanel from "./BenchmarkPanel";
+import ERDiagram from "./ERDiagram";
+import ApiTestPanel from "./ApiTestPanel";
+import CodeEditor from "./CodeEditor";
 
 const API_BASE_URL = '';
 
@@ -2349,6 +2352,22 @@ export default function App() {
               </div>
 
               <div className="result-card">
+                <h3><span className="icon">📊</span> Database Schema (ERD)</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Visual Entity-Relationship Diagram showing tables, columns, and relationships.
+                </p>
+                <ERDiagram tables={generatedArtifacts?.tables || []} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🔌</span> API Testing</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Test your API endpoints with a built-in HTTP client. Send requests and view responses.
+                </p>
+                <ApiTestPanel />
+              </div>
+
+              <div className="result-card">
                 <h3><span className="icon">🔧</span> Cluster Configuration</h3>
                 <div className="cluster-config">
                   <div className="cluster-section">
@@ -2462,25 +2481,14 @@ export default function App() {
                 
                 {mobileAppResult && (
                   <div style={{ marginTop: '20px' }}>
-                    <div style={{ background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                      <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Generated Files ({mobileAppResult.files?.length || 0})</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '10px' }}>
-                        {mobileAppResult.files?.map((file: any, idx: number) => (
-                          <div key={idx} style={{ 
-                            background: 'rgba(0,0,0,0.2)', 
-                            borderRadius: '8px', 
-                            padding: '10px',
-                            border: '1px solid rgba(74, 74, 240, 0.3)'
-                          }}>
-                            <div style={{ color: '#4a4af0', fontSize: '0.85rem', fontFamily: 'monospace' }}>{file.path}</div>
-                            <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '4px' }}>{file.description}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <CodeEditor 
+                      files={mobileAppResult.files || []}
+                      title="Mobile App Code"
+                      onDownload={downloadMobileAppFiles}
+                    />
                     
                     {mobileAppResult.instructions && (
-                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px' }}>
+                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px', marginTop: '16px' }}>
                         <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Setup Instructions</h4>
                         <pre style={{ 
                           color: '#a0a0c0', 
@@ -2565,25 +2573,14 @@ export default function App() {
                 
                 {backendApiResult && (
                   <div style={{ marginTop: '20px' }}>
-                    <div style={{ background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                      <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Generated Files ({backendApiResult.files?.length || 0})</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '10px' }}>
-                        {backendApiResult.files?.map((file: any, idx: number) => (
-                          <div key={idx} style={{ 
-                            background: 'rgba(0,0,0,0.2)', 
-                            borderRadius: '8px', 
-                            padding: '10px',
-                            border: '1px solid rgba(74, 74, 240, 0.3)'
-                          }}>
-                            <div style={{ color: '#4a4af0', fontSize: '0.85rem', fontFamily: 'monospace' }}>{file.path}</div>
-                            <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '4px' }}>{file.description}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <CodeEditor 
+                      files={backendApiResult.files || []}
+                      title="Backend API Code"
+                      onDownload={downloadBackendApiFiles}
+                    />
                     
                     {backendApiResult.instructions && (
-                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px' }}>
+                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px', marginTop: '16px' }}>
                         <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Setup Instructions</h4>
                         <pre style={{ 
                           color: '#a0a0c0', 

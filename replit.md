@@ -144,6 +144,30 @@ Generate complete server-side API projects for multiple frameworks:
 - **Download**: Get all files as a single downloadable bundle
 - **Endpoint**: /api/generate-backend
 
+### 13. Database Schema Visualization (ERD)
+Interactive Entity-Relationship Diagram using React Flow:
+- **Visual Tables**: Each table displayed as a node with columns and types
+- **Relationships**: Foreign key connections shown as animated edges
+- **Visual Indicators**: Primary keys (gold), foreign keys (blue), unique constraints
+- **Interactive**: Pan, zoom, and controls for exploring the schema
+- **Legend**: Key type indicators shown at the bottom
+
+### 14. API Testing Interface
+Built-in Postman-like HTTP client for testing APIs:
+- **HTTP Methods**: GET, POST, PUT, DELETE, PATCH support
+- **Headers Editor**: Add/remove/toggle request headers
+- **Body Editor**: JSON body input for POST/PUT/PATCH requests
+- **Response Viewer**: Status, timing, size, headers, and body
+- **Copy Response**: One-click copy of response data
+
+### 15. Live Code Editor
+Syntax-highlighted code editor for viewing generated files:
+- **File Browser**: Search and navigate generated files
+- **Syntax Highlighting**: TypeScript, JavaScript, Python, Go, SQL, JSON, etc.
+- **Edit Mode**: Switch between view and edit modes
+- **File Operations**: Copy, download individual files
+- **Download All**: Export all files as a bundle
+
 ## Recent Changes
 - December 15, 2025: Added Backend API Code Generation feature:
   - Generate complete backend projects for Node.js/Express, Python/FastAPI, and Go/Gin
