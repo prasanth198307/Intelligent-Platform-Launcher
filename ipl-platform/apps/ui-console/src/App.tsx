@@ -2118,13 +2118,51 @@ export default function App() {
 
         <div className="results-panel">
           {!result && !loading && (
-            <div className="result-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🚀</div>
-              <h3 style={{ border: 'none', justifyContent: 'center' }}>Configure your application requirements</h3>
-              <p style={{ color: '#a0a0c0', maxWidth: '500px', margin: '0 auto' }}>
-                Fill in the details on the left panel and click "Analyze" to see infrastructure recommendations, 
-                cost estimates, architecture diagrams, and deployment options.
+            <div className="result-card" style={{ textAlign: 'center', padding: '50px 40px' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🚀</div>
+              <h3 style={{ border: 'none', justifyContent: 'center', marginBottom: '12px' }}>Intelligent Platform Launcher</h3>
+              <p style={{ color: '#a0a0c0', maxWidth: '600px', margin: '0 auto 24px', lineHeight: '1.6' }}>
+                Build production-ready applications in minutes. Configure your requirements on the left panel and click "Analyze" to unlock powerful capabilities.
               </p>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                gap: '16px', 
+                maxWidth: '700px', 
+                margin: '0 auto',
+                textAlign: 'left'
+              }}>
+                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🤖</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>AI Code Generation</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Generate modules, screens, APIs & tests</div>
+                </div>
+                <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🗄️</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Database Design</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Auto-generate schemas, tables & ERDs</div>
+                </div>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🏗️</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Architecture & Infra</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Diagrams, sizing & cloud cost estimates</div>
+                </div>
+                <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>⚙️</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>DevOps & CI/CD</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Terraform, Docker, pipelines & more</div>
+                </div>
+                <div style={{ background: 'rgba(236, 72, 153, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🧪</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Testing & Quality</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Benchmarking, API testing & automation</div>
+                </div>
+                <div style={{ background: 'rgba(6, 182, 212, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔌</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Integrations</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Webhooks, GraphQL & message queues</div>
+                </div>
+              </div>
             </div>
           )}
 
