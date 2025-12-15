@@ -1773,7 +1773,23 @@ export default function App() {
             </select>
           </div>
 
-          <div className="form-group">
+          <div 
+            className="advanced-options-toggle"
+            onClick={() => setExpandedSections(prev => {
+              const next = new Set(prev);
+              if (next.has('deployment')) next.delete('deployment');
+              else next.add('deployment');
+              return next;
+            })}
+          >
+            <span className="toggle-icon">{expandedSections.has('deployment') ? '▼' : '▶'}</span>
+            <span>Deployment & Cloud</span>
+            <span className="toggle-hint">{expandedSections.has('deployment') ? 'Click to collapse' : `${deploymentType === 'cloud' ? 'Cloud' : deploymentType === 'onprem' ? 'On-Prem' : 'Hybrid'}${deploymentType !== 'onprem' ? ` - ${CLOUD_PROVIDERS.find(c => c.id === selectedCloud)?.name || 'AWS'}` : ''}`}</span>
+          </div>
+
+          {expandedSections.has('deployment') && (
+          <>
+          <div className="form-group" style={{ marginTop: 0 }}>
             <label>Deployment Type</label>
             <div className="deployment-type-selector">
               <div 
@@ -1813,6 +1829,8 @@ export default function App() {
                 ))}
               </div>
             </div>
+          )}
+          </>
           )}
 
           <div 
