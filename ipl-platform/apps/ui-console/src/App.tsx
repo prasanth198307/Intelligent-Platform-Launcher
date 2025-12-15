@@ -15,6 +15,7 @@ import DataConnectivityPanel from "./DataConnectivityPanel";
 import MonitoringPanel from "./MonitoringPanel";
 import EnvironmentPanel from "./EnvironmentPanel";
 import GuidedWizard from "./GuidedWizard";
+import MigrationAssistantPanel from "./MigrationAssistantPanel";
 
 const API_BASE_URL = '';
 
@@ -3357,6 +3358,18 @@ Or upload a requirements document (PDF, Word, TXT) using the button above."
                       {expandedSections.has('data-connectivity') && (
                         <div className="section-content">
                           <DataConnectivityPanel domain={domain} selectedDb={selectedDb} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('migration-assistant')}>
+                        <span className="section-icon">{expandedSections.has('migration-assistant') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🔄</span> Database Migration Assistant</h3>
+                      </div>
+                      {expandedSections.has('migration-assistant') && (
+                        <div className="section-content">
+                          <MigrationAssistantPanel />
                         </div>
                       )}
                     </div>

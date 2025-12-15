@@ -34,6 +34,12 @@ import {
   generateBenchmarkReport,
   generateMobileApp,
   generateBackendApi,
+  analyzeSchema,
+  generateMigrationPlan,
+  generateTargetDDL,
+  generatePerformanceSuggestions,
+  type SourceSchema,
+  type MigrationConfig,
 } from "./generators/index.js";
 
 const app = express();
@@ -756,6 +762,183 @@ app.post("/api/parse-document", upload.single("file"), async (req, res) => {
   } catch (e: any) {
     console.error("Document parsing failed:", e);
     res.status(500).json({ error: "Document parsing failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/analyze", async (req, res) => {
+  try {
+    const { schema } = req.body;
+    
+    if (!schema || !schema.tables || !Array.isArray(schema.tables)) {
+      return res.status(400).json({ error: "schema with tables array is required" });
+    }
+
+    const defaultSchema: SourceSchema = {
+      tables: schema.tables || [],
+      indexes: schema.indexes || [],
+      constraints: schema.constraints || [],
+      partitions: schema.partitions || [],
+      views: schema.views || [],
+      procedures: schema.procedures || [],
+      triggers: schema.triggers || [],
+    };
+
+    const analysis = analyzeSchema(defaultSchema);
+    res.json({ ok: true, ...analysis });
+  } catch (e: any) {
+    console.error("Schema analysis failed:", e);
+    res.status(500).json({ error: "Schema analysis failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/plan", async (req, res) => {
+  try {
+    const { sourceDatabase, targetDatabase, schema, options } = req.body;
+    
+    if (!sourceDatabase || !targetDatabase) {
+      return res.status(400).json({ error: "sourceDatabase and targetDatabase are required" });
+    }
+    
+    if (!schema || !schema.tables || !Array.isArray(schema.tables)) {
+      return res.status(400).json({ error: "schema with tables array is required" });
+    }
+
+    const sourceSchema: SourceSchema = {
+      tables: schema.tables || [],
+      indexes: schema.indexes || [],
+      constraints: schema.constraints || [],
+      partitions: schema.partitions || [],
+      views: schema.views || [],
+      procedures: schema.procedures || [],
+      triggers: schema.triggers || [],
+    };
+
+    const config: MigrationConfig = {
+      sourceDatabase,
+      targetDatabase,
+      sourceSchema,
+      options: {
+        preserveIndexes: options?.preserveIndexes !== false,
+        convertProcedures: options?.convertProcedures !== false,
+        preservePartitions: options?.preservePartitions !== false,
+        parallelTables: options?.parallelTables || 4,
+        batchSize: options?.batchSize || 10000,
+      },
+    };
+
+    const plan = generateMigrationPlan(config);
+    res.json({ ok: true, ...plan });
+  } catch (e: any) {
+    console.error("Migration plan generation failed:", e);
+    res.status(500).json({ error: "Migration plan generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/convert-ddl", async (req, res) => {
+  try {
+    const { sourceDatabase, targetDatabase, schema } = req.body;
+    
+    if (!sourceDatabase || !targetDatabase) {
+      return res.status(400).json({ error: "sourceDatabase and targetDatabase are required" });
+    }
+    
+    if (!schema || !schema.tables || !Array.isArray(schema.tables)) {
+      return res.status(400).json({ error: "schema with tables array is required" });
+    }
+
+    const sourceSchema: SourceSchema = {
+      tables: schema.tables || [],
+      indexes: schema.indexes || [],
+      constraints: schema.constraints || [],
+      partitions: schema.partitions || [],
+      views: schema.views || [],
+      procedures: schema.procedures || [],
+      triggers: schema.triggers || [],
+    };
+
+    const result = generateTargetDDL(sourceSchema, sourceDatabase, targetDatabase);
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("DDL conversion failed:", e);
+    res.status(500).json({ error: "DDL conversion failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/performance-suggestions", async (req, res) => {
+  try {
+    const { targetDatabase, schema } = req.body;
+    
+    if (!targetDatabase) {
+      return res.status(400).json({ error: "targetDatabase is required" });
+    }
+    
+    if (!schema || !schema.tables || !Array.isArray(schema.tables)) {
+      return res.status(400).json({ error: "schema with tables array is required" });
+    }
+
+    const sourceSchema: SourceSchema = {
+      tables: schema.tables || [],
+      indexes: schema.indexes || [],
+      constraints: schema.constraints || [],
+      partitions: schema.partitions || [],
+      views: schema.views || [],
+      procedures: schema.procedures || [],
+      triggers: schema.triggers || [],
+    };
+
+    const suggestions = generatePerformanceSuggestions(sourceSchema, targetDatabase);
+    res.json({ ok: true, suggestions });
+  } catch (e: any) {
+    console.error("Performance suggestions failed:", e);
+    res.status(500).json({ error: "Performance suggestions failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/ai-analyze", async (req, res) => {
+  try {
+    const { sourceDatabase, targetDatabase, schemaText } = req.body;
+    
+    if (!schemaText) {
+      return res.status(400).json({ error: "schemaText is required (DDL or schema description)" });
+    }
+
+    const prompt = `You are a database migration expert. Analyze the following database schema and provide migration guidance.
+
+Source Database: ${sourceDatabase || 'Unknown'}
+Target Database: ${targetDatabase || 'PostgreSQL'}
+
+Schema/DDL:
+${schemaText}
+
+Provide a comprehensive analysis in JSON format with the following structure:
+{
+  "tables": [
+    {
+      "name": "table_name",
+      "schema": "dbo",
+      "columns": [{"name": "col", "dataType": "VARCHAR(100)", "nullable": true, "isPrimaryKey": false, "isAutoIncrement": false}],
+      "rowCount": 0,
+      "sizeBytes": 0
+    }
+  ],
+  "indexes": [{"name": "idx_name", "tableName": "table", "columns": ["col"], "isUnique": false, "isClustered": false, "type": "NONCLUSTERED"}],
+  "constraints": [{"name": "fk_name", "tableName": "table", "type": "FOREIGN KEY", "columns": ["col"], "referencedTable": "ref_table", "referencedColumns": ["id"]}],
+  "partitions": [],
+  "views": [],
+  "procedures": [],
+  "triggers": [],
+  "migrationNotes": ["Note about potential issues"],
+  "dataTypeIssues": ["List of data type conversion concerns"],
+  "performanceRecommendations": ["Indexing and optimization suggestions"]
+}
+
+If you cannot parse the schema fully, provide your best effort with what you can extract.`;
+
+    const result = await runLLM(prompt);
+    res.json({ ok: true, analysis: result });
+  } catch (e: any) {
+    console.error("AI schema analysis failed:", e);
+    res.status(500).json({ error: "AI schema analysis failed", details: e?.message || String(e) });
   }
 });
 
