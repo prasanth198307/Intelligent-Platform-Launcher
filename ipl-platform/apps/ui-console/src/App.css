@@ -4068,6 +4068,108 @@
   max-height: 500px;
 }
 
+/* Target Mode Section */
+.target-mode-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+}
+
+.target-mode-section h4 {
+  color: #e0e0e0;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.target-mode-hint {
+  color: #a0a0a0;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.target-connection {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.target-connection h4 {
+  color: #22c55e;
+}
+
+/* DDL Actions */
+.ddl-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.download-btn.secondary {
+  background: rgba(100, 100, 200, 0.2);
+  border-color: rgba(100, 100, 200, 0.4);
+}
+
+.download-btn.secondary:hover {
+  background: rgba(100, 100, 200, 0.3);
+}
+
+/* Scripts Info */
+.scripts-info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.scripts-info p {
+  color: #e0e0e0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.scripts-info .hint {
+  color: #f59e0b;
+  margin-top: 8px;
+}
+
+/* DDL Tabs */
+.ddl-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ddl-tab-content {
+  background: rgba(10, 10, 30, 0.5);
+  border: 1px solid rgba(100, 100, 200, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.ddl-tab-content h4 {
+  color: #06b6d4;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.ddl-output {
+  background: rgba(10, 10, 30, 0.8);
+  border: 1px solid rgba(100, 100, 200, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  color: #06b6d4;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  max-height: 400px;
+  margin: 0;
+}
+
 /* Performance Section */
 .performance-section h3 {
   color: #e0e0e0;

@@ -1332,6 +1332,168 @@ app.post("/api/migration/export-excel", async (req, res) => {
   }
 });
 
+app.post("/api/migration/generate-inserts", async (req, res) => {
+  try {
+    const { sourceDatabase, targetDatabase, schema, connection } = req.body;
+    
+    if (!schema || !connection) {
+      return res.status(400).json({ error: "schema and connection are required" });
+    }
+
+    const { host, port, database, username, password } = connection;
+    const tables = schema.tables || [];
+    
+    if (tables.length === 0) {
+      return res.status(400).json({ error: "No tables in schema" });
+    }
+
+    let inserts: string[] = [];
+    const MAX_ROWS_PER_TABLE = 1000;
+
+    const quoteIdentifier = (name: string, targetDb: string): string => {
+      switch (targetDb) {
+        case 'mysql':
+          return `\`${name}\``;
+        case 'mssql':
+          return `[${name}]`;
+        case 'postgresql':
+        case 'oracle':
+        default:
+          return `"${name}"`;
+      }
+    };
+
+    const escapeValue = (val: any, targetDb: string): string => {
+      if (val === null || val === undefined) return 'NULL';
+      if (typeof val === 'number') return String(val);
+      if (typeof val === 'boolean') {
+        if (targetDb === 'postgresql') return val ? 'TRUE' : 'FALSE';
+        if (targetDb === 'mysql') return val ? '1' : '0';
+        return val ? '1' : '0';
+      }
+      if (val instanceof Date) {
+        const iso = val.toISOString().replace('T', ' ').replace('Z', '');
+        return `'${iso}'`;
+      }
+      const escaped = String(val).replace(/'/g, "''");
+      return `'${escaped}'`;
+    };
+
+    switch (sourceDatabase) {
+      case 'postgresql': {
+        const pg = await import('pg');
+        const pool = new pg.default.Pool({
+          host,
+          port: port || 5432,
+          database,
+          user: username,
+          password,
+        });
+        const client = await pool.connect();
+
+        for (const table of tables) {
+          const schemaName = table.schema || 'public';
+          const tableName = table.name;
+          const columns = table.columns.map((c: any) => c.name);
+          
+          const dataResult = await client.query(
+            `SELECT * FROM "${schemaName}"."${tableName}" LIMIT ${MAX_ROWS_PER_TABLE}`
+          );
+          
+          if (dataResult.rows.length > 0) {
+            inserts.push(`-- INSERT statements for ${tableName}`);
+            const quotedTable = quoteIdentifier(tableName, targetDatabase);
+            const quotedCols = columns.map((c: string) => quoteIdentifier(c, targetDatabase)).join(', ');
+            for (const row of dataResult.rows) {
+              const values = columns.map((col: string) => escapeValue(row[col], targetDatabase));
+              inserts.push(`INSERT INTO ${quotedTable} (${quotedCols}) VALUES (${values.join(', ')});`);
+            }
+            inserts.push('');
+          }
+        }
+
+        client.release();
+        await pool.end();
+        break;
+      }
+      case 'mysql': {
+        const mysql = await import('mysql2/promise');
+        const conn = await mysql.createConnection({
+          host,
+          port: port || 3306,
+          database,
+          user: username,
+          password,
+        });
+
+        for (const table of tables) {
+          const tableName = table.name;
+          const columns = table.columns.map((c: any) => c.name);
+          
+          const [rows] = await conn.query(`SELECT * FROM \`${tableName}\` LIMIT ${MAX_ROWS_PER_TABLE}`);
+          
+          if ((rows as any[]).length > 0) {
+            inserts.push(`-- INSERT statements for ${tableName}`);
+            const quotedTable = quoteIdentifier(tableName, targetDatabase);
+            const quotedCols = columns.map((c: string) => quoteIdentifier(c, targetDatabase)).join(', ');
+            for (const row of rows as any[]) {
+              const values = columns.map((col: string) => escapeValue(row[col], targetDatabase));
+              inserts.push(`INSERT INTO ${quotedTable} (${quotedCols}) VALUES (${values.join(', ')});`);
+            }
+            inserts.push('');
+          }
+        }
+
+        await conn.end();
+        break;
+      }
+      case 'mssql': {
+        const sql = await import('mssql');
+        const config = {
+          server: host,
+          port: port || 1433,
+          database,
+          user: username,
+          password,
+          options: { encrypt: false, trustServerCertificate: true },
+        };
+        const pool = await sql.default.connect(config);
+
+        for (const table of tables) {
+          const schemaName = table.schema || 'dbo';
+          const tableName = table.name;
+          const columns = table.columns.map((c: any) => c.name);
+          
+          const result = await pool.query(`SELECT TOP ${MAX_ROWS_PER_TABLE} * FROM [${schemaName}].[${tableName}]`);
+          
+          if (result.recordset.length > 0) {
+            inserts.push(`-- INSERT statements for ${tableName}`);
+            const quotedTable = quoteIdentifier(tableName, targetDatabase);
+            const quotedCols = columns.map((c: string) => quoteIdentifier(c, targetDatabase)).join(', ');
+            for (const row of result.recordset) {
+              const values = columns.map((col: string) => escapeValue(row[col], targetDatabase));
+              inserts.push(`INSERT INTO ${quotedTable} (${quotedCols}) VALUES (${values.join(', ')});`);
+            }
+            inserts.push('');
+          }
+        }
+
+        await pool.close();
+        break;
+      }
+      default:
+        return res.status(400).json({ error: `INSERT generation not supported for: ${sourceDatabase}` });
+    }
+
+    const header = `-- INSERT Statements for Migration\n-- Source: ${sourceDatabase}\n-- Target: ${targetDatabase}\n-- Generated: ${new Date().toISOString()}\n-- Note: Limited to ${MAX_ROWS_PER_TABLE} rows per table\n\n`;
+    
+    res.json({ ok: true, inserts: header + inserts.join('\n') });
+  } catch (e: any) {
+    console.error("INSERT generation failed:", e);
+    res.status(500).json({ error: "INSERT generation failed", details: e?.message || String(e) });
+  }
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`AI Generator on :${PORT}`);
   console.log(`LLM Provider: ${process.env.LLM_PROVIDER || "mock"}`);

@@ -134,11 +134,13 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
   const [sourceDatabase, setSourceDatabase] = useState('mssql');
   const [targetDatabase, setTargetDatabase] = useState('postgresql');
   const [inputMode, setInputMode] = useState<'connect' | 'text'>('connect');
+  const [targetMode, setTargetMode] = useState<'scripts' | 'connect'>('scripts');
   const [schemaInput, setSchemaInput] = useState('');
   const [activeTab, setActiveTab] = useState<'input' | 'analysis' | 'plan' | 'ddl' | 'performance'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
+  const [targetConnectionStatus, setTargetConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   
   const [sourceConnection, setSourceConnection] = useState({
     host: '',
@@ -147,6 +149,16 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
     username: '',
     password: '',
   });
+
+  const [targetConnection, setTargetConnection] = useState({
+    host: '',
+    port: '',
+    database: '',
+    username: '',
+    password: '',
+  });
+
+  const [generatedInserts, setGeneratedInserts] = useState<string>('');
 
   const [parsedSchema, setParsedSchema] = useState<SourceSchema | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -205,6 +217,81 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
       setConnectionStatus('failed');
       setError(err.message || 'Connection failed');
     }
+  };
+
+  const testTargetConnection = async () => {
+    setTargetConnectionStatus('testing');
+    setError(null);
+
+    try {
+      const response = await fetch('/api/migration/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseType: targetDatabase,
+          ...targetConnection,
+          port: parseInt(targetConnection.port) || parseInt(getDefaultPort(targetDatabase)),
+        }),
+      });
+
+      const data = await response.json();
+      if (data.ok) {
+        setTargetConnectionStatus('connected');
+      } else {
+        setTargetConnectionStatus('failed');
+        setError(data.error || 'Target connection failed');
+      }
+    } catch (err: any) {
+      setTargetConnectionStatus('failed');
+      setError(err.message || 'Target connection failed');
+    }
+  };
+
+  const generateInsertScripts = async () => {
+    if (!parsedSchema || connectionStatus !== 'connected') {
+      setError('Please connect to source database and discover schema first');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/migration/generate-inserts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceDatabase,
+          targetDatabase,
+          schema: parsedSchema,
+          connection: {
+            ...sourceConnection,
+            port: parseInt(sourceConnection.port) || parseInt(getDefaultPort(sourceDatabase)),
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.ok) {
+        throw new Error(data.error || 'Failed to generate INSERT statements');
+      }
+
+      setGeneratedInserts(data.inserts);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate INSERT statements');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const downloadInserts = () => {
+    const blob = new Blob([generatedInserts], { type: 'text/sql' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `migration_inserts_${sourceDatabase}_to_${targetDatabase}.sql`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const discoverSchema = async () => {
@@ -584,6 +671,98 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
               </button>
             </div>
 
+            <div className="target-mode-section">
+              <h4>Target Output Mode</h4>
+              <div className="input-mode-toggle">
+                <button 
+                  className={`mode-btn ${targetMode === 'scripts' ? 'active' : ''}`}
+                  onClick={() => setTargetMode('scripts')}
+                >
+                  📄 Generate SQL Scripts
+                </button>
+                <button 
+                  className={`mode-btn ${targetMode === 'connect' ? 'active' : ''}`}
+                  onClick={() => setTargetMode('connect')}
+                >
+                  🔗 Connect to Target DB
+                </button>
+              </div>
+              <p className="target-mode-hint">
+                {targetMode === 'scripts' 
+                  ? 'Generate CREATE and INSERT SQL scripts for download' 
+                  : 'Connect directly to target database to execute migration'}
+              </p>
+            </div>
+
+            {targetMode === 'connect' && (
+              <div className="connection-section target-connection">
+                <h4>Target Database Connection</h4>
+                <div className="connection-grid">
+                  <div className="conn-field">
+                    <label>Host / Server:</label>
+                    <input
+                      type="text"
+                      value={targetConnection.host}
+                      onChange={(e) => setTargetConnection(prev => ({ ...prev, host: e.target.value }))}
+                      placeholder="e.g., db.example.com or 192.168.1.100"
+                    />
+                  </div>
+                  <div className="conn-field">
+                    <label>Port:</label>
+                    <input
+                      type="text"
+                      value={targetConnection.port || getDefaultPort(targetDatabase)}
+                      onChange={(e) => setTargetConnection(prev => ({ ...prev, port: e.target.value }))}
+                      placeholder={getDefaultPort(targetDatabase)}
+                    />
+                  </div>
+                  <div className="conn-field">
+                    <label>Database Name:</label>
+                    <input
+                      type="text"
+                      value={targetConnection.database}
+                      onChange={(e) => setTargetConnection(prev => ({ ...prev, database: e.target.value }))}
+                      placeholder="e.g., target_db"
+                    />
+                  </div>
+                  <div className="conn-field">
+                    <label>Username:</label>
+                    <input
+                      type="text"
+                      value={targetConnection.username}
+                      onChange={(e) => setTargetConnection(prev => ({ ...prev, username: e.target.value }))}
+                      placeholder="e.g., admin"
+                    />
+                  </div>
+                  <div className="conn-field full-width">
+                    <label>Password:</label>
+                    <input
+                      type="password"
+                      value={targetConnection.password}
+                      onChange={(e) => setTargetConnection(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+
+                <div className="connection-actions">
+                  <button 
+                    className="test-btn"
+                    onClick={testTargetConnection}
+                    disabled={!targetConnection.host || !targetConnection.database || targetConnectionStatus === 'testing'}
+                  >
+                    {targetConnectionStatus === 'testing' ? 'Testing...' : 'Test Target Connection'}
+                  </button>
+                  {targetConnectionStatus === 'connected' && (
+                    <span className="connection-status success">✓ Connected</span>
+                  )}
+                  {targetConnectionStatus === 'failed' && (
+                    <span className="connection-status error">✗ Failed</span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {inputMode === 'connect' && (
               <div className="connection-section">
                 <h4>Source Database Connection</h4>
@@ -935,8 +1114,40 @@ CREATE TABLE orders (
           <div className="ddl-section">
             <div className="ddl-header">
               <h3>Generated {targetDatabase.toUpperCase()} DDL</h3>
-              <button className="download-btn" onClick={downloadDDL}>Download SQL</button>
+              <div className="ddl-actions">
+                <button className="download-btn" onClick={downloadDDL}>Download CREATE Script</button>
+                {targetMode === 'scripts' && inputMode === 'connect' && connectionStatus === 'connected' && (
+                  <>
+                    <button 
+                      className="download-btn secondary" 
+                      onClick={generateInsertScripts}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Generating...' : 'Generate INSERT Scripts'}
+                    </button>
+                    {generatedInserts && (
+                      <button className="download-btn" onClick={downloadInserts}>
+                        Download INSERT Script
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
+
+            {targetMode === 'scripts' && (
+              <div className="scripts-info">
+                <p>
+                  <strong>Script Mode:</strong> Download CREATE and INSERT scripts to execute on your target database manually.
+                </p>
+                {inputMode === 'text' && (
+                  <p className="hint">
+                    Note: INSERT script generation requires a live connection to the source database.
+                    Switch to "Connect to Database" mode to generate INSERT statements.
+                  </p>
+                )}
+              </div>
+            )}
             
             {conversionNotes.length > 0 && (
               <div className="conversion-notes">
@@ -949,9 +1160,23 @@ CREATE TABLE orders (
               </div>
             )}
 
-            <pre className="ddl-output">
-              <code>{generatedDDL}</code>
-            </pre>
+            <div className="ddl-tabs">
+              <div className="ddl-tab-content">
+                <h4>CREATE Script (Schema)</h4>
+                <pre className="ddl-output">
+                  <code>{generatedDDL}</code>
+                </pre>
+              </div>
+
+              {generatedInserts && (
+                <div className="ddl-tab-content">
+                  <h4>INSERT Script (Data)</h4>
+                  <pre className="ddl-output">
+                    <code>{generatedInserts}</code>
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
