@@ -4,22 +4,41 @@ import "./App.css";
 interface InfraSpec {
   tier: string;
   dailyRecords: string;
+  dailyRecordsNum: number;
   devices: string;
+  devicesNum: number;
   compute: {
     appServers: number;
+    appServerVCPU: number;
+    appServerRAM: number;
     dbPrimary: number;
     dbReplicas: number;
+    dbVCPU: number;
+    dbRAM: number;
     cacheNodes: number;
+    cacheRAM: number;
+    queueBrokers: number;
+    queueVCPU: number;
+    queueRAM: number;
     totalCPU: number;
-    totalRAM: string;
+    totalRAM: number;
+    totalRAMDisplay: string;
   };
   storage: {
+    databaseGB: number;
+    backupGB: number;
+    logsGB: number;
+    totalGB: number;
     database: string;
     backup: string;
     logs: string;
     total: string;
   };
   network: {
+    ingressMbps: number;
+    egressMbps: number;
+    internalGbps: number;
+    monthlyEgressGB: number;
     ingress: string;
     egress: string;
     internal: string;
@@ -123,30 +142,80 @@ function calculateInfrastructure(deviceCount: number, readingsPerDay: number): I
   
   if (dailyRecords < 1_000_000) {
     tier = 'Small';
-    compute = { appServers: 2, dbPrimary: 1, dbReplicas: 0, cacheNodes: 1, totalCPU: 8, totalRAM: '36 GB' };
-    storage = { database: '500 GB', backup: '1 TB', logs: '100 GB', total: '~2 TB' };
-    network = { ingress: '100 Mbps', egress: '100 Mbps', internal: '1 Gbps' };
+    compute = { 
+      appServers: 2, appServerVCPU: 2, appServerRAM: 8,
+      dbPrimary: 1, dbReplicas: 0, dbVCPU: 2, dbRAM: 16,
+      cacheNodes: 1, cacheRAM: 4,
+      queueBrokers: 0, queueVCPU: 0, queueRAM: 0,
+      totalCPU: 8, totalRAM: 36, totalRAMDisplay: '36 GB'
+    };
+    storage = { 
+      databaseGB: 500, backupGB: 1000, logsGB: 100, totalGB: 1600,
+      database: '500 GB', backup: '1 TB', logs: '100 GB', total: '~2 TB'
+    };
+    network = { 
+      ingressMbps: 100, egressMbps: 100, internalGbps: 1, monthlyEgressGB: 500,
+      ingress: '100 Mbps', egress: '100 Mbps', internal: '1 Gbps'
+    };
   } else if (dailyRecords < 100_000_000) {
     tier = 'Medium';
-    compute = { appServers: 4, dbPrimary: 1, dbReplicas: 2, cacheNodes: 2, totalCPU: 38, totalRAM: '200 GB' };
-    storage = { database: '5 TB', backup: '15 TB', logs: '500 GB', total: '~25 TB' };
-    network = { ingress: '500 Mbps', egress: '500 Mbps', internal: '10 Gbps' };
+    compute = { 
+      appServers: 4, appServerVCPU: 4, appServerRAM: 8,
+      dbPrimary: 1, dbReplicas: 2, dbVCPU: 8, dbRAM: 64,
+      cacheNodes: 2, cacheRAM: 16,
+      queueBrokers: 0, queueVCPU: 0, queueRAM: 0,
+      totalCPU: 38, totalRAM: 200, totalRAMDisplay: '200 GB'
+    };
+    storage = { 
+      databaseGB: 5000, backupGB: 15000, logsGB: 500, totalGB: 20500,
+      database: '5 TB', backup: '15 TB', logs: '500 GB', total: '~25 TB'
+    };
+    network = { 
+      ingressMbps: 500, egressMbps: 500, internalGbps: 10, monthlyEgressGB: 5000,
+      ingress: '500 Mbps', egress: '500 Mbps', internal: '10 Gbps'
+    };
   } else if (dailyRecords < 1_000_000_000) {
     tier = 'Large';
-    compute = { appServers: 8, dbPrimary: 1, dbReplicas: 3, cacheNodes: 6, totalCPU: 170, totalRAM: '832 GB' };
-    storage = { database: '50 TB', backup: '150 TB', logs: '2 TB', total: '~250 TB' };
-    network = { ingress: '2 Gbps', egress: '2 Gbps', internal: '25 Gbps' };
+    compute = { 
+      appServers: 8, appServerVCPU: 8, appServerRAM: 16,
+      dbPrimary: 1, dbReplicas: 3, dbVCPU: 16, dbRAM: 128,
+      cacheNodes: 6, cacheRAM: 32,
+      queueBrokers: 3, queueVCPU: 8, queueRAM: 32,
+      totalCPU: 170, totalRAM: 832, totalRAMDisplay: '832 GB'
+    };
+    storage = { 
+      databaseGB: 50000, backupGB: 150000, logsGB: 2000, totalGB: 202000,
+      database: '50 TB', backup: '150 TB', logs: '2 TB', total: '~250 TB'
+    };
+    network = { 
+      ingressMbps: 2000, egressMbps: 2000, internalGbps: 25, monthlyEgressGB: 50000,
+      ingress: '2 Gbps', egress: '2 Gbps', internal: '25 Gbps'
+    };
   } else {
     tier = 'Massive';
-    compute = { appServers: 20, dbPrimary: 3, dbReplicas: 9, cacheNodes: 9, totalCPU: 500, totalRAM: '2+ TB' };
-    storage = { database: '500 TB', backup: '1.5 PB', logs: '10 TB', total: '~2.5 PB' };
-    network = { ingress: '10+ Gbps', egress: '10+ Gbps', internal: '100 Gbps' };
+    compute = { 
+      appServers: 20, appServerVCPU: 16, appServerRAM: 32,
+      dbPrimary: 3, dbReplicas: 9, dbVCPU: 16, dbRAM: 128,
+      cacheNodes: 9, cacheRAM: 64,
+      queueBrokers: 6, queueVCPU: 16, queueRAM: 64,
+      totalCPU: 500, totalRAM: 2048, totalRAMDisplay: '2+ TB'
+    };
+    storage = { 
+      databaseGB: 500000, backupGB: 1500000, logsGB: 10000, totalGB: 2010000,
+      database: '500 TB', backup: '1.5 PB', logs: '10 TB', total: '~2.5 PB'
+    };
+    network = { 
+      ingressMbps: 10000, egressMbps: 10000, internalGbps: 100, monthlyEgressGB: 500000,
+      ingress: '10+ Gbps', egress: '10+ Gbps', internal: '100 Gbps'
+    };
   }
   
   return {
     tier,
     dailyRecords: formatNumber(dailyRecords),
+    dailyRecordsNum: dailyRecords,
     devices: formatNumber(deviceCount),
+    devicesNum: deviceCount,
     compute,
     storage,
     network
@@ -161,48 +230,68 @@ function formatNumber(num: number): string {
 }
 
 function calculateCosts(infra: InfraSpec): Record<string, CostEstimate> {
-  const awsPricing = {
-    Small: { compute: 292, storage: 75, network: 45, database: 180, cache: 65, queue: 35 },
-    Medium: { compute: 2340, storage: 450, network: 180, database: 1440, cache: 390, queue: 120 },
-    Large: { compute: 14040, storage: 3600, network: 720, database: 8640, cache: 2340, queue: 480 },
-    Massive: { compute: 58500, storage: 18000, network: 3600, database: 36000, cache: 9360, queue: 1800 }
+  const HOURS_PER_MONTH = 730;
+  
+  const awsRates = {
+    appVCPU: 0.042, appRAM: 0.0052,
+    dbVCPU: 0.063, dbRAM: 0.0078,
+    cacheRAM: 0.023,
+    queueBroker: 0.21,
+    storageGB: 0.08, backupGB: 0.023, logsGB: 0.05,
+    egressGB: 0.09
   };
   
-  const azurePricing = {
-    Small: { compute: 278, storage: 68, network: 50, database: 165, cache: 58, queue: 30 },
-    Medium: { compute: 2225, storage: 405, network: 200, database: 1320, cache: 345, queue: 102 },
-    Large: { compute: 13340, storage: 3240, network: 800, database: 7920, cache: 2070, queue: 410 },
-    Massive: { compute: 55575, storage: 16200, network: 4000, database: 33000, cache: 8280, queue: 1530 }
+  const azureRates = {
+    appVCPU: 0.038, appRAM: 0.0048,
+    dbVCPU: 0.058, dbRAM: 0.0072,
+    cacheRAM: 0.021,
+    queueBroker: 0.19,
+    storageGB: 0.075, backupGB: 0.02, logsGB: 0.045,
+    egressGB: 0.087
   };
   
-  const gcpPricing = {
-    Small: { compute: 257, storage: 64, network: 41, database: 162, cache: 59, queue: 32 },
-    Medium: { compute: 2058, storage: 383, network: 162, database: 1296, cache: 351, queue: 108 },
-    Large: { compute: 12335, storage: 3060, network: 648, database: 7776, cache: 2106, queue: 432 },
-    Massive: { compute: 51390, storage: 15300, network: 3240, database: 32400, cache: 8424, queue: 1620 }
+  const gcpRates = {
+    appVCPU: 0.0335, appRAM: 0.0045,
+    dbVCPU: 0.052, dbRAM: 0.0065,
+    cacheRAM: 0.019,
+    queueBroker: 0.17,
+    storageGB: 0.07, backupGB: 0.018, logsGB: 0.04,
+    egressGB: 0.085
   };
   
-  const tier = infra.tier as keyof typeof awsPricing;
-  const aws = awsPricing[tier] || awsPricing.Small;
-  const azure = azurePricing[tier] || azurePricing.Small;
-  const gcp = gcpPricing[tier] || gcpPricing.Small;
+  function computeProviderCost(rates: typeof awsRates): CostEstimate {
+    const appCompute = infra.compute.appServers * 
+      (infra.compute.appServerVCPU * rates.appVCPU + infra.compute.appServerRAM * rates.appRAM) * HOURS_PER_MONTH;
+    
+    const dbNodes = infra.compute.dbPrimary + infra.compute.dbReplicas;
+    const dbCompute = dbNodes * 
+      (infra.compute.dbVCPU * rates.dbVCPU + infra.compute.dbRAM * rates.dbRAM) * HOURS_PER_MONTH;
+    
+    const cacheCompute = infra.compute.cacheNodes * infra.compute.cacheRAM * rates.cacheRAM * HOURS_PER_MONTH;
+    
+    const queueCompute = infra.compute.queueBrokers * rates.queueBroker * HOURS_PER_MONTH;
+    
+    const storageCost = (infra.storage.databaseGB * rates.storageGB) + 
+      (infra.storage.backupGB * rates.backupGB) + 
+      (infra.storage.logsGB * rates.logsGB);
+    
+    const networkCost = infra.network.monthlyEgressGB * rates.egressGB;
+    
+    const compute = Math.round(appCompute);
+    const database = Math.round(dbCompute);
+    const cache = Math.round(cacheCompute);
+    const queue = Math.round(queueCompute);
+    const storage = Math.round(storageCost);
+    const network = Math.round(networkCost);
+    const total = compute + database + cache + queue + storage + network;
+    
+    return { compute, storage, network, database, cache, queue, total, currency: 'USD' };
+  }
   
   return {
-    aws: {
-      ...aws,
-      total: Object.values(aws).reduce((a, b) => a + b, 0),
-      currency: 'USD'
-    },
-    azure: {
-      ...azure,
-      total: Object.values(azure).reduce((a, b) => a + b, 0),
-      currency: 'USD'
-    },
-    gcp: {
-      ...gcp,
-      total: Object.values(gcp).reduce((a, b) => a + b, 0),
-      currency: 'USD'
-    }
+    aws: computeProviderCost(awsRates),
+    azure: computeProviderCost(azureRates),
+    gcp: computeProviderCost(gcpRates)
   };
 }
 
@@ -602,7 +691,7 @@ export default function App() {
                     <div className="label">Total vCPUs</div>
                   </div>
                   <div className="spec-item">
-                    <div className="value">{result.infrastructure.compute.totalRAM}</div>
+                    <div className="value">{result.infrastructure.compute.totalRAMDisplay}</div>
                     <div className="label">Total RAM</div>
                   </div>
                   <div className="spec-item">
@@ -638,11 +727,19 @@ export default function App() {
                     <div key={provider} className={`cost-item ${provider === selectedCloud ? 'total' : ''}`}>
                       <h4>{CLOUD_PROVIDERS.find(c => c.id === provider)?.icon} {provider.toUpperCase()}</h4>
                       <div className="price">${cost.total.toLocaleString()}/mo</div>
-                      <div className="note">
-                        Compute: ${cost.compute.toLocaleString()} | DB: ${cost.database.toLocaleString()} | Storage: ${cost.storage.toLocaleString()}
+                      <div className="cost-details">
+                        <div className="cost-line"><span>Compute (App):</span><span>${cost.compute.toLocaleString()}</span></div>
+                        <div className="cost-line"><span>Database:</span><span>${cost.database.toLocaleString()}</span></div>
+                        <div className="cost-line"><span>Cache (Redis):</span><span>${cost.cache.toLocaleString()}</span></div>
+                        {cost.queue > 0 && <div className="cost-line"><span>Queue (Kafka):</span><span>${cost.queue.toLocaleString()}</span></div>}
+                        <div className="cost-line"><span>Storage:</span><span>${cost.storage.toLocaleString()}</span></div>
+                        <div className="cost-line"><span>Network Egress:</span><span>${cost.network.toLocaleString()}</span></div>
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="pricing-note">
+                  Estimates based on on-demand pricing. Actual costs may vary. Reserved instances can reduce costs by 30-60%.
                 </div>
               </div>
 
