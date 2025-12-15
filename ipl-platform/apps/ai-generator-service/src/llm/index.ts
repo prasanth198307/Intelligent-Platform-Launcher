@@ -11,6 +11,7 @@ export interface GenerationContext {
   database: string;
   compliance: string[];
   deploymentType: string;
+  requirements?: string;
   multiTenant?: {
     enabled: boolean;
     level: string;

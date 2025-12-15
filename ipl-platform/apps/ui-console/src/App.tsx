@@ -1754,6 +1754,7 @@ export default function App() {
           database: selectedDb,
           compliance,
           deploymentType,
+          requirements,
           multiTenant: { enabled: multiTenantEnabled, level: multiTenantLevel },
           multiLingual: { enabled: multiLingualEnabled, level: multiLingualLevel, languages: selectedLanguages }
         })

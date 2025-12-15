@@ -73,27 +73,25 @@ The application handles ${context.entityCount} entities.
 Return JSON: { "screens": [{ "name": string, "type": "list"|"form"|"detail"|"chart"|"map", "description": string }] }`,
 
     tables: `Generate database tables for a ${context.domain} application using ${context.database}.
-Include appropriate data types for the database.
+Analyze these requirements carefully: "${context.requirements || ''}"
 
-ALWAYS include these RBAC tables:
-- users (id, email, password_hash, full_name, is_active, last_login, created_at, updated_at)
-- roles (id, name, description, is_system, created_at)
-- permissions (id, name, resource, action, description)
-- role_permissions (id, role_id FK roles.id, permission_id FK permissions.id)
-- user_roles (id, user_id FK users.id, role_id FK roles.id, assigned_at, assigned_by FK users.id)
-- audit_logs (id, user_id FK users.id, action, entity_type, entity_id, changes jsonb, ip_address, created_at)
+Based on the requirements, generate ALL necessary tables with proper relationships.
 
-${context.domain === 'healthcare' ? `For healthcare domain, MUST include:
-- patients (id, mrn, first_name, last_name, date_of_birth, gender, ssn_encrypted, address, phone, email, insurance_id, created_at, updated_at)
-- encounters (id, patient_id FK patients.id, provider_id FK users.id, encounter_date, type, chief_complaint, diagnosis_codes jsonb, notes)
-- case_sheets (id, patient_id FK patients.id, provider_id FK users.id, case_number unique, case_date, chief_complaint, present_illness, examination_findings, diagnosis, treatment_plan, follow_up_date, status, created_at, updated_at)
-- medicines (id, name, generic_name, category, dosage_form, strength, manufacturer, is_active)
-- prescriptions (id, case_sheet_id FK case_sheets.id, patient_id FK patients.id, medicine_id FK medicines.id, dosage, frequency, duration, instructions, prescribed_by FK users.id, prescribed_at)
-- patient_history (id, patient_id FK patients.id, history_type, description, onset_date, is_current, notes, recorded_by FK users.id, recorded_at)
-- patient_documents (id, patient_id FK patients.id, document_type, file_name, file_path, mime_type, file_size_bytes, upload_date, source, ocr_status, ocr_text)
-- lab_results (id, patient_id FK patients.id, encounter_id FK encounters.id, test_name, result_value, unit, reference_range, abnormal_flag, result_date)
-- medications (id, patient_id FK patients.id, drug_name, dosage, frequency, prescriber_id FK users.id, start_date, end_date, status)
-` : ''}
+ALWAYS include these RBAC/core tables:
+- users (id uuid primary, email unique, password_hash, full_name, is_active boolean, last_login timestamptz, created_at, updated_at)
+- roles (id uuid primary, name unique, description, is_system boolean, created_at)
+- permissions (id uuid primary, name unique, resource, action, description)
+- role_permissions (id uuid primary, role_id FK roles.id, permission_id FK permissions.id)
+- user_roles (id uuid primary, user_id FK users.id, role_id FK roles.id, assigned_at, assigned_by FK users.id)
+- audit_logs (id bigserial primary, user_id FK users.id, action, entity_type, entity_id, changes jsonb, ip_address, created_at)
+
+Then analyze the requirements text and generate domain-specific tables. Examples:
+- If requirements mention patients/medical/clinic → include patients, encounters, case_sheets, medicines, prescriptions, lab_results tables
+- If requirements mention meters/readings/billing → include meters, meter_readings, billing_cycles, invoices tables
+- If requirements mention orders/products/inventory → include products, orders, order_items, inventory tables
+- If requirements mention documents/files/upload → include documents, document_extractions tables with OCR fields
+
+Generate comprehensive tables with proper foreign key relationships based on what the user describes.
 Return JSON: { "tables": [{ "name": string, "columns": [{ "name": string, "type": string, "primary"?: boolean, "unique"?: boolean, "foreignKey"?: string }] }] }`,
 
     tests: `Generate test cases for a ${context.domain} application.
@@ -105,12 +103,16 @@ Entities: ${context.entityCount}, Daily transactions: ${context.transactionsPerD
 Database: ${context.database}, Compliance: ${context.compliance.join(", ") || "standard"}
 Deployment: ${context.deploymentType}
 
-For tables, ALWAYS include these RBAC tables:
-- users, roles, permissions, role_permissions, user_roles, audit_logs
+REQUIREMENTS TO ANALYZE:
+"${context.requirements || ''}"
 
-${context.domain === 'healthcare' ? `For healthcare domain, MUST include these tables:
-- patients, encounters, case_sheets, medicines, prescriptions, patient_history, patient_documents, lab_results, medications
-` : ''}
+Based on these requirements, generate modules, screens, tables, and tests.
+
+For tables, ALWAYS include RBAC tables (users, roles, permissions, role_permissions, user_roles, audit_logs).
+Then generate domain-specific tables based on what the requirements describe:
+- Analyze keywords in requirements (patients, meters, orders, products, etc.)
+- Create appropriate tables with proper foreign key relationships
+- Include all columns needed for the functionality described
 
 Return JSON with these sections:
 {
