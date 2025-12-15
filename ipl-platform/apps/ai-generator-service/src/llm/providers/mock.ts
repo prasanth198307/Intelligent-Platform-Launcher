@@ -261,7 +261,13 @@ function getDomainTables(domain: string, database: string) {
           { name: "last_name", type: "varchar(100)" },
           { name: "date_of_birth", type: "date" },
           { name: "gender", type: "varchar(10)" },
-          { name: "ssn_encrypted", type: "bytea" }
+          { name: "ssn_encrypted", type: "bytea" },
+          { name: "address", type: "text" },
+          { name: "phone", type: "varchar(20)" },
+          { name: "email", type: "varchar(255)" },
+          { name: "insurance_id", type: "varchar(50)" },
+          { name: "created_at", type: "timestamptz" },
+          { name: "updated_at", type: "timestamptz" }
         ]
       },
       {
@@ -272,6 +278,105 @@ function getDomainTables(domain: string, database: string) {
           { name: "provider_id", type: "uuid", foreignKey: "users.id" },
           { name: "encounter_date", type: "timestamptz" },
           { name: "type", type: "varchar(50)" },
+          { name: "chief_complaint", type: "text" },
+          { name: "diagnosis_codes", type: "jsonb" },
+          { name: "notes", type: "text" }
+        ]
+      },
+      {
+        name: "patient_documents",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "document_type", type: "varchar(50)" },
+          { name: "file_name", type: "varchar(255)" },
+          { name: "file_path", type: "text" },
+          { name: "mime_type", type: "varchar(100)" },
+          { name: "file_size_bytes", type: "bigint" },
+          { name: "upload_date", type: "timestamptz" },
+          { name: "source", type: "varchar(50)" },
+          { name: "ocr_status", type: "varchar(20)" },
+          { name: "ocr_text", type: "text" }
+        ]
+      },
+      {
+        name: "document_extractions",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "document_id", type: "uuid", foreignKey: "patient_documents.id" },
+          { name: "field_name", type: "varchar(100)" },
+          { name: "field_value", type: "text" },
+          { name: "confidence_score", type: "decimal(5,4)" },
+          { name: "page_number", type: "integer" },
+          { name: "bounding_box", type: "jsonb" },
+          { name: "extracted_at", type: "timestamptz" }
+        ]
+      },
+      {
+        name: "medical_images",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "encounter_id", type: "uuid", foreignKey: "encounters.id" },
+          { name: "image_type", type: "varchar(50)" },
+          { name: "modality", type: "varchar(20)" },
+          { name: "body_part", type: "varchar(50)" },
+          { name: "file_path", type: "text" },
+          { name: "dicom_metadata", type: "jsonb" },
+          { name: "taken_date", type: "timestamptz" },
+          { name: "notes", type: "text" }
+        ]
+      },
+      {
+        name: "clinical_notes",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "encounter_id", type: "uuid", foreignKey: "encounters.id" },
+          { name: "note_type", type: "varchar(50)" },
+          { name: "content", type: "text" },
+          { name: "author_id", type: "uuid", foreignKey: "users.id" },
+          { name: "signed_at", type: "timestamptz" },
+          { name: "created_at", type: "timestamptz" }
+        ]
+      },
+      {
+        name: "medications",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "drug_name", type: "varchar(200)" },
+          { name: "dosage", type: "varchar(100)" },
+          { name: "frequency", type: "varchar(100)" },
+          { name: "prescriber_id", type: "uuid", foreignKey: "users.id" },
+          { name: "start_date", type: "date" },
+          { name: "end_date", type: "date" },
+          { name: "status", type: "varchar(20)" }
+        ]
+      },
+      {
+        name: "lab_results",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "encounter_id", type: "uuid", foreignKey: "encounters.id" },
+          { name: "test_name", type: "varchar(200)" },
+          { name: "result_value", type: "varchar(100)" },
+          { name: "unit", type: "varchar(50)" },
+          { name: "reference_range", type: "varchar(100)" },
+          { name: "abnormal_flag", type: "varchar(10)" },
+          { name: "result_date", type: "timestamptz" }
+        ]
+      },
+      {
+        name: "medical_history",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "condition", type: "varchar(200)" },
+          { name: "icd_code", type: "varchar(20)" },
+          { name: "onset_date", type: "date" },
+          { name: "status", type: "varchar(20)" },
           { name: "notes", type: "text" }
         ]
       }

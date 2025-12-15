@@ -2713,7 +2713,7 @@ Or upload a requirements document (PDF, Word, TXT) using the button above."
                             </div>
                             <div className="spec-item">
                               <div className="value">{result.infrastructure.dailyRecords}</div>
-                              <div className="label">{DOMAINS.find(d => d.id === domain)?.transactionLabel || 'Transactions / Day'}</div>
+                              <div className="label">Total {DOMAINS.find(d => d.id === domain)?.transactionLabel || 'Transactions'}</div>
                             </div>
                             <div className="spec-item">
                               <div className="value">{result.infrastructure.compute.totalCPU}</div>
