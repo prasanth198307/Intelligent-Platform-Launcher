@@ -39,6 +39,15 @@ ipl-platform/
 - Styling uses CSS with custom properties.
 - Interactive Entity-Relationship Diagrams (ERD) for database schema visualization are implemented using React Flow.
 - A project setup wizard guides users through five phases (Discovery, Design, Build, Deploy, Operate) with task checklists.
+- **Results Panel Organization**: The analysis results are organized into 6 categories with a sticky sidebar navigation:
+  - **Overview**: Infrastructure Specs, Hardware Recommendations, Cost Comparison, Security Requirements, Deployment Options, Export
+  - **Architecture**: Architecture Diagram, Entity Relationship Diagram, Cluster Configuration
+  - **Build & Code**: AI Code Assistant, DevOps Panel, Backend API Generation
+  - **Testing**: Benchmarking, API Testing, AI Automation, Testing & Quality
+  - **Operations**: Monitoring, Environment Manager, Data Connectivity
+  - **Integrations**: Integrations & APIs, Development Tools
+- Collapsible sections allow users to expand/collapse individual panels within each category.
+- A highlights summary card displays key metrics (Tier, Est. Cost, Cloud Provider, Deployment Type) at the top of the results.
 
 **Technical Implementations & Feature Specifications:**
 - **Domain Agnostic**: Supports 26+ industry domains (e.g., AMI, Banking, Healthcare, Manufacturing) and industry-specific compliance standards.
