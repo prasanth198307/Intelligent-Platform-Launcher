@@ -1896,6 +1896,7 @@ export default function App() {
       <header className="header">
         <div className="header-content">
           <div className="header-title">
+            <img src="/logo.png" alt="IPL Logo" className="header-logo" />
             <h1>Intelligent Platform Launcher</h1>
             <p>Domain-agnostic • Database-agnostic • Multi-Cloud • On-Prem Ready</p>
           </div>
