@@ -1160,6 +1160,7 @@ export default function App() {
   const [backendApiResult, setBackendApiResult] = useState<any>(null);
   const [backendFramework, setBackendFramework] = useState<'nodejs' | 'python' | 'go'>('nodejs');
   const [viewMode, setViewMode] = useState<'dashboard' | 'wizard'>('dashboard');
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Category navigation state for reorganized UI
   const [activeCategory, setActiveCategory] = useState<string>('overview');
@@ -1903,6 +1904,17 @@ export default function App() {
             </div>
           </div>
 
+          <div 
+            className="advanced-options-toggle"
+            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+          >
+            <span className="toggle-icon">{showAdvancedOptions ? '▼' : '▶'}</span>
+            <span>Advanced Options</span>
+            <span className="toggle-hint">{showAdvancedOptions ? 'Click to collapse' : 'CI/CD, Monitoring, Environments...'}</span>
+          </div>
+
+          {showAdvancedOptions && (
+          <>
           <div className="form-section-header">
             <h3>Cross-Domain Features</h3>
           </div>
@@ -2093,6 +2105,8 @@ export default function App() {
               )}
             </div>
           </div>
+          </>
+          )}
 
           <button
             className="generate-btn"

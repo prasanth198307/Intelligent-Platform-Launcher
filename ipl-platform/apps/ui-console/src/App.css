@@ -84,6 +84,38 @@
   min-height: 120px;
 }
 
+.advanced-options-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  background: linear-gradient(135deg, rgba(74, 74, 240, 0.15), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(100, 100, 200, 0.3);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  color: #e0e0e0;
+}
+
+.advanced-options-toggle:hover {
+  background: linear-gradient(135deg, rgba(74, 74, 240, 0.25), rgba(139, 92, 246, 0.2));
+  border-color: rgba(100, 100, 200, 0.5);
+}
+
+.advanced-options-toggle .toggle-icon {
+  color: #8b5cf6;
+  font-size: 0.8rem;
+}
+
+.advanced-options-toggle .toggle-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #a0a0c0;
+  font-weight: 400;
+}
+
 .checkbox-group {
   display: flex;
   flex-wrap: wrap;
