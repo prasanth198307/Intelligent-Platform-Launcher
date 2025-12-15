@@ -785,30 +785,57 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
+function analyzeRequirementsForDb(requirements: string, domain: string, tier: string): { name: string; description: string } {
+  const req = requirements.toLowerCase();
+  
+  if (req.includes('time-series') || req.includes('sensor') || req.includes('iot') || req.includes('telemetry') || 
+      req.includes('meter reading') || domain === 'ami' || domain === 'manufacturing') {
+    return { name: 'TimescaleDB', description: 'Time-series optimized - ideal for sensor/IoT data with automatic partitioning' };
+  }
+  if (req.includes('document') || req.includes('flexible schema') || req.includes('unstructured') || req.includes('json') ||
+      req.includes('content management') || req.includes('catalog')) {
+    return { name: 'MongoDB', description: 'Document-oriented - flexible schema for varied data structures' };
+  }
+  if (req.includes('graph') || req.includes('relationship') || req.includes('network') || req.includes('social') ||
+      req.includes('fraud detection') || req.includes('recommendation')) {
+    return { name: 'Neo4j', description: 'Graph database - optimized for relationship-heavy queries' };
+  }
+  if (tier === 'Massive' || req.includes('global') || req.includes('distributed') || req.includes('multi-region')) {
+    return { name: 'CockroachDB', description: 'Globally distributed SQL - automatic sharding across regions' };
+  }
+  if (req.includes('real-time') || req.includes('streaming') || req.includes('event sourcing')) {
+    return { name: 'PostgreSQL + Kafka', description: 'Event-driven architecture with CDC for real-time streaming' };
+  }
+  if (domain === 'banking' || domain === 'insurance' || domain === 'accounting' || 
+      req.includes('transaction') || req.includes('financial') || req.includes('audit')) {
+    return { name: 'PostgreSQL', description: 'ACID-compliant RDBMS - ideal for financial transactions' };
+  }
+  if (domain === 'healthcare' || domain === 'pharma' || req.includes('hipaa') || req.includes('compliance')) {
+    return { name: 'PostgreSQL', description: 'Enterprise RDBMS with strong security for compliance requirements' };
+  }
+  if (tier === 'Large' && (req.includes('analytics') || req.includes('reporting') || req.includes('dashboard'))) {
+    return { name: 'PostgreSQL + ClickHouse', description: 'Hybrid OLTP/OLAP - fast transactions with columnar analytics' };
+  }
+  
+  return { name: 'PostgreSQL', description: 'Reliable open-source RDBMS - excellent general-purpose choice' };
+}
+
 function getTechStackRecommendation(
   tier: string, 
   domainId: string = '', 
   deploymentType: 'cloud' | 'onprem' | 'hybrid' = 'cloud',
   cloudProvider: string = 'aws',
-  selectedDatabase: string = 'postgresql'
+  requirements: string = ''
 ): TechStackRecommendation {
-  const dbDisplayNames: Record<string, { name: string; description: string }> = {
-    postgresql: { name: 'PostgreSQL', description: 'Reliable open-source RDBMS' },
-    mysql: { name: 'MySQL', description: 'Popular open-source RDBMS' },
-    mongodb: { name: 'MongoDB', description: 'Document-oriented NoSQL database' },
-    mssql: { name: 'SQL Server', description: 'Enterprise Microsoft database' },
-    oracle: { name: 'Oracle', description: 'Enterprise-grade RDBMS' },
-    cassandra: { name: 'Cassandra', description: 'Distributed wide-column store' },
-    dynamodb: { name: 'DynamoDB', description: 'AWS managed NoSQL' },
-    timescaledb: { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL' },
-    cosmosdb: { name: 'Cosmos DB', description: 'Azure multi-model database' }
-  };
-  const userDb = dbDisplayNames[selectedDatabase] || dbDisplayNames.postgresql;
+  const suggestedDb = analyzeRequirementsForDb(requirements, domainId, tier);
+  const req = requirements.toLowerCase();
   const isStreamingDomain = ['ami', 'telecom', 'manufacturing', 'logistics', 'agriculture'].includes(domainId);
   const isTransactionalDomain = ['banking', 'insurance', 'retail', 'erp', 'accounting'].includes(domainId);
   const isAnalyticsDomain = ['ami', 'telecom', 'media', 'manufacturing', 'healthcare'].includes(domainId);
   const isIoTDomain = ['ami', 'manufacturing', 'agriculture', 'logistics'].includes(domainId);
   const isDataHeavyDomain = ['ami', 'telecom', 'media', 'healthcare', 'pharma'].includes(domainId);
+  const needsML = req.includes('machine learning') || req.includes('ml') || req.includes('ai') || req.includes('prediction');
+  const needsRealtime = req.includes('real-time') || req.includes('realtime') || req.includes('streaming') || req.includes('live');
   const isCloud = deploymentType === 'cloud';
   const isOnPrem = deploymentType === 'onprem';
   
@@ -855,8 +882,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: `Managed ${userDb.name}`, description: `Cloud-managed ${userDb.name} with automatic backups` }
-          : { name: userDb.name, description: userDb.description },
+          ? { name: `Managed ${suggestedDb.name}`, description: `Cloud-managed: ${suggestedDb.description}` }
+          : suggestedDb,
         analyticsDb: { name: 'Same DB (PostgreSQL)', description: 'Use same database for analytics queries' },
         queue: isCloud
           ? { name: cloud.queue, description: 'Managed queue service - no infrastructure to manage' }
@@ -888,8 +915,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: `Managed ${userDb.name}`, description: `Cloud-managed ${userDb.name} with auto-scaling` }
-          : { name: userDb.name, description: userDb.description },
+          ? { name: `Managed ${suggestedDb.name}`, description: `Cloud-managed: ${suggestedDb.description}` }
+          : suggestedDb,
         analyticsDb: { name: 'PostgreSQL Views', description: 'Materialized views for reporting queries' },
         queue: isCloud
           ? { name: cloud.queue, description: 'Managed message queue with auto-scaling' }
@@ -937,8 +964,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: `Managed ${userDb.name}`, description: `Globally distributed ${userDb.name}` }
-          : { name: `${userDb.name} Cluster`, description: `Clustered ${userDb.description}` },
+          ? { name: `Managed ${suggestedDb.name}`, description: `Globally distributed: ${suggestedDb.description}` }
+          : { name: `${suggestedDb.name} Cluster`, description: `Clustered: ${suggestedDb.description}` },
         analyticsDb: isCloud
           ? { name: cloud.warehouse, description: 'Managed columnar analytics engine' }
           : { name: 'ClickHouse', description: 'Column-store OLAP database for fast analytics' },
@@ -993,8 +1020,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: `Managed ${userDb.name}`, description: `Planet-scale managed ${userDb.name}` }
-          : { name: `${userDb.name} Cluster`, description: `Distributed ${userDb.name} for high availability` },
+          ? { name: `Managed ${suggestedDb.name}`, description: `Planet-scale: ${suggestedDb.description}` }
+          : { name: `${suggestedDb.name} Cluster`, description: `Distributed: ${suggestedDb.description}` },
         analyticsDb: isCloud
           ? { name: `${cloud.warehouse} (Enterprise)`, description: 'Enterprise analytics with unlimited scale' }
           : { name: 'ClickHouse Cluster', description: 'Distributed ClickHouse for petabyte analytics' },
@@ -1949,7 +1976,7 @@ export default function App() {
     const security = getSecurityRequirements(compliance);
     const clusterConfig = getClusterConfig(infrastructure);
     
-    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud, selectedDb);
+    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud, requirements);
     
     const analysisResult: AnalysisResult = {
       domain: DOMAINS.find(d => d.id === domain)?.name || domain,
