@@ -113,7 +113,24 @@ New unified DevOps panel with 8 generators:
 - **Security Scanner**: Compliance checklist with scoring (A-F grade)
 - **Cost Optimizer**: AI-powered cloud cost optimization recommendations
 
+### 10. App Benchmarking
+Run real performance tests against API endpoints:
+- **Live Testing**: Execute HTTP requests against target URLs with configurable concurrency
+- **Metrics**: Response times (min/avg/max), P50/P95/P99 latency percentiles
+- **Throughput**: Requests per second, data transferred, success rate
+- **Performance Grade**: A-F scoring based on latency and reliability
+- **Recommendations**: AI-powered suggestions for optimization
+- **Report Export**: Download detailed Markdown reports
+- **Endpoint**: /api/run-benchmark
+
 ## Recent Changes
+- December 15, 2025: Added App Benchmarking feature for real performance testing:
+  - Live HTTP benchmarking against target URLs
+  - Configurable concurrent users, duration, and ramp-up time
+  - Metrics: P50/P95/P99 latency, throughput, success rate
+  - Performance grading (A-F) with recommendations
+  - Download Markdown reports
+  - New endpoint: /api/run-benchmark
 - December 15, 2025: Added DevOps & Automation panel with 8 generators:
   - Infrastructure as Code (Terraform, CloudFormation, Docker, K8s, Helm)
   - CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins)
