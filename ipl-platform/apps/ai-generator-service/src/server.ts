@@ -27,6 +27,7 @@ import {
   generateCostOptimizations,
   runBenchmark,
   generateBenchmarkReport,
+  generateMobileApp,
 } from "./generators/index.js";
 
 const app = express();
@@ -483,6 +484,32 @@ app.post("/api/run-benchmark", async (req, res) => {
   } catch (e: any) {
     console.error("Benchmark failed:", e);
     res.status(500).json({ error: "Benchmark failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-mobile-app", async (req, res) => {
+  try {
+    const { domain, projectName, platforms, features, modules, screens, tables, framework, authentication, offlineSync, pushNotifications } = req.body;
+    
+    const config = {
+      domain: domain || "custom",
+      projectName: projectName || `${domain}App`,
+      platforms: platforms || ['ios', 'android'],
+      features: features || ['Offline Support', 'Push Notifications'],
+      modules: modules || [],
+      screens: screens || [],
+      tables: tables || [],
+      framework: framework || 'expo',
+      authentication: authentication !== false,
+      offlineSync: offlineSync !== false,
+      pushNotifications: pushNotifications !== false,
+    };
+    
+    const result = generateMobileApp(config as any);
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Mobile app generation failed:", e);
+    res.status(500).json({ error: "Mobile app generation failed", details: e?.message || String(e) });
   }
 });
 

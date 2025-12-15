@@ -1131,6 +1131,8 @@ export default function App() {
   const [savingWorkspace, setSavingWorkspace] = useState(false);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [diagramView, setDiagramView] = useState<'visual' | 'ascii'>('visual');
+  const [generatingMobileApp, setGeneratingMobileApp] = useState(false);
+  const [mobileAppResult, setMobileAppResult] = useState<any>(null);
 
   useEffect(() => {
     loadWorkspaces();
@@ -1415,6 +1417,63 @@ export default function App() {
       setAiServiceStatus('error');
     }
     setGeneratingArtifacts(false);
+  };
+
+  const generateMobileAppCode = async () => {
+    if (mobileApps.length === 0) {
+      alert('Please select at least one mobile platform (iOS, Android, or PWA)');
+      return;
+    }
+    
+    setGeneratingMobileApp(true);
+    setMobileAppResult(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/generate-mobile-app`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain,
+          projectName: `${domain.charAt(0).toUpperCase() + domain.slice(1)}App`,
+          platforms: mobileApps,
+          features: ['Offline Support', 'Push Notifications', 'Biometric Auth'],
+          modules: generatedArtifacts?.modules || [],
+          screens: generatedArtifacts?.screens || [],
+          tables: generatedArtifacts?.tables || [],
+          framework: 'expo',
+          authentication: true,
+          offlineSync: true,
+          pushNotifications: true,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate mobile app');
+      
+      const data = await response.json();
+      if (data.ok) {
+        setMobileAppResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate mobile app:', err);
+      alert('Failed to generate mobile app. Please try again.');
+    }
+    setGeneratingMobileApp(false);
+  };
+
+  const downloadMobileAppFiles = () => {
+    if (!mobileAppResult?.files) return;
+    
+    const content = mobileAppResult.files.map((file: any) => 
+      `// ============================================\n// FILE: ${file.path}\n// ${file.description}\n// ============================================\n\n${file.content}\n\n`
+    ).join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${domain}-mobile-app-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLanguageToggle = (lang: string) => {
@@ -2318,6 +2377,65 @@ export default function App() {
                     </p>
                   )}
                 </div>
+                
+                {mobileApps.length > 0 && (
+                  <div style={{ marginTop: '20px' }}>
+                    <button
+                      className="action-btn primary"
+                      onClick={generateMobileAppCode}
+                      disabled={generatingMobileApp}
+                      style={{ marginRight: '10px' }}
+                    >
+                      {generatingMobileApp ? '⏳ Generating...' : '📲 Generate Mobile App Code'}
+                    </button>
+                    
+                    {mobileAppResult && (
+                      <button
+                        className="action-btn secondary"
+                        onClick={downloadMobileAppFiles}
+                      >
+                        📥 Download All Files
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {mobileAppResult && (
+                  <div style={{ marginTop: '20px' }}>
+                    <div style={{ background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                      <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Generated Files ({mobileAppResult.files?.length || 0})</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '10px' }}>
+                        {mobileAppResult.files?.map((file: any, idx: number) => (
+                          <div key={idx} style={{ 
+                            background: 'rgba(0,0,0,0.2)', 
+                            borderRadius: '8px', 
+                            padding: '10px',
+                            border: '1px solid rgba(74, 74, 240, 0.3)'
+                          }}>
+                            <div style={{ color: '#4a4af0', fontSize: '0.85rem', fontFamily: 'monospace' }}>{file.path}</div>
+                            <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '4px' }}>{file.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {mobileAppResult.instructions && (
+                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px' }}>
+                        <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Setup Instructions</h4>
+                        <pre style={{ 
+                          color: '#a0a0c0', 
+                          fontSize: '0.85rem', 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'monospace',
+                          maxHeight: '200px',
+                          overflow: 'auto'
+                        }}>
+                          {mobileAppResult.instructions}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="result-card">
