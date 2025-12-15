@@ -2202,6 +2202,31 @@ export default function App() {
                   <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Environment Manager</div>
                   <div style={{ fontSize: '12px', color: '#94a3b8' }}>Dev, staging, production & promotions</div>
                 </div>
+                <div style={{ background: 'rgba(217, 119, 6, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔗</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Data Connectivity</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>DB wizard, schema discovery & pipelines</div>
+                </div>
+                <div style={{ background: 'rgba(220, 38, 38, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(220, 38, 38, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💾</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Backup & DR</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Disaster recovery, RPO/RTO strategies</div>
+                </div>
+                <div style={{ background: 'rgba(147, 51, 234, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(147, 51, 234, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔒</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Security Scanning</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Vulnerability detection & AI debugging</div>
+                </div>
+                <div style={{ background: 'rgba(34, 211, 238, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(34, 211, 238, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💰</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Cost Comparison</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>AWS, Azure & GCP pricing estimates</div>
+                </div>
+                <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📁</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Workspace Management</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Save, load & manage project configs</div>
+                </div>
               </div>
             </div>
           )}
