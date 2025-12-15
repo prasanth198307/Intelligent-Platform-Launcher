@@ -588,6 +588,18 @@ const DATABASES = [
   { id: 'timescaledb', name: 'TimescaleDB', type: 'Time-Series' },
   { id: 'cassandra', name: 'Cassandra', type: 'Distributed' },
   { id: 'dynamodb', name: 'DynamoDB', type: 'AWS Managed' },
+  { id: 'rds-postgresql', name: 'Amazon RDS (PostgreSQL)', type: 'AWS Managed' },
+  { id: 'rds-mysql', name: 'Amazon RDS (MySQL)', type: 'AWS Managed' },
+  { id: 'aurora', name: 'Amazon Aurora', type: 'AWS Managed' },
+  { id: 'azure-sql', name: 'Azure SQL Database', type: 'Azure PaaS' },
+  { id: 'azure-cosmos', name: 'Azure Cosmos DB', type: 'Azure PaaS' },
+  { id: 'azure-adls', name: 'Azure ADLS Gen2', type: 'Data Lake' },
+  { id: 'aws-s3', name: 'AWS S3', type: 'Object Storage' },
+  { id: 'gcp-storage', name: 'GCP Cloud Storage', type: 'Object Storage' },
+  { id: 'gcp-bigquery', name: 'GCP BigQuery', type: 'Data Warehouse' },
+  { id: 'gcp-spanner', name: 'GCP Cloud Spanner', type: 'GCP Managed' },
+  { id: 'snowflake', name: 'Snowflake', type: 'Data Warehouse' },
+  { id: 'databricks', name: 'Databricks', type: 'Data Lake' },
 ];
 
 const CLOUD_PROVIDERS = [
