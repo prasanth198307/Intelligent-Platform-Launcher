@@ -1483,6 +1483,31 @@
   border-color: #06b6d4;
 }
 
+.workspace-btn.migration-btn {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.3);
+  color: #f97316;
+}
+
+.workspace-btn.migration-btn:hover {
+  background: rgba(249, 115, 22, 0.25);
+  border-color: #f97316;
+}
+
+.migration-modal {
+  max-width: 1100px;
+  width: 95%;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.migration-modal .migration-assistant-panel {
+  border: none;
+  background: transparent;
+  max-height: calc(90vh - 40px);
+  overflow-y: auto;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

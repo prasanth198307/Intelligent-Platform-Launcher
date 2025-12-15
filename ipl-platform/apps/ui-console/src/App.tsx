@@ -1430,6 +1430,7 @@ export default function App() {
   const [backendFramework, setBackendFramework] = useState<'nodejs' | 'python' | 'go'>('nodejs');
   const [viewMode, setViewMode] = useState<'dashboard' | 'wizard'>('dashboard');
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showMigrationAssistant, setShowMigrationAssistant] = useState(false);
 
   // Category navigation state for reorganized UI
   const [activeCategory, setActiveCategory] = useState<string>('overview');
@@ -1996,9 +1997,20 @@ export default function App() {
             <button className="workspace-btn new-btn" onClick={startNewWorkspace}>
               New
             </button>
+            <button className="workspace-btn migration-btn" onClick={() => setShowMigrationAssistant(true)} title="Database Migration Assistant">
+              🔄 Migration
+            </button>
           </div>
         </div>
       </header>
+
+      {showMigrationAssistant && (
+        <div className="modal-overlay" onClick={() => setShowMigrationAssistant(false)}>
+          <div className="modal-content migration-modal" onClick={e => e.stopPropagation()}>
+            <MigrationAssistantPanel onClose={() => setShowMigrationAssistant(false)} />
+          </div>
+        </div>
+      )}
 
       {showWorkspaceModal && (
         <div className="modal-overlay" onClick={() => setShowWorkspaceModal(false)}>
