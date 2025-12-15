@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { GenerationContext } from "../index.js";
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
-const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export async function groqLLM(prompt: string) {
   if (!process.env.GROQ_API_KEY) {
