@@ -1,0 +1,7 @@
+{ "name":"@ipl/workflow-engine-service","private":true,"type":"module",
+  "scripts": {
+  "dev": "tsx watch src/server.ts",
+  "start": "tsx src/server.ts"
+},
+  "dependencies":{"express":"^4.19.2"}
+}

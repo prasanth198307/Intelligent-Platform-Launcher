@@ -1,0 +1,15 @@
+{ "domain":"cis",
+  "entities":[
+    { "id":"customer","name":"Customer","table":"customer","pii":true,
+      "fields":[
+        {"name":"customer_id","type":"uuid","required":true,"pk":true},
+        {"name":"tenant_id","type":"text","required":true,"index":true},
+        {"name":"name","type":"text","required":true},
+        {"name":"created_at","type":"datetime","required":true},
+        {"name":"updated_at","type":"datetime","required":true}
+      ]
+    }
+  ],
+  "workflows":[], "rules":[],
+  "connectors":{ "ccb":{ "actions":["sync_accounts","fetch_bill","post_payment"] } }
+}

@@ -1,0 +1,5 @@
+Return ONLY valid JSON with fields:
+- app:{name,description,domain[],platformMode,tenancyModel,dataResidency}
+- dataModel:{entities[],relations[]}
+- rules[], workflows[], integrations[], ui, deployment, nonFunctional
+No markdown. No explanation.

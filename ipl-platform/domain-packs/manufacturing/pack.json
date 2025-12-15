@@ -1,0 +1,15 @@
+{ "domain":"manufacturing",
+  "entities":[
+    { "id":"work_order","name":"Work Order","table":"work_order","pii":false,
+      "fields":[
+        {"name":"work_order_id","type":"uuid","required":true,"pk":true},
+        {"name":"tenant_id","type":"text","required":true,"index":true},
+        {"name":"status","type":"text","required":true},
+        {"name":"created_at","type":"datetime","required":true},
+        {"name":"updated_at","type":"datetime","required":true}
+      ]
+    }
+  ],
+  "workflows":[], "rules":[],
+  "connectors":{ "erp":{ "actions":["push_work_order","pull_inventory"] } }
+}

@@ -1,0 +1,20 @@
+{ "domain":"insurance",
+  "entities":[
+    { "id":"policy","name":"Policy","table":"policy","pii":false,
+      "fields":[
+        {"name":"policy_id","type":"uuid","required":true,"pk":true},
+        {"name":"tenant_id","type":"text","required":true,"index":true},
+        {"name":"status","type":"text","required":true},
+        {"name":"created_at","type":"datetime","required":true},
+        {"name":"updated_at","type":"datetime","required":true}
+      ]
+    }
+  ],
+  "workflows":[],
+  "rules":[
+    { "ruleId":"underwriting_score","alias":"underwriting_score.current","version":1,
+      "dsl":"decision-table","body":{}, "tests":[]
+    }
+  ],
+  "connectors":{ "payment":{ "actions":["collect_premium","refund"] } }
+}

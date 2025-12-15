@@ -1,0 +1,31 @@
+{
+  "domain": "ami",
+  "entities": [
+    { "id": "meter", "name": "Meter", "table": "meter", "pii": false,
+      "fields": [
+        { "name": "meter_id", "type": "uuid", "required": true, "pk": true },
+        { "name": "tenant_id", "type": "text", "required": true, "index": true },
+        { "name": "serial_no", "type": "text", "required": true },
+        { "name": "created_at", "type": "datetime", "required": true },
+        { "name": "updated_at", "type": "datetime", "required": true }
+      ]
+    }
+  ],
+  "workflows": [],
+  "rules": [
+    {
+      "ruleId": "tariff",
+      "alias": "tariff.current",
+      "version": 1,
+      "dsl": "tariff",
+      "body": { "type": "slab", "slabs": [
+        { "from": 0, "to": 100, "rate": 3.0 },
+        { "from": 101, "to": 300, "rate": 5.0 }
+      ]},
+      "tests": [
+        { "name": "t1_50kwh", "input": { "kwh": 50 }, "expected": { "amount": 150 }, "assert": "equals" }
+      ]
+    }
+  ],
+  "connectors": { "ccb": { "actions": ["sync_accounts","fetch_bill","post_payment","post_adjustment"] } }
+}

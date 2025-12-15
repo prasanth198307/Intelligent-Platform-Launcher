@@ -1,0 +1,23 @@
+{
+  "name": "ipl-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:ai dev:rule dev:workflow dev:connector",
+    "dev:ai": "npm --prefix apps/ai-generator-service run dev",
+    "dev:rule": "npm --prefix apps/rule-engine-service run dev",
+    "dev:workflow": "npm --prefix apps/workflow-engine-service run dev",
+    "dev:connector": "npm --prefix apps/connector-service run dev"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "openai": "^6.10.0"
+  }
+}

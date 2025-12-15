@@ -1,0 +1,15 @@
+{ "domain":"healthcare",
+  "entities":[
+    { "id":"patient","name":"Patient","table":"patient","pii":true,
+      "fields":[
+        {"name":"patient_id","type":"uuid","required":true,"pk":true},
+        {"name":"tenant_id","type":"text","required":true,"index":true},
+        {"name":"full_name","type":"text","required":true},
+        {"name":"created_at","type":"datetime","required":true},
+        {"name":"updated_at","type":"datetime","required":true}
+      ]
+    }
+  ],
+  "workflows":[], "rules":[],
+  "connectors":{ "fhir":{ "actions":["push_patient","pull_patient","submit_claim"] } }
+}
