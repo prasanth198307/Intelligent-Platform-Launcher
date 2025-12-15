@@ -161,48 +161,46 @@ function formatNumber(num: number): string {
 }
 
 function calculateCosts(infra: InfraSpec): Record<string, CostEstimate> {
-  const tierMultipliers: Record<string, number> = {
-    'Small': 1,
-    'Medium': 6,
-    'Large': 40,
-    'Massive': 150
+  const awsPricing = {
+    Small: { compute: 292, storage: 75, network: 45, database: 180, cache: 65, queue: 35 },
+    Medium: { compute: 2340, storage: 450, network: 180, database: 1440, cache: 390, queue: 120 },
+    Large: { compute: 14040, storage: 3600, network: 720, database: 8640, cache: 2340, queue: 480 },
+    Massive: { compute: 58500, storage: 18000, network: 3600, database: 36000, cache: 9360, queue: 1800 }
   };
   
-  const mult = tierMultipliers[infra.tier] || 1;
-  
-  const baseCosts = {
-    compute: 200 * mult,
-    storage: 50 * mult,
-    network: 30 * mult,
-    database: 100 * mult,
-    cache: 40 * mult,
-    queue: 30 * mult
+  const azurePricing = {
+    Small: { compute: 278, storage: 68, network: 50, database: 165, cache: 58, queue: 30 },
+    Medium: { compute: 2225, storage: 405, network: 200, database: 1320, cache: 345, queue: 102 },
+    Large: { compute: 13340, storage: 3240, network: 800, database: 7920, cache: 2070, queue: 410 },
+    Massive: { compute: 55575, storage: 16200, network: 4000, database: 33000, cache: 8280, queue: 1530 }
   };
+  
+  const gcpPricing = {
+    Small: { compute: 257, storage: 64, network: 41, database: 162, cache: 59, queue: 32 },
+    Medium: { compute: 2058, storage: 383, network: 162, database: 1296, cache: 351, queue: 108 },
+    Large: { compute: 12335, storage: 3060, network: 648, database: 7776, cache: 2106, queue: 432 },
+    Massive: { compute: 51390, storage: 15300, network: 3240, database: 32400, cache: 8424, queue: 1620 }
+  };
+  
+  const tier = infra.tier as keyof typeof awsPricing;
+  const aws = awsPricing[tier] || awsPricing.Small;
+  const azure = azurePricing[tier] || azurePricing.Small;
+  const gcp = gcpPricing[tier] || gcpPricing.Small;
   
   return {
     aws: {
-      ...baseCosts,
-      total: Object.values(baseCosts).reduce((a, b) => a + b, 0),
+      ...aws,
+      total: Object.values(aws).reduce((a, b) => a + b, 0),
       currency: 'USD'
     },
     azure: {
-      compute: baseCosts.compute * 0.95,
-      storage: baseCosts.storage * 0.9,
-      network: baseCosts.network * 1.1,
-      database: baseCosts.database * 0.92,
-      cache: baseCosts.cache * 0.88,
-      queue: baseCosts.queue * 0.85,
-      total: Object.values(baseCosts).reduce((a, b) => a + b, 0) * 0.93,
+      ...azure,
+      total: Object.values(azure).reduce((a, b) => a + b, 0),
       currency: 'USD'
     },
     gcp: {
-      compute: baseCosts.compute * 0.88,
-      storage: baseCosts.storage * 0.85,
-      network: baseCosts.network * 0.9,
-      database: baseCosts.database * 0.9,
-      cache: baseCosts.cache * 0.9,
-      queue: baseCosts.queue * 0.9,
-      total: Object.values(baseCosts).reduce((a, b) => a + b, 0) * 0.89,
+      ...gcp,
+      total: Object.values(gcp).reduce((a, b) => a + b, 0),
       currency: 'USD'
     }
   };
@@ -349,6 +347,26 @@ function getSecurityRequirements(compliance: string[]): SecurityReq[] {
     );
   }
   
+  if (compliance.includes('dpdp')) {
+    reqs.push(
+      { name: 'Data Localization', description: 'Data must reside within India', status: 'required' },
+      { name: 'Consent Framework', description: 'Purpose-limited consent collection', status: 'required' },
+      { name: 'Data Principal Rights', description: 'Right to access, correction, erasure', status: 'required' },
+      { name: 'Breach Notification', description: '72-hour breach notification to DPBI', status: 'required' },
+      { name: 'Data Fiduciary Audit', description: 'Annual compliance audit required', status: 'recommended' }
+    );
+  }
+  
+  if (compliance.includes('iso27001')) {
+    reqs.push(
+      { name: 'ISMS Implementation', description: 'Information Security Management System', status: 'required' },
+      { name: 'Risk Assessment', description: 'Formal risk assessment process', status: 'required' },
+      { name: 'Asset Management', description: 'Information asset inventory', status: 'recommended' },
+      { name: 'Access Control Policy', description: 'Documented access control procedures', status: 'recommended' },
+      { name: 'Security Training', description: 'Regular security awareness training', status: 'recommended' }
+    );
+  }
+  
   return reqs;
 }
 
@@ -424,8 +442,18 @@ export default function App() {
       clusterConfig,
       mobileConfig: {
         platform: mobileApps,
-        framework: mobileApps.length > 1 ? 'React Native' : mobileApps[0] === 'ios' ? 'Swift' : 'Kotlin',
-        features: ['Offline Sync', 'Push Notifications', 'Biometric Auth', 'Real-time Updates']
+        framework: mobileApps.length === 0 
+          ? 'None selected' 
+          : mobileApps.length > 1 
+            ? 'React Native (Cross-platform)' 
+            : mobileApps[0] === 'ios' 
+              ? 'Swift (Native iOS)' 
+              : mobileApps[0] === 'android'
+                ? 'Kotlin (Native Android)'
+                : 'PWA (Web Technologies)',
+        features: mobileApps.length > 0 
+          ? ['Offline Sync', 'Push Notifications', 'Biometric Auth', 'Real-time Updates']
+          : []
       },
       deploymentFormats: deploymentType === 'cloud' 
         ? ['Docker', 'Kubernetes Helm', 'Terraform'] 
@@ -756,15 +784,19 @@ export default function App() {
                     <p>Works on any device</p>
                   </div>
                 </div>
-                {mobileApps.length > 0 && (
-                  <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px' }}>
+                <div style={{ marginTop: '20px', padding: '16px', background: mobileApps.length > 0 ? 'rgba(74, 74, 240, 0.1)' : 'rgba(100, 100, 100, 0.1)', borderRadius: '10px' }}>
+                  {mobileApps.length > 0 ? (
                     <p style={{ color: '#a0a0c0', fontSize: '0.9rem' }}>
                       <strong style={{ color: '#4a4af0' }}>Selected:</strong> {mobileApps.map(p => p.toUpperCase()).join(', ')} | 
                       <strong style={{ color: '#4a4af0' }}> Framework:</strong> {result.mobileConfig.framework} | 
                       <strong style={{ color: '#4a4af0' }}> Features:</strong> {result.mobileConfig.features.join(', ')}
                     </p>
-                  </div>
-                )}
+                  ) : (
+                    <p style={{ color: '#888', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                      No mobile platforms selected. Click on iOS, Android, or PWA above to include mobile app generation.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="result-card">
