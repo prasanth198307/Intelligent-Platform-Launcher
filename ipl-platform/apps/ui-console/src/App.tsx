@@ -279,10 +279,11 @@ function getComplianceForDomain(domainId: string): typeof COMPLIANCE_OPTIONS {
   const domainConfig = DOMAINS.find(d => d.id === domainId);
   const domainStandards = domainConfig?.standards || [];
   
-  const generalOptions = COMPLIANCE_OPTIONS.filter(opt => opt.category === 'general');
-  const domainSpecificOptions = COMPLIANCE_OPTIONS.filter(opt => domainStandards.includes(opt.id));
+  if (domainStandards.length > 0) {
+    return COMPLIANCE_OPTIONS.filter(opt => domainStandards.includes(opt.id));
+  }
   
-  return [...generalOptions, ...domainSpecificOptions];
+  return COMPLIANCE_OPTIONS.filter(opt => opt.category === 'general');
 }
 
 function calculateInfrastructure(deviceCount: number, readingsPerDay: number): InfraSpec {
