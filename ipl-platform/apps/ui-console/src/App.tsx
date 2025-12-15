@@ -2628,11 +2628,11 @@ export default function App() {
                           <div className="specs-grid">
                             <div className="spec-item">
                               <div className="value">{result.infrastructure.devices}</div>
-                              <div className="label">Devices / Meters</div>
+                              <div className="label">{DOMAINS.find(d => d.id === domain)?.entityLabel?.replace('Number of ', '') || 'Entities'}</div>
                             </div>
                             <div className="spec-item">
                               <div className="value">{result.infrastructure.dailyRecords}</div>
-                              <div className="label">Records / Day</div>
+                              <div className="label">{DOMAINS.find(d => d.id === domain)?.transactionLabel || 'Transactions / Day'}</div>
                             </div>
                             <div className="spec-item">
                               <div className="value">{result.infrastructure.compute.totalCPU}</div>
