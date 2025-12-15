@@ -7,6 +7,10 @@ import BenchmarkPanel from "./BenchmarkPanel";
 import ERDiagram from "./ERDiagram";
 import ApiTestPanel from "./ApiTestPanel";
 import CodeEditor from "./CodeEditor";
+import AIAutomationPanel from "./AIAutomationPanel";
+import IntegrationPanel from "./IntegrationPanel";
+import DevToolsPanel from "./DevToolsPanel";
+import TestingQualityPanel from "./TestingQualityPanel";
 
 const API_BASE_URL = '';
 
@@ -2365,6 +2369,38 @@ export default function App() {
                   Test your API endpoints with a built-in HTTP client. Send requests and view responses.
                 </p>
                 <ApiTestPanel />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🤖</span> AI Automation</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Natural language to code, security vulnerability scanner, and AI-powered debugging assistant.
+                </p>
+                <AIAutomationPanel domain={domain} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🔗</span> Integrations & APIs</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Configure webhooks, generate GraphQL schemas, and set up message queues.
+                </p>
+                <IntegrationPanel domain={domain} tables={generatedArtifacts?.tables} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🛠️</span> Development Tools</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Git integration, visual query builder, and automatic API endpoint discovery.
+                </p>
+                <DevToolsPanel domain={domain} tables={generatedArtifacts?.tables} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🧪</span> Testing & Quality</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Run tests, analyze coverage, check accessibility, and audit SEO.
+                </p>
+                <TestingQualityPanel domain={domain} tables={generatedArtifacts?.tables} />
               </div>
 
               <div className="result-card">

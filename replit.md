@@ -168,6 +168,31 @@ Syntax-highlighted code editor for viewing generated files:
 - **File Operations**: Copy, download individual files
 - **Download All**: Export all files as a bundle
 
+### 16. AI Automation Panel
+Advanced AI-powered development tools:
+- **Natural Language to Code**: Describe what you want in plain English, get TypeScript/Python/Go code
+- **Security Vulnerability Scanner**: Paste code to detect SQL injection, XSS, hardcoded secrets, etc.
+- **AI Debugging Assistant**: Describe errors and get root cause analysis with fix suggestions
+
+### 17. Integrations & APIs Panel
+Configure external integrations and API schemas:
+- **Webhooks**: Configure webhook endpoints with event selection and secret generation
+- **GraphQL Schema Generator**: Auto-generate GraphQL types, queries, mutations from database schema
+- **Message Queue Setup**: Generate RabbitMQ, Kafka, Redis Pub/Sub, or AWS SQS configurations
+
+### 18. Development Tools Panel
+Built-in development utilities:
+- **Git Integration**: Branch management, commit history, pull/push simulation
+- **Visual Query Builder**: Build SQL queries visually with table/column selection
+- **API Endpoint Discovery**: Auto-discover API endpoints from codebase and schema
+
+### 19. Testing & Quality Panel
+Comprehensive testing and quality analysis:
+- **Test Runner**: Execute unit, integration, and E2E tests with real-time results
+- **Code Coverage Analysis**: Visualize line coverage per file with percentage scores
+- **Accessibility Checker**: WCAG compliance analysis with severity levels and fix suggestions
+- **SEO Analyzer**: Page optimization scoring with actionable recommendations
+
 ## Recent Changes
 - December 15, 2025: Added Backend API Code Generation feature:
   - Generate complete backend projects for Node.js/Express, Python/FastAPI, and Go/Gin
