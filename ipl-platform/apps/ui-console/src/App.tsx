@@ -1,5 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
+
+const API_BASE_URL = '';
+
+function getSessionId(): string {
+  let sessionId = localStorage.getItem('ipl-session-id');
+  if (!sessionId) {
+    sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('ipl-session-id', sessionId);
+  }
+  return sessionId;
+}
+
+interface SavedWorkspace {
+  id: number;
+  name: string;
+  domain: string;
+  database: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface InfraSpec {
   tier: string;
@@ -825,6 +846,212 @@ export default function App() {
   const [versionControlEnabled, setVersionControlEnabled] = useState(true);
   const [versionControlStrategy, setVersionControlStrategy] = useState<'gitflow' | 'github-flow' | 'trunk-based' | 'feature-branch'>('github-flow');
 
+  const [savedWorkspaces, setSavedWorkspaces] = useState<SavedWorkspace[]>([]);
+  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<number | null>(null);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+
+  useEffect(() => {
+    loadWorkspaces();
+  }, []);
+
+  const loadWorkspaces = async () => {
+    setLoadingWorkspaces(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces?sessionId=${getSessionId()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSavedWorkspaces(data.workspaces || []);
+      }
+    } catch (err) {
+      console.error('Failed to load workspaces:', err);
+    }
+    setLoadingWorkspaces(false);
+  };
+
+  const saveWorkspace = async () => {
+    if (!workspaceName.trim()) return;
+    setSavingWorkspace(true);
+    
+    const workspaceData = {
+      name: workspaceName,
+      sessionId: getSessionId(),
+      domain,
+      database: selectedDb,
+      entityCount: deviceCount,
+      transactionsPerDay: readingsPerDay,
+      compliance,
+      deploymentType,
+      multiTenant: { enabled: multiTenantEnabled, level: multiTenantLevel },
+      multiLingual: { enabled: multiLingualEnabled, level: multiLingualLevel, languages: selectedLanguages },
+      crossDomain: {
+        cicd: { enabled: cicdEnabled, provider: cicdProvider },
+        apiGateway: { enabled: apiGatewayEnabled, provider: apiGatewayProvider },
+        monitoring: { enabled: monitoringEnabled, stack: monitoringStack },
+        backupDR: { enabled: backupDREnabled, strategy: backupDRStrategy },
+        environments: { enabled: environmentsEnabled, environments: selectedEnvironments },
+        notifications: { enabled: notificationsEnabled, channels: notificationChannels },
+        documentation: { enabled: documentationEnabled, types: documentationTypes },
+        performanceSLA: { enabled: performanceSLAEnabled },
+        dataMigration: { enabled: dataMigrationEnabled, strategy: dataMigrationStrategy },
+        versionControl: { enabled: versionControlEnabled, strategy: versionControlStrategy }
+      },
+      modules: generatedArtifacts?.modules,
+      screens: generatedArtifacts?.screens,
+      tables: generatedArtifacts?.tables,
+      tests: generatedArtifacts?.tests,
+      integrations: generatedArtifacts?.integrations,
+      scaffolding: generatedArtifacts?.scaffolding,
+      infrastructure: result?.infrastructure,
+      costs: result?.costs,
+      security: result?.security,
+      clusterConfig: result?.clusterConfig,
+      mobileConfig: result?.mobileConfig,
+      status: specPhase === 'finalize' ? 'ready' : 'draft'
+    };
+
+    try {
+      const method = currentWorkspaceId ? 'PUT' : 'POST';
+      const url = currentWorkspaceId 
+        ? `${API_BASE_URL}/api/workspaces/${currentWorkspaceId}` 
+        : `${API_BASE_URL}/api/workspaces`;
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workspaceData)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentWorkspaceId(data.workspace.id);
+        setShowWorkspaceModal(false);
+        await loadWorkspaces();
+      }
+    } catch (err) {
+      console.error('Failed to save workspace:', err);
+    }
+    setSavingWorkspace(false);
+  };
+
+  const loadWorkspace = async (workspaceId: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const ws = data.workspace;
+        
+        setWorkspaceName(ws.name);
+        setCurrentWorkspaceId(ws.id);
+        setDomain(ws.domain || 'ami');
+        setSelectedDb(ws.database || 'postgresql');
+        setDeviceCount(ws.entityCount || '100000');
+        setReadingsPerDay(ws.transactionsPerDay || '96');
+        setCompliance(ws.compliance || []);
+        setDeploymentType(ws.deploymentType || 'cloud');
+        
+        if (ws.multiTenant) {
+          setMultiTenantEnabled(ws.multiTenant.enabled || false);
+          setMultiTenantLevel(ws.multiTenant.level || 'ui-and-db');
+        }
+        if (ws.multiLingual) {
+          setMultiLingualEnabled(ws.multiLingual.enabled || false);
+          setMultiLingualLevel(ws.multiLingual.level || 'ui-only');
+          setSelectedLanguages(ws.multiLingual.languages || ['en']);
+        }
+        if (ws.crossDomain) {
+          const cd = ws.crossDomain;
+          if (cd.cicd) { setCicdEnabled(cd.cicd.enabled); setCicdProvider(cd.cicd.provider || 'github-actions'); }
+          if (cd.apiGateway) { setApiGatewayEnabled(cd.apiGateway.enabled); setApiGatewayProvider(cd.apiGateway.provider || 'kong'); }
+          if (cd.monitoring) { setMonitoringEnabled(cd.monitoring.enabled); setMonitoringStack(cd.monitoring.stack || 'prometheus-grafana'); }
+          if (cd.backupDR) { setBackupDREnabled(cd.backupDR.enabled); setBackupDRStrategy(cd.backupDR.strategy || 'warm-standby'); }
+          if (cd.environments) { setEnvironmentsEnabled(cd.environments.enabled); setSelectedEnvironments(cd.environments.environments || ['dev', 'staging', 'prod']); }
+          if (cd.notifications) { setNotificationsEnabled(cd.notifications.enabled); setNotificationChannels(cd.notifications.channels || ['email']); }
+          if (cd.documentation) { setDocumentationEnabled(cd.documentation.enabled); setDocumentationTypes(cd.documentation.types || ['api', 'user-guide']); }
+          if (cd.performanceSLA) { setPerformanceSLAEnabled(cd.performanceSLA.enabled); }
+          if (cd.dataMigration) { setDataMigrationEnabled(cd.dataMigration.enabled); setDataMigrationStrategy(cd.dataMigration.strategy || 'phased'); }
+          if (cd.versionControl) { setVersionControlEnabled(cd.versionControl.enabled); setVersionControlStrategy(cd.versionControl.strategy || 'github-flow'); }
+        }
+        
+        if (ws.modules || ws.screens || ws.tables || ws.tests) {
+          setGeneratedArtifacts({
+            modules: ws.modules || [],
+            screens: ws.screens || [],
+            tables: ws.tables || [],
+            tests: ws.tests || [],
+            integrations: ws.integrations || [],
+            scaffolding: ws.scaffolding || { folders: [], files: [] },
+            multiTenant: ws.multiTenant || { enabled: false, level: 'ui-and-db', isolation: 'row-level' },
+            multiLingual: ws.multiLingual || { enabled: false, level: 'ui-only', defaultLanguage: 'en', supportedLanguages: ['en'] },
+            crossDomain: generatedArtifacts?.crossDomain || {} as any
+          });
+          setSpecPhase('preview');
+        }
+        
+        if (ws.infrastructure) {
+          setResult({
+            domain: DOMAINS.find(d => d.id === ws.domain)?.name || ws.domain,
+            infrastructure: ws.infrastructure,
+            architecture: '',
+            costs: ws.costs || {},
+            security: ws.security || [],
+            clusterConfig: ws.clusterConfig || { appCluster: {} as any, dbCluster: {} as any },
+            mobileConfig: ws.mobileConfig || { platform: [], framework: '', features: [] },
+            deploymentFormats: []
+          });
+        }
+        
+        setShowWorkspaceModal(false);
+      }
+    } catch (err) {
+      console.error('Failed to load workspace:', err);
+    }
+  };
+
+  const deleteWorkspace = async (workspaceId: number) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, { method: 'DELETE' });
+      if (currentWorkspaceId === workspaceId) {
+        setCurrentWorkspaceId(null);
+        setWorkspaceName('');
+      }
+      await loadWorkspaces();
+    } catch (err) {
+      console.error('Failed to delete workspace:', err);
+    }
+  };
+
+  const startNewWorkspace = () => {
+    setCurrentWorkspaceId(null);
+    setWorkspaceName('');
+    setRequirements('');
+    setDomain('ami');
+    setDeviceCount('100000');
+    setReadingsPerDay('96');
+    setSelectedDb('postgresql');
+    setCompliance([]);
+    setDeploymentType('cloud');
+    setMultiTenantEnabled(false);
+    setMultiLingualEnabled(false);
+    setSelectedLanguages(['en']);
+    setCicdEnabled(false);
+    setApiGatewayEnabled(false);
+    setMonitoringEnabled(false);
+    setBackupDREnabled(false);
+    setEnvironmentsEnabled(true);
+    setSelectedEnvironments(['dev', 'staging', 'prod']);
+    setNotificationsEnabled(false);
+    setDocumentationEnabled(false);
+    setPerformanceSLAEnabled(false);
+    setDataMigrationEnabled(false);
+    setVersionControlEnabled(true);
+    setGeneratedArtifacts(null);
+    setResult(null);
+    setSpecPhase('configure');
+  };
+
   const handleComplianceToggle = (id: string) => {
     setCompliance(prev => 
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
@@ -858,7 +1085,7 @@ export default function App() {
   const generateCodeArtifacts = async () => {
     setGeneratingArtifacts(true);
     try {
-      const response = await fetch('http://localhost:8080/api/generate', {
+      const response = await fetch(`${API_BASE_URL}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -967,9 +1194,85 @@ export default function App() {
   return (
     <div className="platform-launcher">
       <header className="header">
-        <h1>Intelligent Platform Launcher</h1>
-        <p>Domain-agnostic • Database-agnostic • Multi-Cloud • On-Prem Ready</p>
+        <div className="header-content">
+          <div className="header-title">
+            <h1>Intelligent Platform Launcher</h1>
+            <p>Domain-agnostic • Database-agnostic • Multi-Cloud • On-Prem Ready</p>
+          </div>
+          <div className="workspace-controls">
+            {currentWorkspaceId && (
+              <span className="current-workspace-badge">
+                {workspaceName || 'Untitled'} {result ? '(Analyzed)' : '(Draft)'}
+              </span>
+            )}
+            <button className="workspace-btn" onClick={() => setShowWorkspaceModal(true)}>
+              My Workspaces ({savedWorkspaces.length})
+            </button>
+            <button className="workspace-btn save-btn" onClick={() => {
+              if (!workspaceName) {
+                const name = prompt('Enter workspace name:', `${DOMAINS.find(d => d.id === domain)?.name} Project`);
+                if (name) {
+                  setWorkspaceName(name);
+                  setTimeout(() => saveWorkspace(), 100);
+                }
+              } else {
+                saveWorkspace();
+              }
+            }}>
+              {savingWorkspace ? 'Saving...' : (currentWorkspaceId ? 'Save' : 'Save As...')}
+            </button>
+            <button className="workspace-btn new-btn" onClick={startNewWorkspace}>
+              New
+            </button>
+          </div>
+        </div>
       </header>
+
+      {showWorkspaceModal && (
+        <div className="modal-overlay" onClick={() => setShowWorkspaceModal(false)}>
+          <div className="modal-content workspace-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>My Workspaces</h2>
+              <button className="modal-close" onClick={() => setShowWorkspaceModal(false)}>×</button>
+            </div>
+            <div className="workspace-list">
+              {loadingWorkspaces ? (
+                <p className="workspace-loading">Loading workspaces...</p>
+              ) : savedWorkspaces.length === 0 ? (
+                <p className="workspace-empty">No saved workspaces yet. Start building and save your work!</p>
+              ) : (
+                savedWorkspaces.map(ws => (
+                  <div key={ws.id} className={`workspace-item ${ws.id === currentWorkspaceId ? 'active' : ''}`}>
+                    <div className="workspace-info">
+                      <div className="workspace-name">{ws.name}</div>
+                      <div className="workspace-meta">
+                        <span className="workspace-domain">{DOMAINS.find(d => d.id === ws.domain)?.icon} {DOMAINS.find(d => d.id === ws.domain)?.name}</span>
+                        <span className="workspace-status">{ws.status}</span>
+                        <span className="workspace-date">Updated: {new Date(ws.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="workspace-actions">
+                      <button className="ws-action-btn load" onClick={() => loadWorkspace(ws.id)}>
+                        Load
+                      </button>
+                      <button className="ws-action-btn delete" onClick={() => {
+                        if (confirm('Delete this workspace?')) deleteWorkspace(ws.id);
+                      }}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="primary-btn" onClick={startNewWorkspace}>
+                Start New Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="main-container">
         <div className="input-panel">

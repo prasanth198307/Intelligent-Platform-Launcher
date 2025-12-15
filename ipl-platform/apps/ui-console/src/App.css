@@ -1324,3 +1324,241 @@
   font-weight: 500;
   text-transform: capitalize;
 }
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.header-title {
+  text-align: left;
+}
+
+.workspace-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.current-workspace-badge {
+  padding: 8px 16px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  color: #8b5cf6;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.workspace-btn {
+  padding: 10px 20px;
+  border: 1px solid rgba(100, 100, 200, 0.3);
+  background: rgba(30, 30, 60, 0.8);
+  color: #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.workspace-btn:hover {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.workspace-btn.save-btn {
+  background: linear-gradient(135deg, #4a4af0, #8b5cf6);
+  border: none;
+  color: white;
+}
+
+.workspace-btn.save-btn:hover {
+  opacity: 0.9;
+}
+
+.workspace-btn.new-btn {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.3);
+  color: #06b6d4;
+}
+
+.workspace-btn.new-btn:hover {
+  background: rgba(6, 182, 212, 0.25);
+  border-color: #06b6d4;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: rgba(25, 25, 55, 0.98);
+  border: 1px solid rgba(100, 100, 200, 0.3);
+  border-radius: 16px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(100, 100, 200, 0.2);
+}
+
+.modal-header h2 {
+  color: #8b5cf6;
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #a0a0c0;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #e0e0e0;
+}
+
+.workspace-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+}
+
+.workspace-loading, .workspace-empty {
+  color: #a0a0c0;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.workspace-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: rgba(30, 30, 60, 0.6);
+  border: 1px solid rgba(100, 100, 200, 0.2);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: all 0.3s;
+}
+
+.workspace-item:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(40, 40, 70, 0.6);
+}
+
+.workspace-item.active {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.workspace-info {
+  flex: 1;
+}
+
+.workspace-name {
+  color: #e0e0e0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.workspace-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+}
+
+.workspace-domain {
+  color: #8b5cf6;
+}
+
+.workspace-status {
+  color: #06b6d4;
+  text-transform: capitalize;
+}
+
+.workspace-date {
+  color: #a0a0c0;
+}
+
+.workspace-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ws-action-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s;
+}
+
+.ws-action-btn.load {
+  background: linear-gradient(135deg, #4a4af0, #8b5cf6);
+  color: white;
+}
+
+.ws-action-btn.load:hover {
+  opacity: 0.9;
+}
+
+.ws-action-btn.delete {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ws-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(100, 100, 200, 0.2);
+  display: flex;
+  justify-content: center;
+}
+
+.primary-btn {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #06b6d4, #4a4af0);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.primary-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
