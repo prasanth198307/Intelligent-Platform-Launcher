@@ -1815,8 +1815,22 @@ export default function App() {
             </div>
           )}
 
-          <div className="form-group">
-            <label>Compliance & Standards</label>
+          <div 
+            className="advanced-options-toggle"
+            onClick={() => setExpandedSections(prev => {
+              const next = new Set(prev);
+              if (next.has('compliance')) next.delete('compliance');
+              else next.add('compliance');
+              return next;
+            })}
+          >
+            <span className="toggle-icon">{expandedSections.has('compliance') ? '▼' : '▶'}</span>
+            <span>Compliance & Standards</span>
+            <span className="toggle-hint">{expandedSections.has('compliance') ? 'Click to collapse' : `${compliance.length} selected`}</span>
+          </div>
+
+          {expandedSections.has('compliance') && (
+          <div className="form-group" style={{ marginTop: 0 }}>
             <div className="checkbox-group">
               {getComplianceForDomain(domain).map(opt => (
                 <label key={opt.id} className="checkbox-label">
@@ -1830,6 +1844,7 @@ export default function App() {
               ))}
             </div>
           </div>
+          )}
 
           <div 
             className="advanced-options-toggle"
