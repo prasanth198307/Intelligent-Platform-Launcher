@@ -2237,6 +2237,11 @@ export default function App() {
                   <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Multi-Tech Stack</div>
                   <div style={{ fontSize: '12px', color: '#94a3b8' }}>Node.js, Python, Go & 20+ databases</div>
                 </div>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>⚡</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Redis Caching</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>High-performance caching & session store</div>
+                </div>
               </div>
             </div>
           )}
