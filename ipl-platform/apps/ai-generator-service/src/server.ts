@@ -28,6 +28,7 @@ import {
   runBenchmark,
   generateBenchmarkReport,
   generateMobileApp,
+  generateBackendApi,
 } from "./generators/index.js";
 
 const app = express();
@@ -510,6 +511,36 @@ app.post("/api/generate-mobile-app", async (req, res) => {
   } catch (e: any) {
     console.error("Mobile app generation failed:", e);
     res.status(500).json({ error: "Mobile app generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-backend", async (req, res) => {
+  try {
+    const { framework, domain, database, projectName, tables, authentication, port } = req.body;
+    
+    if (!framework || !['nodejs', 'python', 'go'].includes(framework)) {
+      return res.status(400).json({ error: "framework is required (nodejs, python, or go)" });
+    }
+    
+    if (!tables || !Array.isArray(tables) || tables.length === 0) {
+      return res.status(400).json({ error: "tables array is required with at least one table" });
+    }
+    
+    const config = {
+      framework: framework as 'nodejs' | 'python' | 'go',
+      domain: domain || "custom",
+      database: database || "postgresql",
+      projectName: projectName,
+      tables: tables,
+      authentication: authentication !== false,
+      port: port,
+    };
+    
+    const result = generateBackendApi(config);
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Backend API generation failed:", e);
+    res.status(500).json({ error: "Backend API generation failed", details: e?.message || String(e) });
   }
 });
 

@@ -135,7 +135,24 @@ Generate complete React Native/Expo mobile app projects:
 - **Download**: Get all files as a single downloadable bundle
 - **Endpoint**: /api/generate-mobile-app
 
+### 12. Backend API Code Generation
+Generate complete server-side API projects for multiple frameworks:
+- **Node.js/Express**: TypeScript, routes, controllers, middleware, JWT auth, Zod validation
+- **Python/FastAPI**: Pydantic models, SQLAlchemy ORM, OAuth2, automatic OpenAPI docs
+- **Go/Gin**: Handlers, models, GORM, high-performance REST API
+- **Features**: Database connection (PostgreSQL), CRUD endpoints for each table, authentication middleware, error handling, Docker support, README with setup instructions
+- **Download**: Get all files as a single downloadable bundle
+- **Endpoint**: /api/generate-backend
+
 ## Recent Changes
+- December 15, 2025: Added Backend API Code Generation feature:
+  - Generate complete backend projects for Node.js/Express, Python/FastAPI, and Go/Gin
+  - TypeScript/Python/Go with proper project structure
+  - CRUD endpoints for each table from generated schema
+  - JWT authentication middleware
+  - Database connection and models
+  - Docker support and README
+  - New endpoint: /api/generate-backend
 - December 15, 2025: Added Mobile App Code Generation feature:
   - Generate complete React Native/Expo project (22+ files)
   - Includes screens (list, form, detail, chart), components, services

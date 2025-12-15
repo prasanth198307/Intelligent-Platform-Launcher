@@ -1133,6 +1133,9 @@ export default function App() {
   const [diagramView, setDiagramView] = useState<'visual' | 'ascii'>('visual');
   const [generatingMobileApp, setGeneratingMobileApp] = useState(false);
   const [mobileAppResult, setMobileAppResult] = useState<any>(null);
+  const [generatingBackendApi, setGeneratingBackendApi] = useState(false);
+  const [backendApiResult, setBackendApiResult] = useState<any>(null);
+  const [backendFramework, setBackendFramework] = useState<'nodejs' | 'python' | 'go'>('nodejs');
 
   useEffect(() => {
     loadWorkspaces();
@@ -1472,6 +1475,63 @@ export default function App() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${domain}-mobile-app-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const generateBackendApiCode = async () => {
+    if (!generatedArtifacts?.tables || generatedArtifacts.tables.length === 0) {
+      alert('Please generate code specifications first to get database tables.');
+      return;
+    }
+    
+    setGeneratingBackendApi(true);
+    setBackendApiResult(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/generate-backend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          framework: backendFramework,
+          domain,
+          database: selectedDb,
+          projectName: `${domain.toLowerCase().replace(/\s+/g, '-')}-api`,
+          tables: generatedArtifacts.tables.map((t: any) => ({
+            name: t.name,
+            columns: t.columns || []
+          })),
+          authentication: true,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate backend API');
+      
+      const data = await response.json();
+      if (data.ok) {
+        setBackendApiResult(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate backend API:', err);
+      alert('Failed to generate backend API. Please try again.');
+    }
+    setGeneratingBackendApi(false);
+  };
+
+  const downloadBackendApiFiles = () => {
+    if (!backendApiResult?.files) return;
+    
+    const content = backendApiResult.files.map((file: any) => {
+      const ext = file.path.split('.').pop() || '';
+      const commentPrefix = ['py'].includes(ext) ? '#' : '//';
+      return `${commentPrefix} ============================================\n${commentPrefix} FILE: ${file.path}\n${commentPrefix} ${file.description}\n${commentPrefix} ============================================\n\n${file.content}\n\n`;
+    }).join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${domain}-${backendFramework}-api-${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -2431,6 +2491,109 @@ export default function App() {
                           overflow: 'auto'
                         }}>
                           {mobileAppResult.instructions}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🖥️</span> Backend API Generation</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Generate complete backend API projects with authentication, CRUD endpoints, and database integration.
+                </p>
+                <div className="mobile-section">
+                  <div 
+                    className={`mobile-option ${backendFramework === 'nodejs' ? 'selected' : ''}`}
+                    onClick={() => setBackendFramework('nodejs')}
+                  >
+                    <div className="icon">🟢</div>
+                    <h5>Node.js / Express</h5>
+                    <p>TypeScript, JWT auth, Zod validation</p>
+                  </div>
+                  <div 
+                    className={`mobile-option ${backendFramework === 'python' ? 'selected' : ''}`}
+                    onClick={() => setBackendFramework('python')}
+                  >
+                    <div className="icon">🐍</div>
+                    <h5>Python / FastAPI</h5>
+                    <p>Pydantic, SQLAlchemy, OAuth2</p>
+                  </div>
+                  <div 
+                    className={`mobile-option ${backendFramework === 'go' ? 'selected' : ''}`}
+                    onClick={() => setBackendFramework('go')}
+                  >
+                    <div className="icon">🔷</div>
+                    <h5>Go / Gin</h5>
+                    <p>High performance, GORM, JWT</p>
+                  </div>
+                </div>
+                <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px' }}>
+                  <p style={{ color: '#a0a0c0', fontSize: '0.9rem' }}>
+                    <strong style={{ color: '#4a4af0' }}>Selected:</strong> {backendFramework === 'nodejs' ? 'Node.js/Express' : backendFramework === 'python' ? 'Python/FastAPI' : 'Go/Gin'} | 
+                    <strong style={{ color: '#4a4af0' }}> Database:</strong> {selectedDb} | 
+                    <strong style={{ color: '#4a4af0' }}> Features:</strong> JWT Auth, CRUD, Validation, Docker
+                  </p>
+                </div>
+                
+                <div style={{ marginTop: '20px' }}>
+                  <button
+                    className="action-btn primary"
+                    onClick={generateBackendApiCode}
+                    disabled={generatingBackendApi || !generatedArtifacts?.tables}
+                    style={{ marginRight: '10px' }}
+                  >
+                    {generatingBackendApi ? '⏳ Generating...' : '🖥️ Generate Backend API'}
+                  </button>
+                  
+                  {backendApiResult && (
+                    <button
+                      className="action-btn secondary"
+                      onClick={downloadBackendApiFiles}
+                    >
+                      📥 Download All Files
+                    </button>
+                  )}
+                  
+                  {!generatedArtifacts?.tables && (
+                    <p style={{ color: '#f0a040', fontSize: '0.85rem', marginTop: '10px' }}>
+                      Generate code specifications first to enable backend API generation.
+                    </p>
+                  )}
+                </div>
+                
+                {backendApiResult && (
+                  <div style={{ marginTop: '20px' }}>
+                    <div style={{ background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                      <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Generated Files ({backendApiResult.files?.length || 0})</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '10px' }}>
+                        {backendApiResult.files?.map((file: any, idx: number) => (
+                          <div key={idx} style={{ 
+                            background: 'rgba(0,0,0,0.2)', 
+                            borderRadius: '8px', 
+                            padding: '10px',
+                            border: '1px solid rgba(74, 74, 240, 0.3)'
+                          }}>
+                            <div style={{ color: '#4a4af0', fontSize: '0.85rem', fontFamily: 'monospace' }}>{file.path}</div>
+                            <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '4px' }}>{file.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {backendApiResult.instructions && (
+                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px' }}>
+                        <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Setup Instructions</h4>
+                        <pre style={{ 
+                          color: '#a0a0c0', 
+                          fontSize: '0.85rem', 
+                          whiteSpace: 'pre-wrap', 
+                          fontFamily: 'monospace',
+                          maxHeight: '200px',
+                          overflow: 'auto'
+                        }}>
+                          {backendApiResult.instructions}
                         </pre>
                       </div>
                     )}
