@@ -288,6 +288,7 @@ interface TechStackRecommendation {
   dataLake: TechComponent;
   dataIngestion: TechComponent;
   dataGovernance: TechComponent;
+  documentProcessing: TechComponent;
 }
 
 interface AnalysisResult {
@@ -876,7 +877,10 @@ function getTechStackRecommendation(
         dataIngestion: isIoTDomain
           ? (isCloud ? { name: cloud.iot, description: 'Managed IoT service for device connectivity' } : { name: 'MQTT + Python', description: 'MQTT broker with Python collectors for devices' })
           : { name: 'REST APIs + Batch', description: 'API-based data collection with batch imports' },
-        dataGovernance: { name: 'Basic Docs', description: 'Simple documentation and naming conventions' }
+        dataGovernance: { name: 'Basic Docs', description: 'Simple documentation and naming conventions' },
+        documentProcessing: isCloud
+          ? { name: cloudProvider === 'aws' ? 'Amazon Textract' : cloudProvider === 'azure' ? 'Azure AI Document Intelligence' : 'Google Document AI', description: 'Managed OCR for PDF/image text extraction' }
+          : { name: 'Tesseract OCR + pdf-parse', description: 'Open-source OCR with PDF text extraction' }
       };
     case 'Medium':
       const mediumCloudDb = cloudProvider === 'aws' ? 'Amazon Aurora' : cloudProvider === 'azure' ? 'Azure SQL Database' : 'Cloud SQL';
@@ -922,7 +926,10 @@ function getTechStackRecommendation(
           : (isCloud ? { name: 'Airbyte Cloud', description: 'Managed ELT connectors for data source integration' } : { name: 'Airbyte', description: 'Self-hosted ELT connectors for data source integration' }),
         dataGovernance: isCloud
           ? { name: cloud.governance, description: 'Managed data catalog with lineage' }
-          : { name: 'Apache Atlas', description: 'Data catalog with lineage tracking' }
+          : { name: 'Apache Atlas', description: 'Data catalog with lineage tracking' },
+        documentProcessing: isCloud
+          ? { name: cloudProvider === 'aws' ? 'Amazon Textract + Comprehend Medical' : cloudProvider === 'azure' ? 'Azure AI Document Intelligence + Health' : 'Google Document AI + Healthcare NLP', description: 'Managed OCR with AI entity extraction and healthcare NLP' }
+          : { name: 'Tesseract OCR + Apache Tika + spaCy', description: 'OCR with document parsing and NLP for entity extraction' }
       };
     case 'Large':
       const largeCloudDb = cloudProvider === 'aws' ? 'Amazon Aurora' : cloudProvider === 'azure' ? 'Azure Cosmos DB' : 'Cloud Spanner';
@@ -972,7 +979,10 @@ function getTechStackRecommendation(
           : { name: 'Kafka Connect + Debezium', description: 'CDC and streaming connectors for real-time sync' },
         dataGovernance: isCloud
           ? { name: cloud.governance, description: 'Enterprise data governance platform' }
-          : { name: 'Atlan / Collibra', description: 'Enterprise data catalog with governance policies' }
+          : { name: 'Atlan / Collibra', description: 'Enterprise data catalog with governance policies' },
+        documentProcessing: isCloud
+          ? { name: cloudProvider === 'aws' ? 'Amazon Textract + Comprehend Medical + SageMaker' : cloudProvider === 'azure' ? 'Azure AI Document Intelligence + Health Insights + ML' : 'Google Document AI + Healthcare API + Vertex AI', description: 'Enterprise OCR with AI/ML for document classification, entity extraction, and medical NLP' }
+          : { name: 'Tesseract + Apache Tika + Hugging Face Transformers', description: 'Enterprise document processing with custom ML models for entity extraction' }
       };
     case 'Massive':
     default:
@@ -1017,7 +1027,10 @@ function getTechStackRecommendation(
           : { name: 'Kafka + Spark Structured Streaming', description: 'Unified batch and stream ingestion' },
         dataGovernance: isCloud
           ? { name: 'Unity Catalog + ' + cloud.governance, description: 'Enterprise governance with fine-grained access' }
-          : { name: 'Apache Atlas + OpenMetadata', description: 'Self-hosted enterprise governance platform' }
+          : { name: 'Apache Atlas + OpenMetadata', description: 'Self-hosted enterprise governance platform' },
+        documentProcessing: isCloud
+          ? { name: cloudProvider === 'aws' ? 'Amazon Textract + Comprehend + SageMaker Pipelines' : cloudProvider === 'azure' ? 'Azure AI Document Intelligence + OpenAI GPT-4 Vision' : 'Google Document AI + Gemini Vision', description: 'Planet-scale intelligent document processing with LLM-powered extraction and understanding' }
+          : { name: 'Tesseract + Apache Tika + LLaMA/Ollama + Custom Vision Models', description: 'Enterprise IDP with self-hosted LLMs for document understanding and extraction' }
       };
   }
 }
@@ -2883,6 +2896,14 @@ Or upload a requirements document (PDF, Word, TXT) using the button above."
                               </div>
                               <div style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1', marginBottom: '4px' }}>{result.techStack.dataGovernance.name}</div>
                               <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.dataGovernance.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(217, 70, 239, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(217, 70, 239, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>📄</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Document Processing / OCR</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#d946ef', marginBottom: '4px' }}>{result.techStack.documentProcessing.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.documentProcessing.description}</div>
                             </div>
                           </div>
                         </div>
