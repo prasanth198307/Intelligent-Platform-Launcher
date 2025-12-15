@@ -206,9 +206,48 @@ function getDomainTables(domain: string, database: string) {
         { name: "email", type: "varchar(255)", unique: true },
         { name: "password_hash", type: "varchar(255)" },
         { name: "full_name", type: "varchar(255)" },
-        { name: "role", type: "varchar(50)" },
-        { name: "created_at", type: "timestamp" },
-        { name: "updated_at", type: "timestamp" }
+        { name: "is_active", type: "boolean" },
+        { name: "last_login", type: "timestamptz" },
+        { name: "created_at", type: "timestamptz" },
+        { name: "updated_at", type: "timestamptz" }
+      ]
+    },
+    {
+      name: "roles",
+      columns: [
+        { name: "id", type: "uuid", primary: true },
+        { name: "name", type: "varchar(100)", unique: true },
+        { name: "description", type: "text" },
+        { name: "is_system", type: "boolean" },
+        { name: "created_at", type: "timestamptz" }
+      ]
+    },
+    {
+      name: "permissions",
+      columns: [
+        { name: "id", type: "uuid", primary: true },
+        { name: "name", type: "varchar(100)", unique: true },
+        { name: "resource", type: "varchar(100)" },
+        { name: "action", type: "varchar(50)" },
+        { name: "description", type: "text" }
+      ]
+    },
+    {
+      name: "role_permissions",
+      columns: [
+        { name: "id", type: "uuid", primary: true },
+        { name: "role_id", type: "uuid", foreignKey: "roles.id" },
+        { name: "permission_id", type: "uuid", foreignKey: "permissions.id" }
+      ]
+    },
+    {
+      name: "user_roles",
+      columns: [
+        { name: "id", type: "uuid", primary: true },
+        { name: "user_id", type: "uuid", foreignKey: "users.id" },
+        { name: "role_id", type: "uuid", foreignKey: "roles.id" },
+        { name: "assigned_at", type: "timestamptz" },
+        { name: "assigned_by", type: "uuid", foreignKey: "users.id" }
       ]
     },
     {
@@ -220,7 +259,8 @@ function getDomainTables(domain: string, database: string) {
         { name: "entity_type", type: "varchar(100)" },
         { name: "entity_id", type: "varchar(255)" },
         { name: "changes", type: "jsonb" },
-        { name: "created_at", type: "timestamp" }
+        { name: "ip_address", type: "varchar(45)" },
+        { name: "created_at", type: "timestamptz" }
       ]
     }
   ];
@@ -378,6 +418,67 @@ function getDomainTables(domain: string, database: string) {
           { name: "onset_date", type: "date" },
           { name: "status", type: "varchar(20)" },
           { name: "notes", type: "text" }
+        ]
+      },
+      {
+        name: "case_sheets",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "provider_id", type: "uuid", foreignKey: "users.id" },
+          { name: "case_number", type: "varchar(50)", unique: true },
+          { name: "case_date", type: "timestamptz" },
+          { name: "chief_complaint", type: "text" },
+          { name: "present_illness", type: "text" },
+          { name: "examination_findings", type: "text" },
+          { name: "diagnosis", type: "text" },
+          { name: "treatment_plan", type: "text" },
+          { name: "follow_up_date", type: "date" },
+          { name: "status", type: "varchar(20)" },
+          { name: "created_at", type: "timestamptz" },
+          { name: "updated_at", type: "timestamptz" }
+        ]
+      },
+      {
+        name: "medicines",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "name", type: "varchar(255)" },
+          { name: "generic_name", type: "varchar(255)" },
+          { name: "category", type: "varchar(100)" },
+          { name: "dosage_form", type: "varchar(50)" },
+          { name: "strength", type: "varchar(50)" },
+          { name: "manufacturer", type: "varchar(255)" },
+          { name: "is_active", type: "boolean" }
+        ]
+      },
+      {
+        name: "prescriptions",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "case_sheet_id", type: "uuid", foreignKey: "case_sheets.id" },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "medicine_id", type: "uuid", foreignKey: "medicines.id" },
+          { name: "dosage", type: "varchar(100)" },
+          { name: "frequency", type: "varchar(100)" },
+          { name: "duration", type: "varchar(50)" },
+          { name: "instructions", type: "text" },
+          { name: "prescribed_by", type: "uuid", foreignKey: "users.id" },
+          { name: "prescribed_at", type: "timestamptz" }
+        ]
+      },
+      {
+        name: "patient_history",
+        columns: [
+          { name: "id", type: "uuid", primary: true },
+          { name: "patient_id", type: "uuid", foreignKey: "patients.id" },
+          { name: "history_type", type: "varchar(50)" },
+          { name: "description", type: "text" },
+          { name: "onset_date", type: "date" },
+          { name: "is_current", type: "boolean" },
+          { name: "notes", type: "text" },
+          { name: "recorded_by", type: "uuid", foreignKey: "users.id" },
+          { name: "recorded_at", type: "timestamptz" }
         ]
       }
     ],
