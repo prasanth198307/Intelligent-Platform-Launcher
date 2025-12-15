@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import ArchitectureDiagram from "./ArchitectureDiagram";
+import AICodePanel from "./AICodePanel";
 
 const API_BASE_URL = '';
 
@@ -2177,6 +2178,24 @@ export default function App() {
                     📊 Export Hardware CSV
                   </button>
                 </div>
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🤖</span> AI Code Assistant</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Generate, review, and fix code using AI for your {DOMAINS.find(d => d.id === domain)?.name} application.
+                </p>
+                <AICodePanel
+                  domain={domain}
+                  database={selectedDb}
+                  entityCount={devices}
+                  transactionsPerDay={readings}
+                  compliance={compliance}
+                  deploymentType={deploymentType}
+                  modules={generatedArtifacts?.modules}
+                  screens={generatedArtifacts?.screens}
+                  tables={generatedArtifacts?.tables}
+                />
               </div>
 
               <div className="result-card">

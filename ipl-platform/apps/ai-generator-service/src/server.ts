@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { runLLM, runLLMForType } from "./llm/index.js";
+import { runLLM, runLLMForType, runGenerateCode, runReviewCode, runFixCode, runExplainCode } from "./llm/index.js";
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
@@ -68,6 +68,79 @@ app.post("/api/generate-from-message-llm", async (req, res) => {
       error: "LLM pipeline failed",
       details: e?.message || String(e)
     });
+  }
+});
+
+app.post("/api/generate-code", async (req, res) => {
+  try {
+    const { domain, entityCount, transactionsPerDay, database, compliance, deploymentType, modules, screens, tables, framework, language } = req.body;
+    
+    const context = {
+      domain: domain || "custom",
+      entityCount: entityCount || 10000,
+      transactionsPerDay: transactionsPerDay || 50000,
+      database: database || "postgresql",
+      compliance: compliance || [],
+      deploymentType: deploymentType || "cloud"
+    };
+
+    console.log("Generating application code for:", context.domain);
+    const result = await runGenerateCode({ context, modules, screens, tables, framework, language });
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Code generation failed:", e);
+    res.status(500).json({ error: "Code generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/review-code", async (req, res) => {
+  try {
+    const { code, language, context } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ error: "code is required" });
+    }
+
+    console.log("Reviewing code:", language || "typescript");
+    const result = await runReviewCode(code, language || "typescript", context);
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Code review failed:", e);
+    res.status(500).json({ error: "Code review failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/fix-code", async (req, res) => {
+  try {
+    const { code, language, issues } = req.body;
+    
+    if (!code || !issues || !Array.isArray(issues)) {
+      return res.status(400).json({ error: "code and issues array are required" });
+    }
+
+    console.log("Fixing code with", issues.length, "issues");
+    const result = await runFixCode(code, language || "typescript", issues);
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Code fix failed:", e);
+    res.status(500).json({ error: "Code fix failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/explain-code", async (req, res) => {
+  try {
+    const { code, language } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ error: "code is required" });
+    }
+
+    console.log("Explaining code:", language || "typescript");
+    const result = await runExplainCode(code, language || "typescript");
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Code explanation failed:", e);
+    res.status(500).json({ error: "Code explanation failed", details: e?.message || String(e) });
   }
 });
 
