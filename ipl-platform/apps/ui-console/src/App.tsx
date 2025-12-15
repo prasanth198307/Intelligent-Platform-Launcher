@@ -267,12 +267,22 @@ interface GeneratedArtifacts {
   crossDomain: CrossDomainFeatures;
 }
 
+interface TechComponent {
+  name: string;
+  description: string;
+}
+
 interface TechStackRecommendation {
   tier: string;
-  primaryDb: { name: string; description: string };
-  analyticsDb: { name: string; description: string };
-  queue: { name: string; description: string };
-  cache: { name: string; description: string };
+  primaryDb: TechComponent;
+  analyticsDb: TechComponent;
+  queue: TechComponent;
+  cache: TechComponent;
+  backend: TechComponent;
+  frontend: TechComponent;
+  streaming: TechComponent;
+  etl: TechComponent;
+  analytics: TechComponent;
 }
 
 interface AnalysisResult {
@@ -768,7 +778,11 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
-function getTechStackRecommendation(tier: string): TechStackRecommendation {
+function getTechStackRecommendation(tier: string, domainId: string = ''): TechStackRecommendation {
+  const isStreamingDomain = ['ami', 'telecom', 'manufacturing', 'logistics', 'agriculture'].includes(domainId);
+  const isTransactionalDomain = ['banking', 'insurance', 'retail', 'erp', 'accounting'].includes(domainId);
+  const isAnalyticsDomain = ['ami', 'telecom', 'media', 'manufacturing', 'healthcare'].includes(domainId);
+  
   switch (tier) {
     case 'Small':
       return {
@@ -776,7 +790,12 @@ function getTechStackRecommendation(tier: string): TechStackRecommendation {
         primaryDb: { name: 'PostgreSQL', description: 'Reliable RDBMS for transactional workloads' },
         analyticsDb: { name: 'Same DB (PostgreSQL)', description: 'Use same database for analytics queries' },
         queue: { name: 'PostgreSQL Queue / Redis', description: 'Simple queue using DB or Redis pub/sub' },
-        cache: { name: 'Redis', description: 'Single Redis instance for caching & sessions' }
+        cache: { name: 'Redis', description: 'Single Redis instance for caching & sessions' },
+        backend: { name: 'Python + FastAPI', description: 'Fast, modern Python framework for APIs' },
+        frontend: { name: 'React + Vite', description: 'Modern React with fast build tooling' },
+        streaming: { name: 'Not Required', description: 'Small scale - batch processing sufficient' },
+        etl: { name: 'Python + Pandas', description: 'Simple ETL with Python scripts' },
+        analytics: { name: 'Metabase', description: 'Open-source BI for dashboards & reports' }
       };
     case 'Medium':
       return {
@@ -784,7 +803,16 @@ function getTechStackRecommendation(tier: string): TechStackRecommendation {
         primaryDb: { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL for high-volume data' },
         analyticsDb: { name: 'PostgreSQL Views', description: 'Materialized views for reporting queries' },
         queue: { name: 'Redis Streams', description: 'Redis Streams for reliable message queuing' },
-        cache: { name: 'Redis', description: 'Redis cluster for distributed caching' }
+        cache: { name: 'Redis', description: 'Redis cluster for distributed caching' },
+        backend: isTransactionalDomain 
+          ? { name: 'Java + Spring Boot', description: 'Enterprise-grade framework for complex transactions' }
+          : { name: 'Node.js + NestJS', description: 'TypeScript framework for scalable APIs' },
+        frontend: { name: 'React + Next.js', description: 'Full-stack React with SSR capabilities' },
+        streaming: isStreamingDomain 
+          ? { name: 'Apache Kafka', description: 'Distributed streaming for real-time data ingestion' }
+          : { name: 'Redis Streams', description: 'Lightweight streaming with Redis' },
+        etl: { name: 'Apache Airflow', description: 'Workflow orchestration for data pipelines' },
+        analytics: { name: 'Apache Superset', description: 'Enterprise BI with advanced visualizations' }
       };
     case 'Large':
       return {
@@ -792,7 +820,18 @@ function getTechStackRecommendation(tier: string): TechStackRecommendation {
         primaryDb: { name: 'TimescaleDB Cluster', description: 'Distributed TimescaleDB for massive time-series' },
         analyticsDb: { name: 'ClickHouse', description: 'Column-store OLAP database for fast analytics' },
         queue: { name: 'Apache Kafka', description: 'Distributed streaming for high-throughput messaging' },
-        cache: { name: 'Redis Cluster', description: 'Redis Cluster for HA distributed caching' }
+        cache: { name: 'Redis Cluster', description: 'Redis Cluster for HA distributed caching' },
+        backend: isStreamingDomain
+          ? { name: 'Go + Fiber', description: 'High-performance Go for data ingestion services' }
+          : isTransactionalDomain
+            ? { name: 'Java + Spring Boot', description: 'Enterprise framework with transaction support' }
+            : { name: 'Node.js + Fastify', description: 'High-performance Node.js framework' },
+        frontend: { name: 'React + Next.js + TanStack', description: 'Optimized React with advanced data fetching' },
+        streaming: { name: 'Apache Kafka + Flink', description: 'Stream processing with Apache Flink' },
+        etl: { name: 'Apache Spark', description: 'Distributed data processing for large datasets' },
+        analytics: isAnalyticsDomain
+          ? { name: 'ClickHouse + Grafana', description: 'Real-time analytics with custom dashboards' }
+          : { name: 'Apache Superset + Cube.js', description: 'Semantic layer with BI visualization' }
       };
     case 'Massive':
     default:
@@ -801,7 +840,12 @@ function getTechStackRecommendation(tier: string): TechStackRecommendation {
         primaryDb: { name: 'Apache Cassandra', description: 'Distributed NoSQL for planet-scale writes' },
         analyticsDb: { name: 'ClickHouse Cluster', description: 'Distributed ClickHouse for petabyte analytics' },
         queue: { name: 'Kafka Cluster', description: 'Multi-broker Kafka for extreme throughput' },
-        cache: { name: 'Redis Cluster', description: 'Geo-distributed Redis Cluster' }
+        cache: { name: 'Redis Cluster', description: 'Geo-distributed Redis Cluster' },
+        backend: { name: 'Go + gRPC', description: 'High-performance microservices with gRPC' },
+        frontend: { name: 'React + Micro-frontends', description: 'Distributed frontend architecture' },
+        streaming: { name: 'Kafka + Flink + Spark Streaming', description: 'Lambda architecture for real-time + batch' },
+        etl: { name: 'Apache Spark Cluster', description: 'Distributed Spark for petabyte ETL' },
+        analytics: { name: 'Databricks / Snowflake', description: 'Cloud data platform for enterprise analytics' }
       };
   }
 }
@@ -1653,7 +1697,7 @@ export default function App() {
     const security = getSecurityRequirements(compliance);
     const clusterConfig = getClusterConfig(infrastructure);
     
-    const techStack = getTechStackRecommendation(infrastructure.tier);
+    const techStack = getTechStackRecommendation(infrastructure.tier, domain);
     
     const analysisResult: AnalysisResult = {
       domain: DOMAINS.find(d => d.id === domain)?.name || domain,
@@ -2436,7 +2480,28 @@ export default function App() {
                       </div>
                       {expandedSections.has('tech-stack') && (
                         <div className="section-content">
-                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                          <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Application Framework</h4>
+                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                            <div className="tech-stack-card" style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🔧</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Backend</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#10b981', marginBottom: '4px' }}>{result.techStack.backend.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.backend.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(6, 182, 212, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🖥️</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Frontend</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#06b6d4', marginBottom: '4px' }}>{result.techStack.frontend.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.frontend.description}</div>
+                            </div>
+                          </div>
+
+                          <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data Layer</h4>
+                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                             <div className="tech-stack-card" style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                 <span style={{ fontSize: '1.5rem' }}>🗄️</span>
@@ -2468,6 +2533,34 @@ export default function App() {
                               </div>
                               <div style={{ fontSize: '18px', fontWeight: 700, color: '#ef4444', marginBottom: '4px' }}>{result.techStack.cache.name}</div>
                               <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.cache.description}</div>
+                            </div>
+                          </div>
+
+                          <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data Processing & Analytics</h4>
+                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                            <div className="tech-stack-card" style={{ background: 'rgba(236, 72, 153, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🌊</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Streaming Platform</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#ec4899', marginBottom: '4px' }}>{result.techStack.streaming.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.streaming.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(168, 85, 247, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🔄</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>ETL / Data Pipeline</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#a855f7', marginBottom: '4px' }}>{result.techStack.etl.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.etl.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(251, 191, 36, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>📈</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Analytics / BI</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fbbf24', marginBottom: '4px' }}>{result.techStack.analytics.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.analytics.description}</div>
                             </div>
                           </div>
                         </div>
