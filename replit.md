@@ -95,6 +95,12 @@ npm run dev
 - AI: OpenAI GPT-4o-mini (configurable)
 
 ## Recent Changes
+- December 15, 2025: Added comprehensive specification features:
+  - Multi-tenant configuration options (UI only vs UI+DB with schema/row-level isolation)
+  - Multi-lingual support with 10 language options and level selection
+  - Payment and 3rd party integration detection per domain (Stripe, Plaid, Twilio, etc.)
+  - Source code scaffolding structure preview (folder tree and key files)
+  - Configuration options display in generated artifacts
 - December 15, 2025: Added AI Code Generation feature with LLM-ready backend service (port 8080), generates Modules, Screens, DB Schema, and Test Cases
 - December 15, 2025: Added new domains (CIS, CRM, IVRS, Contact Center), dynamic field labels, domain-specific standards, and deployment type selector in input panel
 - December 15, 2025: Enhanced cost breakdown UI to display all components (Compute, Database, Cache, Queue, Storage, Network) with pricing assumptions note
