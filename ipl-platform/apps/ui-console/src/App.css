@@ -1378,6 +1378,8 @@
   height: 40px;
   border-radius: 8px;
   flex-shrink: 0;
+  background: transparent;
+  mix-blend-mode: lighten;
 }
 
 .header-text h1 {
