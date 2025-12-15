@@ -1897,8 +1897,10 @@ export default function App() {
         <div className="header-content">
           <div className="header-title">
             <img src="/logo.png" alt="IPL Logo" className="header-logo" />
-            <h1>Intelligent Platform Launcher</h1>
-            <p>Domain-agnostic • Database-agnostic • Multi-Cloud • On-Prem Ready</p>
+            <div className="header-text">
+              <h1>Intelligent Platform Launcher</h1>
+              <p>Domain-agnostic • Database-agnostic • Multi-Cloud • On-Prem Ready</p>
+            </div>
           </div>
           <div className="workspace-controls">
             {currentWorkspaceId && (
