@@ -1387,6 +1387,7 @@ export default function App() {
   const [generatingArtifacts, setGeneratingArtifacts] = useState(false);
   const [aiServiceStatus, setAiServiceStatus] = useState<'unknown' | 'connected' | 'mock' | 'error'>('unknown');
   const [specPhase, setSpecPhase] = useState<'configure' | 'preview' | 'finalize'>('configure');
+  const [uploadingDocument, setUploadingDocument] = useState(false);
   
   const [multiTenantEnabled, setMultiTenantEnabled] = useState(false);
   const [multiTenantLevel, setMultiTenantLevel] = useState<'ui-only' | 'ui-and-db'>('ui-and-db');
@@ -1859,6 +1860,52 @@ export default function App() {
     );
   };
 
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const validTypes = ['.pdf', '.docx', '.txt', '.md'];
+    const fileName = file.name.toLowerCase();
+    const isValid = validTypes.some(ext => fileName.endsWith(ext));
+    
+    if (!isValid) {
+      alert('Please upload a PDF, Word (.docx), or text file.');
+      return;
+    }
+    
+    setUploadingDocument(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${API_BASE_URL}/api/parse-document`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to parse document');
+      }
+      
+      const data = await response.json();
+      
+      if (data.ok && data.text) {
+        setRequirements(data.text);
+        alert(`Document loaded successfully!\nFile: ${data.fileName}\nCharacters extracted: ${data.charCount.toLocaleString()}`);
+      } else {
+        throw new Error('No text extracted from document');
+      }
+    } catch (err: any) {
+      console.error('Document upload failed:', err);
+      alert(`Failed to parse document: ${err.message}`);
+    }
+    
+    setUploadingDocument(false);
+    event.target.value = '';
+  };
+
   const analyzeRequirements = async () => {
     setLoading(true);
     
@@ -2003,11 +2050,32 @@ export default function App() {
           <h2>Build Your Application</h2>
 
           <div className="form-group">
-            <label>Requirements (Natural Language)</label>
+            <div className="requirements-header">
+              <label>Requirements (Natural Language)</label>
+              <div className="upload-btn-wrapper">
+                <input
+                  type="file"
+                  id="document-upload"
+                  accept=".pdf,.docx,.txt,.md"
+                  onChange={handleDocumentUpload}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="upload-doc-btn"
+                  onClick={() => document.getElementById('document-upload')?.click()}
+                  disabled={uploadingDocument}
+                >
+                  {uploadingDocument ? '⏳ Parsing...' : '📄 Upload Document'}
+                </button>
+              </div>
+            </div>
             <textarea
               value={requirements}
               onChange={e => setRequirements(e.target.value)}
-              placeholder="Example: Build an AMI billing system for 5 million meters with 15-minute readings, slab-based tariffs, WhatsApp notifications, and DPDP compliance..."
+              placeholder="Example: Build an AMI billing system for 5 million meters with 15-minute readings, slab-based tariffs, WhatsApp notifications, and DPDP compliance...
+
+Or upload a requirements document (PDF, Word, TXT) using the button above."
             />
           </div>
 

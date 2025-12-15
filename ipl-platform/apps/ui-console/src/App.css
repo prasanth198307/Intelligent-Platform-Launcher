@@ -86,6 +86,41 @@
   min-height: 120px;
 }
 
+.requirements-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.requirements-header label {
+  margin-bottom: 0;
+}
+
+.upload-doc-btn {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 6px;
+  color: #10b981;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.upload-doc-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3));
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.upload-doc-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .advanced-options-toggle {
   display: flex;
   align-items: center;
