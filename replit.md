@@ -103,7 +103,7 @@ npm run dev
 - AI: OpenAI GPT-4o-mini (configurable)
 
 ## Recent Changes
-- December 15, 2025: Added new domains - Legal & Law Firms (⚖️), Accounting & Finance (📊), and ERP (🏢) with appropriate compliance standards (ABA, GAAP, IFRS, ISO 9001)
+- December 15, 2025: Expanded to 26 industry domains including Education, Real Estate, Logistics, Hospitality, Government, Telecom, Pharma, Agriculture, HR, Travel, Media, Non-profit with industry-specific compliance standards
 - December 15, 2025: Added 10 cross-domain features:
   - CI/CD Pipeline (GitHub Actions, GitLab CI, Jenkins, Azure DevOps, CircleCI)
   - API Gateway (Kong, AWS API Gateway, Azure APIM, Nginx, Envoy)
