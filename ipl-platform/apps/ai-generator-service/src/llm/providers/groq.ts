@@ -98,23 +98,37 @@ Return JSON: { "tables": [{ "name": string, "columns": [{ "name": string, "type"
 Compliance requirements: ${context.compliance.join(", ") || "standard"}.
 Return JSON: { "tests": [{ "name": string, "type": "unit"|"integration"|"e2e"|"security", "coverage": string[] }] }`,
 
-    all: `Generate complete specifications for a ${context.domain} application.
-Entities: ${context.entityCount}, Daily transactions: ${context.transactionsPerDay}
-Database: ${context.database}, Compliance: ${context.compliance.join(", ") || "standard"}
-Deployment: ${context.deploymentType}
+    all: `You are building a ${context.domain.toUpperCase()} application. DOMAIN: ${context.domain.toUpperCase()}.
+Database: ${context.database}. Compliance: ${context.compliance.join(", ") || "standard"}.
 
-REQUIREMENTS TO ANALYZE:
-"${context.requirements || ''}"
+User Requirements: "${context.requirements || 'No specific requirements provided'}"
 
-Based on these requirements, generate modules, screens, tables, and tests.
+Generate modules, screens, tables, and tests for this ${context.domain.toUpperCase()} domain.
 
-For tables, ALWAYS include RBAC tables (users, roles, permissions, role_permissions, user_roles, audit_logs).
-Then generate domain-specific tables based on what the requirements describe:
-- Analyze keywords in requirements (patients, meters, orders, products, etc.)
-- Create appropriate tables with proper foreign key relationships
-- Include all columns needed for the functionality described
+TABLES MUST INCLUDE:
+1. RBAC tables: users, roles, permissions, role_permissions, user_roles, audit_logs
 
-Return JSON with these sections:
+2. Domain-specific tables based on "${context.domain}":
+${context.domain === 'healthcare' ? `   - patients (id, mrn, first_name, last_name, date_of_birth, gender, phone, email, address, insurance_id, created_at, updated_at)
+   - encounters (id, patient_id, provider_id, encounter_date, type, chief_complaint, diagnosis_codes, notes)
+   - case_sheets (id, patient_id, provider_id, case_number, case_date, chief_complaint, diagnosis, treatment_plan, status)
+   - medicines (id, name, generic_name, category, dosage_form, strength, manufacturer, is_active)
+   - prescriptions (id, case_sheet_id, patient_id, medicine_id, dosage, frequency, duration, instructions, prescribed_by)
+   - patient_history (id, patient_id, history_type, description, onset_date, is_current, notes)
+   - lab_results (id, patient_id, test_name, result_value, unit, reference_range, result_date)
+   - appointments (id, patient_id, provider_id, appointment_date, status, notes)` : 
+context.domain === 'ami' ? `   - meters (id, serial_number, meter_type, manufacturer, installation_date, location_lat, location_lng, status)
+   - meter_readings (id, meter_id, reading_time, value_kwh, quality_flag)
+   - customers (id, account_number, name, address, phone, email, meter_id)
+   - billing_cycles (id, customer_id, start_date, end_date, consumption, amount, status)
+   - outages (id, meter_id, start_time, end_time, cause, status)` :
+context.domain === 'banking' ? `   - accounts (id, account_number, customer_id, account_type, balance, currency, status)
+   - customers (id, name, email, phone, kyc_status, created_at)
+   - transactions (id, account_id, transaction_type, amount, timestamp, reference)
+   - loans (id, customer_id, amount, interest_rate, term_months, status)` :
+`   - Generate appropriate tables for ${context.domain} domain based on the requirements`}
+
+Return JSON:
 {
   "modules": [{ "name": string, "description": string, "priority": "core"|"standard" }],
   "screens": [{ "name": string, "type": string, "description": string }],
