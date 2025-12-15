@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
+import ArchitectureDiagram from "./ArchitectureDiagram";
 
 const API_BASE_URL = '';
 
@@ -962,6 +963,97 @@ function getSecurityRequirements(compliance: string[]): SecurityReq[] {
   return reqs;
 }
 
+interface HardwareRecommendation {
+  component: string;
+  count: number;
+  awsInstance: string;
+  azureInstance: string;
+  gcpInstance: string;
+  specs: string;
+}
+
+function getHardwareRecommendations(infra: InfraSpec): HardwareRecommendation[] {
+  const recommendations: HardwareRecommendation[] = [];
+  
+  const appInstances: Record<string, { aws: string; azure: string; gcp: string }> = {
+    '2-8': { aws: 't3.large', azure: 'Standard_D2s_v3', gcp: 'e2-standard-2' },
+    '4-8': { aws: 'm5.xlarge', azure: 'Standard_D4s_v3', gcp: 'e2-standard-4' },
+    '8-16': { aws: 'm5.2xlarge', azure: 'Standard_D8s_v3', gcp: 'e2-standard-8' },
+    '16-32': { aws: 'm5.4xlarge', azure: 'Standard_D16s_v3', gcp: 'e2-standard-16' },
+  };
+  
+  const dbInstances: Record<string, { aws: string; azure: string; gcp: string }> = {
+    '2-16': { aws: 'db.t3.xlarge', azure: 'GP_Gen5_2', gcp: 'db-custom-2-16384' },
+    '8-64': { aws: 'db.r5.2xlarge', azure: 'GP_Gen5_8', gcp: 'db-custom-8-65536' },
+    '16-128': { aws: 'db.r5.4xlarge', azure: 'MO_Gen5_16', gcp: 'db-custom-16-131072' },
+  };
+  
+  const cacheInstances: Record<number, { aws: string; azure: string; gcp: string }> = {
+    4: { aws: 'cache.r5.large', azure: 'C3 Standard', gcp: 'M1 (4GB)' },
+    16: { aws: 'cache.r5.xlarge', azure: 'P2 Premium', gcp: 'M2 (16GB)' },
+    32: { aws: 'cache.r5.2xlarge', azure: 'P3 Premium', gcp: 'M3 (32GB)' },
+    64: { aws: 'cache.r5.4xlarge', azure: 'P4 Premium', gcp: 'M4 (64GB)' },
+  };
+  
+  const appKey = `${infra.compute.appServerVCPU}-${infra.compute.appServerRAM}`;
+  const appInst = appInstances[appKey] || appInstances['4-8'];
+  recommendations.push({
+    component: 'App Servers',
+    count: infra.compute.appServers,
+    awsInstance: appInst.aws,
+    azureInstance: appInst.azure,
+    gcpInstance: appInst.gcp,
+    specs: `${infra.compute.appServerVCPU} vCPU, ${infra.compute.appServerRAM} GB RAM`
+  });
+  
+  const dbKey = `${infra.compute.dbVCPU}-${infra.compute.dbRAM}`;
+  const dbInst = dbInstances[dbKey] || dbInstances['8-64'];
+  recommendations.push({
+    component: 'Database Primary',
+    count: infra.compute.dbPrimary,
+    awsInstance: dbInst.aws,
+    azureInstance: dbInst.azure,
+    gcpInstance: dbInst.gcp,
+    specs: `${infra.compute.dbVCPU} vCPU, ${infra.compute.dbRAM} GB RAM`
+  });
+  
+  if (infra.compute.dbReplicas > 0) {
+    recommendations.push({
+      component: 'Database Replicas',
+      count: infra.compute.dbReplicas,
+      awsInstance: dbInst.aws,
+      azureInstance: dbInst.azure,
+      gcpInstance: dbInst.gcp,
+      specs: `${infra.compute.dbVCPU} vCPU, ${infra.compute.dbRAM} GB RAM (Read-only)`
+    });
+  }
+  
+  if (infra.compute.cacheNodes > 0) {
+    const cacheInst = cacheInstances[infra.compute.cacheRAM] || cacheInstances[16];
+    recommendations.push({
+      component: 'Redis Cache',
+      count: infra.compute.cacheNodes,
+      awsInstance: cacheInst.aws,
+      azureInstance: cacheInst.azure,
+      gcpInstance: cacheInst.gcp,
+      specs: `${infra.compute.cacheRAM} GB RAM per node`
+    });
+  }
+  
+  if (infra.compute.queueBrokers > 0) {
+    recommendations.push({
+      component: 'Message Queue',
+      count: infra.compute.queueBrokers,
+      awsInstance: 'mq.m5.large / MSK',
+      azureInstance: 'Service Bus Premium',
+      gcpInstance: 'Cloud Pub/Sub',
+      specs: `${infra.compute.queueVCPU} vCPU, ${infra.compute.queueRAM} GB RAM`
+    });
+  }
+  
+  return recommendations;
+}
+
 function getClusterConfig(infra: InfraSpec): ClusterConfig {
   const tierConfigs: Record<string, ClusterConfig> = {
     'Small': {
@@ -1035,6 +1127,7 @@ export default function App() {
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+  const [diagramView, setDiagramView] = useState<'visual' | 'ascii'>('visual');
 
   useEffect(() => {
     loadWorkspaces();
@@ -1892,10 +1985,59 @@ export default function App() {
               </div>
 
               <div className="result-card">
-                <h3><span className="icon">🏗️</span> Architecture Diagram</h3>
-                <div className="architecture-diagram">
-                  {result.architecture}
+                <h3><span className="icon">🖥️</span> Hardware Recommendations</h3>
+                <div className="hardware-specs">
+                  {getHardwareRecommendations(result.infrastructure).map((hw, idx) => (
+                    <div key={idx} className="hardware-card">
+                      <h4>{hw.component} ({hw.count}x)</h4>
+                      <div className="hardware-row">
+                        <span className="label">Specs:</span>
+                        <span className="value">{hw.specs}</span>
+                      </div>
+                      <div className="hardware-row">
+                        <span className="label">AWS:</span>
+                        <span className="instance-type">{hw.awsInstance}</span>
+                      </div>
+                      <div className="hardware-row">
+                        <span className="label">Azure:</span>
+                        <span className="instance-type">{hw.azureInstance}</span>
+                      </div>
+                      <div className="hardware-row">
+                        <span className="label">GCP:</span>
+                        <span className="instance-type">{hw.gcpInstance}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🏗️</span> Architecture Diagram</h3>
+                <div className="diagram-controls">
+                  <button 
+                    className={`view-toggle ${diagramView === 'visual' ? 'active' : ''}`}
+                    onClick={() => setDiagramView('visual')}
+                  >
+                    Visual
+                  </button>
+                  <button 
+                    className={`view-toggle ${diagramView === 'ascii' ? 'active' : ''}`}
+                    onClick={() => setDiagramView('ascii')}
+                  >
+                    ASCII
+                  </button>
+                </div>
+                {diagramView === 'visual' ? (
+                  <ArchitectureDiagram 
+                    infra={result.infrastructure} 
+                    database={selectedDb}
+                    cloud={selectedCloud}
+                  />
+                ) : (
+                  <div className="architecture-diagram">
+                    {result.architecture}
+                  </div>
+                )}
               </div>
 
               <div className="result-card">
@@ -1980,6 +2122,60 @@ export default function App() {
                       <li>Remote updates</li>
                     </ul>
                   </div>
+                </div>
+              </div>
+
+              <div className="result-card export-section">
+                <h3><span className="icon">📥</span> Export Specifications</h3>
+                <div className="export-buttons">
+                  <button 
+                    className="export-btn primary"
+                    onClick={() => {
+                      const exportData = {
+                        project: {
+                          domain: DOMAINS.find(d => d.id === domain)?.name,
+                          database: selectedDb,
+                          cloud: selectedCloud,
+                          deploymentType,
+                          compliance: compliance.map(c => COMPLIANCE_OPTIONS.find(opt => opt.id === c)?.name)
+                        },
+                        infrastructure: result.infrastructure,
+                        hardware: getHardwareRecommendations(result.infrastructure),
+                        costs: result.costs,
+                        security: result.security,
+                        cluster: result.clusterConfig,
+                        generatedAt: new Date().toISOString()
+                      };
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `ipl-spec-${domain}-${Date.now()}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    📄 Export JSON
+                  </button>
+                  <button 
+                    className="export-btn"
+                    onClick={() => {
+                      const hw = getHardwareRecommendations(result.infrastructure);
+                      let csv = 'Component,Count,Specs,AWS Instance,Azure Instance,GCP Instance\n';
+                      hw.forEach(h => {
+                        csv += `"${h.component}",${h.count},"${h.specs}","${h.awsInstance}","${h.azureInstance}","${h.gcpInstance}"\n`;
+                      });
+                      const blob = new Blob([csv], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `ipl-hardware-${domain}-${Date.now()}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    📊 Export Hardware CSV
+                  </button>
                 </div>
               </div>
 

@@ -103,6 +103,7 @@ npm run dev
 - AI: OpenAI GPT-4o-mini (configurable)
 
 ## Recent Changes
+- December 15, 2025: Added visual architecture diagrams (React Flow), hardware recommendations with specific cloud instance types (AWS/Azure/GCP), and export functionality (JSON/CSV)
 - December 15, 2025: Expanded to 26 industry domains including Education, Real Estate, Logistics, Hospitality, Government, Telecom, Pharma, Agriculture, HR, Travel, Media, Non-profit with industry-specific compliance standards
 - December 15, 2025: Added 10 cross-domain features:
   - CI/CD Pipeline (GitHub Actions, GitLab CI, Jenkins, Azure DevOps, CircleCI)

@@ -1562,3 +1562,133 @@
   opacity: 0.9;
   transform: translateY(-1px);
 }
+
+/* Diagram Controls */
+.diagram-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.view-toggle {
+  padding: 8px 16px;
+  background: rgba(30, 30, 60, 0.8);
+  border: 1px solid rgba(100, 100, 200, 0.3);
+  border-radius: 6px;
+  color: #a0a0c0;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.view-toggle:hover {
+  border-color: #8b5cf6;
+  color: #e0e0e0;
+}
+
+.view-toggle.active {
+  background: linear-gradient(135deg, #4a4af0, #8b5cf6);
+  border-color: transparent;
+  color: white;
+}
+
+/* Hardware Specs */
+.hardware-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.hardware-card {
+  background: rgba(20, 20, 50, 0.6);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid rgba(100, 100, 200, 0.2);
+}
+
+.hardware-card h4 {
+  color: #8b5cf6;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hardware-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(100, 100, 200, 0.1);
+  font-size: 0.9rem;
+}
+
+.hardware-row:last-child {
+  border-bottom: none;
+}
+
+.hardware-row .label {
+  color: #a0a0c0;
+}
+
+.hardware-row .value {
+  color: #e0e0e0;
+  font-family: monospace;
+}
+
+.hardware-row .instance-type {
+  color: #06b6d4;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+/* Export Section */
+.export-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(20, 20, 50, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(100, 100, 200, 0.2);
+}
+
+.export-section h3 {
+  color: #8b5cf6;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  padding: 12px 24px;
+  background: rgba(30, 30, 60, 0.8);
+  border: 1px solid rgba(100, 100, 200, 0.3);
+  border-radius: 8px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-btn:hover {
+  background: rgba(74, 74, 240, 0.2);
+  border-color: #4a4af0;
+}
+
+.export-btn.primary {
+  background: linear-gradient(135deg, #06b6d4, #4a4af0);
+  border: none;
+  font-weight: 600;
+}
+
+.export-btn.primary:hover {
+  opacity: 0.9;
+}
