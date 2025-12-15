@@ -96,14 +96,140 @@ interface AnalysisResult {
   deploymentFormats: string[];
 }
 
-const DOMAINS = [
-  { id: 'ami', name: 'AMI / Smart Metering', icon: '⚡' },
-  { id: 'banking', name: 'Banking & Finance', icon: '🏦' },
-  { id: 'insurance', name: 'Insurance', icon: '🛡️' },
-  { id: 'healthcare', name: 'Healthcare', icon: '🏥' },
-  { id: 'manufacturing', name: 'Manufacturing', icon: '🏭' },
-  { id: 'retail', name: 'Retail & E-commerce', icon: '🛒' },
-  { id: 'custom', name: 'Custom Domain', icon: '🔧' },
+interface DomainConfig {
+  id: string;
+  name: string;
+  icon: string;
+  entityLabel: string;
+  entityPlaceholder: string;
+  transactionLabel: string;
+  transactionPlaceholder: string;
+  defaultCompliance: string[];
+  standards: string[];
+}
+
+const DOMAINS: DomainConfig[] = [
+  { 
+    id: 'ami', 
+    name: 'AMI / Smart Metering', 
+    icon: '⚡',
+    entityLabel: 'Number of Devices / Meters',
+    entityPlaceholder: 'e.g., 5000000',
+    transactionLabel: 'Readings per Day (per meter)',
+    transactionPlaceholder: 'e.g., 96 (every 15 min)',
+    defaultCompliance: ['iso27001'],
+    standards: ['iec62056', 'dlms', 'ieee2030']
+  },
+  { 
+    id: 'cis', 
+    name: 'CIS (Customer Information)', 
+    icon: '👥',
+    entityLabel: 'Number of Customer Accounts',
+    entityPlaceholder: 'e.g., 1000000',
+    transactionLabel: 'Transactions per Day',
+    transactionPlaceholder: 'e.g., 50000',
+    defaultCompliance: ['soc2', 'iso27001'],
+    standards: ['naesb', 'nerccip']
+  },
+  { 
+    id: 'crm', 
+    name: 'CRM (Customer Relationship)', 
+    icon: '🤝',
+    entityLabel: 'Number of Customers / Contacts',
+    entityPlaceholder: 'e.g., 500000',
+    transactionLabel: 'Interactions per Day',
+    transactionPlaceholder: 'e.g., 10000',
+    defaultCompliance: ['gdpr', 'soc2'],
+    standards: []
+  },
+  { 
+    id: 'ivrs', 
+    name: 'IVRS (Voice Response)', 
+    icon: '📞',
+    entityLabel: 'Concurrent Call Capacity',
+    entityPlaceholder: 'e.g., 500',
+    transactionLabel: 'Calls per Day',
+    transactionPlaceholder: 'e.g., 50000',
+    defaultCompliance: ['soc2'],
+    standards: ['tcpa', 'fcc']
+  },
+  { 
+    id: 'contactcenter', 
+    name: 'Contact Center / CCAI', 
+    icon: '🎧',
+    entityLabel: 'Number of Agents',
+    entityPlaceholder: 'e.g., 200',
+    transactionLabel: 'Interactions per Day',
+    transactionPlaceholder: 'e.g., 25000',
+    defaultCompliance: ['gdpr', 'soc2'],
+    standards: ['tcpa', 'fcc']
+  },
+  { 
+    id: 'banking', 
+    name: 'Banking & Finance', 
+    icon: '🏦',
+    entityLabel: 'Number of Accounts',
+    entityPlaceholder: 'e.g., 1000000',
+    transactionLabel: 'Transactions per Day',
+    transactionPlaceholder: 'e.g., 500000',
+    defaultCompliance: ['pci', 'soc2'],
+    standards: ['sox', 'glba', 'basel3']
+  },
+  { 
+    id: 'insurance', 
+    name: 'Insurance', 
+    icon: '🛡️',
+    entityLabel: 'Number of Policies',
+    entityPlaceholder: 'e.g., 500000',
+    transactionLabel: 'Claims / Transactions per Day',
+    transactionPlaceholder: 'e.g., 5000',
+    defaultCompliance: ['soc2', 'iso27001'],
+    standards: ['naic', 'ifrs17']
+  },
+  { 
+    id: 'healthcare', 
+    name: 'Healthcare', 
+    icon: '🏥',
+    entityLabel: 'Number of Patients',
+    entityPlaceholder: 'e.g., 500000',
+    transactionLabel: 'Records / Encounters per Day',
+    transactionPlaceholder: 'e.g., 10000',
+    defaultCompliance: ['hipaa'],
+    standards: ['hl7', 'fhir', 'dicom']
+  },
+  { 
+    id: 'manufacturing', 
+    name: 'Manufacturing', 
+    icon: '🏭',
+    entityLabel: 'Number of Machines / Sensors',
+    entityPlaceholder: 'e.g., 10000',
+    transactionLabel: 'Data Points per Day',
+    transactionPlaceholder: 'e.g., 1000000',
+    defaultCompliance: ['iso27001'],
+    standards: ['isa95', 'opcua']
+  },
+  { 
+    id: 'retail', 
+    name: 'Retail & E-commerce', 
+    icon: '🛒',
+    entityLabel: 'Number of Products / SKUs',
+    entityPlaceholder: 'e.g., 100000',
+    transactionLabel: 'Orders per Day',
+    transactionPlaceholder: 'e.g., 50000',
+    defaultCompliance: ['pci', 'gdpr'],
+    standards: []
+  },
+  { 
+    id: 'custom', 
+    name: 'Custom Domain', 
+    icon: '🔧',
+    entityLabel: 'Number of Entities',
+    entityPlaceholder: 'e.g., 100000',
+    transactionLabel: 'Transactions per Day',
+    transactionPlaceholder: 'e.g., 50000',
+    defaultCompliance: [],
+    standards: []
+  },
 ];
 
 const DATABASES = [
@@ -124,13 +250,40 @@ const CLOUD_PROVIDERS = [
 ];
 
 const COMPLIANCE_OPTIONS = [
-  { id: 'hipaa', name: 'HIPAA' },
-  { id: 'gdpr', name: 'GDPR' },
-  { id: 'pci', name: 'PCI-DSS' },
-  { id: 'soc2', name: 'SOC 2' },
-  { id: 'dpdp', name: 'DPDP (India)' },
-  { id: 'iso27001', name: 'ISO 27001' },
+  { id: 'hipaa', name: 'HIPAA', category: 'general' },
+  { id: 'gdpr', name: 'GDPR', category: 'general' },
+  { id: 'pci', name: 'PCI-DSS', category: 'general' },
+  { id: 'soc2', name: 'SOC 2', category: 'general' },
+  { id: 'dpdp', name: 'DPDP (India)', category: 'general' },
+  { id: 'iso27001', name: 'ISO 27001', category: 'general' },
+  { id: 'iec62056', name: 'IEC 62056', category: 'ami' },
+  { id: 'dlms', name: 'DLMS/COSEM', category: 'ami' },
+  { id: 'ieee2030', name: 'IEEE 2030.5', category: 'ami' },
+  { id: 'naesb', name: 'NAESB', category: 'utility' },
+  { id: 'nerccip', name: 'NERC CIP', category: 'utility' },
+  { id: 'sox', name: 'SOX', category: 'banking' },
+  { id: 'glba', name: 'GLBA', category: 'banking' },
+  { id: 'basel3', name: 'Basel III', category: 'banking' },
+  { id: 'naic', name: 'NAIC', category: 'insurance' },
+  { id: 'ifrs17', name: 'IFRS 17', category: 'insurance' },
+  { id: 'hl7', name: 'HL7', category: 'healthcare' },
+  { id: 'fhir', name: 'FHIR', category: 'healthcare' },
+  { id: 'dicom', name: 'DICOM', category: 'healthcare' },
+  { id: 'isa95', name: 'ISA-95', category: 'manufacturing' },
+  { id: 'opcua', name: 'OPC-UA', category: 'manufacturing' },
+  { id: 'tcpa', name: 'TCPA', category: 'telecom' },
+  { id: 'fcc', name: 'FCC Regulations', category: 'telecom' },
 ];
+
+function getComplianceForDomain(domainId: string): typeof COMPLIANCE_OPTIONS {
+  const domainConfig = DOMAINS.find(d => d.id === domainId);
+  const domainStandards = domainConfig?.standards || [];
+  
+  const generalOptions = COMPLIANCE_OPTIONS.filter(opt => opt.category === 'general');
+  const domainSpecificOptions = COMPLIANCE_OPTIONS.filter(opt => domainStandards.includes(opt.id));
+  
+  return [...generalOptions, ...domainSpecificOptions];
+}
 
 function calculateInfrastructure(deviceCount: number, readingsPerDay: number): InfraSpec {
   const dailyRecords = deviceCount * readingsPerDay;
@@ -585,22 +738,22 @@ export default function App() {
           </div>
 
           <div className="form-group">
-            <label>Number of Devices / Meters</label>
+            <label>{DOMAINS.find(d => d.id === domain)?.entityLabel || 'Number of Entities'}</label>
             <input
               type="number"
               value={deviceCount}
               onChange={e => setDeviceCount(e.target.value)}
-              placeholder="e.g., 5000000"
+              placeholder={DOMAINS.find(d => d.id === domain)?.entityPlaceholder || 'e.g., 100000'}
             />
           </div>
 
           <div className="form-group">
-            <label>Readings / Transactions per Day (per device)</label>
+            <label>{DOMAINS.find(d => d.id === domain)?.transactionLabel || 'Transactions per Day'}</label>
             <input
               type="number"
               value={readingsPerDay}
               onChange={e => setReadingsPerDay(e.target.value)}
-              placeholder="e.g., 96 (every 15 min)"
+              placeholder={DOMAINS.find(d => d.id === domain)?.transactionPlaceholder || 'e.g., 50000'}
             />
           </div>
 
@@ -637,9 +790,9 @@ export default function App() {
           </div>
 
           <div className="form-group">
-            <label>Compliance Requirements</label>
+            <label>Compliance & Standards</label>
             <div className="checkbox-group">
-              {COMPLIANCE_OPTIONS.map(opt => (
+              {getComplianceForDomain(domain).map(opt => (
                 <label key={opt.id} className="checkbox-label">
                   <input
                     type="checkbox"
@@ -649,6 +802,30 @@ export default function App() {
                   {opt.name}
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Deployment Type</label>
+            <div className="deployment-type-selector">
+              <div 
+                className={`deploy-type-chip ${deploymentType === 'cloud' ? 'selected' : ''}`}
+                onClick={() => setDeploymentType('cloud')}
+              >
+                <span>☁️</span> Cloud
+              </div>
+              <div 
+                className={`deploy-type-chip ${deploymentType === 'onprem' ? 'selected' : ''}`}
+                onClick={() => setDeploymentType('onprem')}
+              >
+                <span>🏢</span> On-Prem
+              </div>
+              <div 
+                className={`deploy-type-chip ${deploymentType === 'hybrid' ? 'selected' : ''}`}
+                onClick={() => setDeploymentType('hybrid')}
+              >
+                <span>🔄</span> Hybrid
+              </div>
             </div>
           </div>
 
