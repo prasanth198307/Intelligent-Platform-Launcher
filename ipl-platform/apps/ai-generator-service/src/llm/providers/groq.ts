@@ -74,6 +74,26 @@ Return JSON: { "screens": [{ "name": string, "type": "list"|"form"|"detail"|"cha
 
     tables: `Generate database tables for a ${context.domain} application using ${context.database}.
 Include appropriate data types for the database.
+
+ALWAYS include these RBAC tables:
+- users (id, email, password_hash, full_name, is_active, last_login, created_at, updated_at)
+- roles (id, name, description, is_system, created_at)
+- permissions (id, name, resource, action, description)
+- role_permissions (id, role_id FK roles.id, permission_id FK permissions.id)
+- user_roles (id, user_id FK users.id, role_id FK roles.id, assigned_at, assigned_by FK users.id)
+- audit_logs (id, user_id FK users.id, action, entity_type, entity_id, changes jsonb, ip_address, created_at)
+
+${context.domain === 'healthcare' ? `For healthcare domain, MUST include:
+- patients (id, mrn, first_name, last_name, date_of_birth, gender, ssn_encrypted, address, phone, email, insurance_id, created_at, updated_at)
+- encounters (id, patient_id FK patients.id, provider_id FK users.id, encounter_date, type, chief_complaint, diagnosis_codes jsonb, notes)
+- case_sheets (id, patient_id FK patients.id, provider_id FK users.id, case_number unique, case_date, chief_complaint, present_illness, examination_findings, diagnosis, treatment_plan, follow_up_date, status, created_at, updated_at)
+- medicines (id, name, generic_name, category, dosage_form, strength, manufacturer, is_active)
+- prescriptions (id, case_sheet_id FK case_sheets.id, patient_id FK patients.id, medicine_id FK medicines.id, dosage, frequency, duration, instructions, prescribed_by FK users.id, prescribed_at)
+- patient_history (id, patient_id FK patients.id, history_type, description, onset_date, is_current, notes, recorded_by FK users.id, recorded_at)
+- patient_documents (id, patient_id FK patients.id, document_type, file_name, file_path, mime_type, file_size_bytes, upload_date, source, ocr_status, ocr_text)
+- lab_results (id, patient_id FK patients.id, encounter_id FK encounters.id, test_name, result_value, unit, reference_range, abnormal_flag, result_date)
+- medications (id, patient_id FK patients.id, drug_name, dosage, frequency, prescriber_id FK users.id, start_date, end_date, status)
+` : ''}
 Return JSON: { "tables": [{ "name": string, "columns": [{ "name": string, "type": string, "primary"?: boolean, "unique"?: boolean, "foreignKey"?: string }] }] }`,
 
     tests: `Generate test cases for a ${context.domain} application.
@@ -85,11 +105,18 @@ Entities: ${context.entityCount}, Daily transactions: ${context.transactionsPerD
 Database: ${context.database}, Compliance: ${context.compliance.join(", ") || "standard"}
 Deployment: ${context.deploymentType}
 
+For tables, ALWAYS include these RBAC tables:
+- users, roles, permissions, role_permissions, user_roles, audit_logs
+
+${context.domain === 'healthcare' ? `For healthcare domain, MUST include these tables:
+- patients, encounters, case_sheets, medicines, prescriptions, patient_history, patient_documents, lab_results, medications
+` : ''}
+
 Return JSON with these sections:
 {
   "modules": [{ "name": string, "description": string, "priority": "core"|"standard" }],
   "screens": [{ "name": string, "type": string, "description": string }],
-  "tables": [{ "name": string, "columns": [{ "name": string, "type": string }] }],
+  "tables": [{ "name": string, "columns": [{ "name": string, "type": string, "primary"?: boolean, "unique"?: boolean, "foreignKey"?: string }] }],
   "tests": [{ "name": string, "type": string, "coverage": string[] }]
 }`
   };
