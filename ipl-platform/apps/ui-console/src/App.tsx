@@ -2192,6 +2192,16 @@ export default function App() {
                   <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Multi-Lingual</div>
                   <div style={{ fontSize: '12px', color: '#94a3b8' }}>UI & database localization support</div>
                 </div>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📊</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Monitoring</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Metrics, logs, alerts & health checks</div>
+                </div>
+                <div style={{ background: 'rgba(14, 165, 233, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔧</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Environment Manager</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Dev, staging, production & promotions</div>
+                </div>
               </div>
             </div>
           )}
