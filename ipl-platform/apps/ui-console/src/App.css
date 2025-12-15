@@ -631,6 +631,246 @@
   font-weight: 600;
 }
 
+.generated-artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.artifact-section h4 {
+  color: #8b5cf6;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  border-bottom: 1px solid rgba(100, 100, 200, 0.2);
+  padding-bottom: 8px;
+}
+
+.artifact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.artifact-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(20, 20, 50, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(100, 100, 200, 0.15);
+}
+
+.priority-badge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  height: fit-content;
+}
+
+.priority-badge.core {
+  background: rgba(74, 74, 240, 0.2);
+  color: #4a4af0;
+}
+
+.priority-badge.standard {
+  background: rgba(6, 182, 212, 0.2);
+  color: #06b6d4;
+}
+
+.priority-badge.optional {
+  background: rgba(100, 100, 100, 0.2);
+  color: #a0a0c0;
+}
+
+.artifact-content {
+  flex: 1;
+}
+
+.artifact-content strong {
+  color: #e0e0e0;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.artifact-content p {
+  color: #a0a0c0;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.artifact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.screen-card {
+  background: rgba(20, 20, 50, 0.5);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid rgba(100, 100, 200, 0.15);
+}
+
+.screen-type {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #8b5cf6;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.screen-name {
+  color: #e0e0e0;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.screen-desc {
+  color: #a0a0c0;
+  font-size: 0.8rem;
+}
+
+.tables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.table-card {
+  background: rgba(20, 20, 50, 0.5);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid rgba(100, 100, 200, 0.15);
+}
+
+.table-name {
+  color: #4a4af0;
+  font-weight: 600;
+  font-family: monospace;
+  font-size: 1rem;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(100, 100, 200, 0.15);
+}
+
+.columns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.column-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  background: rgba(10, 10, 30, 0.4);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.col-name {
+  color: #e0e0e0;
+  min-width: 120px;
+}
+
+.col-type {
+  color: #06b6d4;
+  flex: 1;
+}
+
+.col-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.col-badge.pk {
+  background: rgba(240, 180, 40, 0.2);
+  color: #f0b428;
+}
+
+.col-badge.unique {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
+.col-badge.fk {
+  background: rgba(74, 74, 240, 0.2);
+  color: #4a4af0;
+}
+
+.tests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.test-card {
+  background: rgba(20, 20, 50, 0.5);
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid rgba(100, 100, 200, 0.15);
+}
+
+.test-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.test-type {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.test-type.unit {
+  background: rgba(6, 182, 212, 0.2);
+  color: #06b6d4;
+}
+
+.test-type.integration {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
+.test-type.e2e {
+  background: rgba(74, 74, 240, 0.2);
+  color: #4a4af0;
+}
+
+.test-type.security {
+  background: rgba(240, 100, 100, 0.2);
+  color: #f06464;
+}
+
+.test-name {
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.test-coverage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coverage-tag {
+  padding: 4px 10px;
+  background: rgba(40, 40, 80, 0.6);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: #a0a0c0;
+}
+
 @media (max-width: 1200px) {
   .main-container {
     grid-template-columns: 1fr;

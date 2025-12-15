@@ -10,6 +10,7 @@ An intelligent platform launcher that helps users design and deploy applications
 - Deployment options (Cloud, On-Premises, Hybrid)
 - App and database clustering configurations
 - Mobile app generation (iOS, Android, PWA)
+- AI-generated code specifications (Modules, Screens, DB Schema, Tests)
 
 ## Project Structure
 
@@ -17,7 +18,7 @@ An intelligent platform launcher that helps users design and deploy applications
 ipl-platform/
 ├── apps/
 │   ├── ui-console/          # React frontend (Vite) - Port 5000
-│   ├── ai-generator-service/ # AI/LLM service - Port 7100
+│   ├── ai-generator-service/ # AI/LLM service - Port 8080
 │   ├── rule-engine-service/  # Business rules engine
 │   ├── workflow-engine-service/ # Workflow orchestration
 │   └── connector-service/    # Integration gateway
@@ -33,7 +34,7 @@ ipl-platform/
 ## Key Features
 
 ### 1. Domain Agnostic
-Supports multiple industries: AMI, Banking, Insurance, Healthcare, Manufacturing, Retail, Custom
+Supports multiple industries: AMI, CIS, CRM, IVRS, Contact Center, Banking, Insurance, Healthcare, Manufacturing, Retail, Custom
 
 ### 2. Database Agnostic
 Works with: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB
@@ -59,22 +60,42 @@ Generates iOS, Android, or PWA apps with:
 - Biometric auth
 - Real-time updates
 
+### 7. AI Code Generation (LLM-Ready)
+The platform includes an AI generator service that can generate:
+- **Modules**: Domain-specific application modules with priorities
+- **Screens**: UI screens with types (list, form, detail, chart, map)
+- **Database Schema**: Tables with columns, types, and relationships
+- **Test Cases**: Unit, integration, E2E, and security tests
+
+When OPENAI_API_KEY is set, uses OpenAI for generation. Otherwise, uses realistic mock data.
+
 ## Running Locally
 
 ```bash
+# UI Console (Port 5000)
 cd ipl-platform/apps/ui-console
+npm install
+npm run dev
+
+# AI Generator Service (Port 8080)
+cd ipl-platform/apps/ai-generator-service
 npm install
 npm run dev
 ```
 
-The UI runs on port 5000.
+## Environment Variables
+- `OPENAI_API_KEY`: OpenAI API key for LLM-powered generation (optional, falls back to mock)
+- `LLM_PROVIDER`: Set to "openai" to use OpenAI (default: "mock")
+- `OPENAI_MODEL`: OpenAI model to use (default: "gpt-4o-mini")
 
 ## Technical Stack
 - Frontend: React 19 + Vite 7 + TypeScript
 - Styling: CSS with custom properties
-- Backend: Express.js with OpenAI integration (planned)
+- Backend: Express.js with OpenAI integration
+- AI: OpenAI GPT-4o-mini (configurable)
 
 ## Recent Changes
+- December 15, 2025: Added AI Code Generation feature with LLM-ready backend service (port 8080), generates Modules, Screens, DB Schema, and Test Cases
 - December 15, 2025: Added new domains (CIS, CRM, IVRS, Contact Center), dynamic field labels, domain-specific standards, and deployment type selector in input panel
 - December 15, 2025: Enhanced cost breakdown UI to display all components (Compute, Database, Cache, Queue, Storage, Network) with pricing assumptions note
 - December 15, 2025: Initial implementation of Intelligent Platform Launcher with full UI

@@ -85,6 +85,44 @@ interface MobileConfig {
   features: string[];
 }
 
+interface GeneratedModule {
+  name: string;
+  description: string;
+  priority: string;
+}
+
+interface GeneratedScreen {
+  name: string;
+  type: string;
+  description: string;
+}
+
+interface TableColumn {
+  name: string;
+  type: string;
+  primary?: boolean;
+  unique?: boolean;
+  foreignKey?: string;
+}
+
+interface GeneratedTable {
+  name: string;
+  columns: TableColumn[];
+}
+
+interface GeneratedTest {
+  name: string;
+  type: string;
+  coverage: string[];
+}
+
+interface GeneratedArtifacts {
+  modules: GeneratedModule[];
+  screens: GeneratedScreen[];
+  tables: GeneratedTable[];
+  tests: GeneratedTest[];
+}
+
 interface AnalysisResult {
   domain: string;
   infrastructure: InfraSpec;
@@ -648,6 +686,9 @@ export default function App() {
   
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [generatedArtifacts, setGeneratedArtifacts] = useState<GeneratedArtifacts | null>(null);
+  const [generatingArtifacts, setGeneratingArtifacts] = useState(false);
+  const [aiServiceStatus, setAiServiceStatus] = useState<'unknown' | 'connected' | 'mock' | 'error'>('unknown');
 
   const handleComplianceToggle = (id: string) => {
     setCompliance(prev => 
@@ -659,6 +700,43 @@ export default function App() {
     setMobileApps(prev =>
       prev.includes(platform) ? prev.filter(p => p !== platform) : [...prev, platform]
     );
+  };
+
+  const generateCodeArtifacts = async () => {
+    setGeneratingArtifacts(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'all',
+          domain,
+          entityCount: parseInt(deviceCount) || 100000,
+          transactionsPerDay: parseInt(readingsPerDay) || 96,
+          database: selectedDb,
+          compliance,
+          deploymentType
+        })
+      });
+      
+      if (!response.ok) throw new Error('AI service unavailable');
+      
+      const data = await response.json();
+      if (data.ok) {
+        const artifacts = data.data || data;
+        setGeneratedArtifacts({
+          modules: artifacts.modules || [],
+          screens: artifacts.screens || [],
+          tables: artifacts.tables || [],
+          tests: artifacts.tests || []
+        });
+        setAiServiceStatus('connected');
+      }
+    } catch (err) {
+      console.error('Failed to generate artifacts:', err);
+      setAiServiceStatus('error');
+    }
+    setGeneratingArtifacts(false);
   };
 
   const analyzeRequirements = async () => {
@@ -1092,6 +1170,96 @@ export default function App() {
                     📋 Export Spec
                   </button>
                 </div>
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🤖</span> AI Code Generation</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Generate application modules, UI screens, database schema, and test cases based on your requirements.
+                  {aiServiceStatus === 'mock' && <span style={{ color: '#f0a040' }}> (Using mock data - add OPENAI_API_KEY for AI generation)</span>}
+                  {aiServiceStatus === 'error' && <span style={{ color: '#f04040' }}> (AI service unavailable)</span>}
+                </p>
+                <button
+                  className="action-btn primary"
+                  onClick={generateCodeArtifacts}
+                  disabled={generatingArtifacts}
+                  style={{ marginBottom: '20px' }}
+                >
+                  {generatingArtifacts ? '⏳ Generating...' : '🧠 Generate Code Specifications'}
+                </button>
+
+                {generatedArtifacts && (
+                  <div className="generated-artifacts">
+                    <div className="artifact-section">
+                      <h4>📦 Modules ({generatedArtifacts.modules.length})</h4>
+                      <div className="artifact-list">
+                        {generatedArtifacts.modules.map((mod, idx) => (
+                          <div key={idx} className="artifact-item">
+                            <span className={`priority-badge ${mod.priority}`}>{mod.priority}</span>
+                            <div className="artifact-content">
+                              <strong>{mod.name}</strong>
+                              <p>{mod.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="artifact-section">
+                      <h4>🖥️ Screens ({generatedArtifacts.screens.length})</h4>
+                      <div className="artifact-grid">
+                        {generatedArtifacts.screens.map((screen, idx) => (
+                          <div key={idx} className="screen-card">
+                            <div className="screen-type">{screen.type}</div>
+                            <div className="screen-name">{screen.name}</div>
+                            <div className="screen-desc">{screen.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="artifact-section">
+                      <h4>🗄️ Database Schema ({generatedArtifacts.tables.length} tables)</h4>
+                      <div className="tables-list">
+                        {generatedArtifacts.tables.map((table, idx) => (
+                          <div key={idx} className="table-card">
+                            <div className="table-name">{table.name}</div>
+                            <div className="columns-list">
+                              {table.columns.map((col, colIdx) => (
+                                <div key={colIdx} className="column-item">
+                                  <span className="col-name">{col.name}</span>
+                                  <span className="col-type">{col.type}</span>
+                                  {col.primary && <span className="col-badge pk">PK</span>}
+                                  {col.unique && <span className="col-badge unique">UQ</span>}
+                                  {col.foreignKey && <span className="col-badge fk">FK</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="artifact-section">
+                      <h4>🧪 Test Cases ({generatedArtifacts.tests.length})</h4>
+                      <div className="tests-list">
+                        {generatedArtifacts.tests.map((test, idx) => (
+                          <div key={idx} className="test-card">
+                            <div className="test-header">
+                              <span className={`test-type ${test.type}`}>{test.type}</span>
+                              <span className="test-name">{test.name}</span>
+                            </div>
+                            <div className="test-coverage">
+                              {test.coverage.map((cov, covIdx) => (
+                                <span key={covIdx} className="coverage-tag">{cov}</span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
