@@ -782,102 +782,228 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
-function getTechStackRecommendation(tier: string, domainId: string = ''): TechStackRecommendation {
+function getTechStackRecommendation(
+  tier: string, 
+  domainId: string = '', 
+  deploymentType: 'cloud' | 'onprem' | 'hybrid' = 'cloud',
+  cloudProvider: string = 'aws'
+): TechStackRecommendation {
   const isStreamingDomain = ['ami', 'telecom', 'manufacturing', 'logistics', 'agriculture'].includes(domainId);
   const isTransactionalDomain = ['banking', 'insurance', 'retail', 'erp', 'accounting'].includes(domainId);
   const isAnalyticsDomain = ['ami', 'telecom', 'media', 'manufacturing', 'healthcare'].includes(domainId);
   const isIoTDomain = ['ami', 'manufacturing', 'agriculture', 'logistics'].includes(domainId);
   const isDataHeavyDomain = ['ami', 'telecom', 'media', 'healthcare', 'pharma'].includes(domainId);
+  const isCloud = deploymentType === 'cloud';
+  const isOnPrem = deploymentType === 'onprem';
+  
+  const cloudNativeServices = {
+    aws: {
+      serverless: 'AWS Lambda',
+      queue: 'Amazon SQS / SNS',
+      streaming: 'Amazon Kinesis',
+      cache: 'Amazon ElastiCache',
+      warehouse: 'Amazon Redshift',
+      lake: 'AWS S3 + Glue',
+      iot: 'AWS IoT Core',
+      governance: 'AWS Glue Data Catalog'
+    },
+    azure: {
+      serverless: 'Azure Functions',
+      queue: 'Azure Service Bus',
+      streaming: 'Azure Event Hubs',
+      cache: 'Azure Cache for Redis',
+      warehouse: 'Azure Synapse',
+      lake: 'Azure Data Lake Gen2',
+      iot: 'Azure IoT Hub',
+      governance: 'Microsoft Purview'
+    },
+    gcp: {
+      serverless: 'Cloud Functions',
+      queue: 'Cloud Pub/Sub',
+      streaming: 'Dataflow',
+      cache: 'Memorystore',
+      warehouse: 'BigQuery',
+      lake: 'Cloud Storage + Dataproc',
+      iot: 'Cloud Pub/Sub + IoT',
+      governance: 'Data Catalog'
+    }
+  };
+  
+  const cloud = cloudNativeServices[cloudProvider as keyof typeof cloudNativeServices] || cloudNativeServices.aws;
   
   switch (tier) {
     case 'Small':
+      const smallCloudDb = cloudProvider === 'aws' ? 'RDS PostgreSQL' : cloudProvider === 'azure' ? 'Azure Database for PostgreSQL' : 'Cloud SQL PostgreSQL';
+      const smallCloudGateway = cloudProvider === 'aws' ? 'API Gateway' : cloudProvider === 'azure' ? 'Azure API Management' : 'Cloud Endpoints';
+      const smallCloudWorkflow = cloudProvider === 'aws' ? 'Step Functions' : cloudProvider === 'azure' ? 'Logic Apps' : 'Cloud Workflows';
       return {
         tier,
-        primaryDb: { name: 'PostgreSQL', description: 'Reliable RDBMS for transactional workloads' },
+        primaryDb: isCloud
+          ? { name: smallCloudDb, description: 'Managed PostgreSQL with automatic backups' }
+          : { name: 'PostgreSQL', description: 'Reliable RDBMS for transactional workloads' },
         analyticsDb: { name: 'Same DB (PostgreSQL)', description: 'Use same database for analytics queries' },
-        queue: { name: 'PostgreSQL Queue / Redis', description: 'Simple queue using DB or Redis pub/sub' },
-        cache: { name: 'Redis', description: 'Single Redis instance for caching & sessions' },
-        backend: { name: 'Python + FastAPI', description: 'Fast, modern Python framework for APIs' },
+        queue: isCloud
+          ? { name: cloud.queue, description: 'Managed queue service - no infrastructure to manage' }
+          : { name: 'PostgreSQL Queue / Redis', description: 'Simple queue using DB or Redis pub/sub' },
+        cache: isCloud
+          ? { name: cloud.cache, description: 'Managed Redis-compatible cache service' }
+          : { name: 'Redis', description: 'Single Redis instance for caching & sessions' },
+        backend: isCloud
+          ? { name: `${cloud.serverless} + ${smallCloudGateway}`, description: 'Serverless functions for cost-effective APIs' }
+          : { name: 'Python + FastAPI', description: 'Fast, modern Python framework for APIs' },
         frontend: { name: 'React + Vite', description: 'Modern React with fast build tooling' },
         streaming: { name: 'Not Required', description: 'Small scale - batch processing sufficient' },
-        etl: { name: 'Python + Pandas', description: 'Simple ETL with Python scripts' },
+        etl: isCloud
+          ? { name: `${cloud.serverless} + ${smallCloudWorkflow}`, description: 'Serverless ETL with workflow orchestration' }
+          : { name: 'Python + Pandas', description: 'Simple ETL with Python scripts' },
         analytics: { name: 'Metabase', description: 'Open-source BI for dashboards & reports' },
         dataWarehouse: { name: 'PostgreSQL', description: 'Use primary database for warehousing at small scale' },
         dataLake: { name: 'Not Required', description: 'Small scale - structured storage sufficient' },
         dataIngestion: isIoTDomain
-          ? { name: 'MQTT + Python', description: 'MQTT broker with Python collectors for devices' }
+          ? (isCloud ? { name: cloud.iot, description: 'Managed IoT service for device connectivity' } : { name: 'MQTT + Python', description: 'MQTT broker with Python collectors for devices' })
           : { name: 'REST APIs + Batch', description: 'API-based data collection with batch imports' },
         dataGovernance: { name: 'Basic Docs', description: 'Simple documentation and naming conventions' }
       };
     case 'Medium':
+      const mediumCloudDb = cloudProvider === 'aws' ? 'Amazon Aurora' : cloudProvider === 'azure' ? 'Azure SQL Database' : 'Cloud SQL';
       return {
         tier,
-        primaryDb: { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL for high-volume data' },
+        primaryDb: isCloud
+          ? { name: mediumCloudDb, description: 'Managed scalable database with auto-scaling' }
+          : { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL for high-volume data' },
         analyticsDb: { name: 'PostgreSQL Views', description: 'Materialized views for reporting queries' },
-        queue: { name: 'Redis Streams', description: 'Redis Streams for reliable message queuing' },
-        cache: { name: 'Redis', description: 'Redis cluster for distributed caching' },
-        backend: isTransactionalDomain 
-          ? { name: 'Java + Spring Boot', description: 'Enterprise-grade framework for complex transactions' }
-          : { name: 'Node.js + NestJS', description: 'TypeScript framework for scalable APIs' },
+        queue: isCloud
+          ? { name: cloud.queue, description: 'Managed message queue with auto-scaling' }
+          : { name: 'Redis Streams', description: 'Redis Streams for reliable message queuing' },
+        cache: isCloud
+          ? { name: cloud.cache, description: 'Managed distributed cache cluster' }
+          : { name: 'Redis', description: 'Redis cluster for distributed caching' },
+        backend: isCloud
+          ? (isTransactionalDomain 
+              ? { name: `Java + Spring Boot (${cloudProvider === 'aws' ? 'ECS' : cloudProvider === 'azure' ? 'Azure Container Apps' : 'Cloud Run'})`, description: 'Containerized enterprise framework' }
+              : { name: `Node.js + ${cloud.serverless}`, description: 'Hybrid serverless architecture' })
+          : (isTransactionalDomain 
+              ? { name: 'Java + Spring Boot', description: 'Enterprise-grade framework for complex transactions' }
+              : { name: 'Node.js + NestJS', description: 'TypeScript framework for scalable APIs' }),
         frontend: { name: 'React + Next.js', description: 'Full-stack React with SSR capabilities' },
-        streaming: isStreamingDomain 
-          ? { name: 'Apache Kafka', description: 'Distributed streaming for real-time data ingestion' }
-          : { name: 'Redis Streams', description: 'Lightweight streaming with Redis' },
-        etl: { name: 'Apache Airflow', description: 'Workflow orchestration for data pipelines' },
+        streaming: isCloud
+          ? { name: cloud.streaming, description: 'Managed streaming for real-time data' }
+          : (isStreamingDomain 
+              ? { name: 'Apache Kafka', description: 'Distributed streaming for real-time data ingestion' }
+              : { name: 'Redis Streams', description: 'Lightweight streaming with Redis' }),
+        etl: isCloud
+          ? { name: `${cloud.serverless} + ${cloudProvider === 'aws' ? 'AWS Glue' : cloudProvider === 'azure' ? 'Azure Data Factory' : 'Dataflow'}`, description: 'Serverless ETL with managed processing' }
+          : { name: 'Apache Airflow', description: 'Workflow orchestration for data pipelines' },
         analytics: { name: 'Apache Superset', description: 'Enterprise BI with advanced visualizations' },
-        dataWarehouse: isDataHeavyDomain
-          ? { name: 'ClickHouse', description: 'Column-store for fast analytical queries' }
-          : { name: 'PostgreSQL + dbt', description: 'PostgreSQL with dbt for data transformations' },
-        dataLake: { name: 'MinIO / S3', description: 'Object storage for raw data and archives' },
+        dataWarehouse: isCloud
+          ? { name: cloud.warehouse, description: 'Managed cloud data warehouse' }
+          : (isDataHeavyDomain
+              ? { name: 'ClickHouse', description: 'Column-store for fast analytical queries' }
+              : { name: 'PostgreSQL + dbt', description: 'PostgreSQL with dbt for data transformations' }),
+        dataLake: isCloud
+          ? { name: cloud.lake, description: 'Managed data lake with catalog' }
+          : { name: 'MinIO', description: 'Self-hosted S3-compatible object storage' },
         dataIngestion: isIoTDomain
-          ? { name: 'EMQX + Kafka Connect', description: 'MQTT broker with Kafka for device telemetry' }
-          : { name: 'Airbyte / Fivetran', description: 'ELT connectors for data source integration' },
-        dataGovernance: { name: 'Apache Atlas', description: 'Data catalog with lineage tracking' }
+          ? (isCloud ? { name: `${cloud.iot} + ${cloud.streaming}`, description: 'Managed IoT with streaming integration' } : { name: 'EMQX + Kafka Connect', description: 'MQTT broker with Kafka for device telemetry' })
+          : (isCloud ? { name: 'Airbyte Cloud', description: 'Managed ELT connectors for data source integration' } : { name: 'Airbyte', description: 'Self-hosted ELT connectors for data source integration' }),
+        dataGovernance: isCloud
+          ? { name: cloud.governance, description: 'Managed data catalog with lineage' }
+          : { name: 'Apache Atlas', description: 'Data catalog with lineage tracking' }
       };
     case 'Large':
+      const largeCloudDb = cloudProvider === 'aws' ? 'Amazon Aurora' : cloudProvider === 'azure' ? 'Azure Cosmos DB' : 'Cloud Spanner';
       return {
         tier,
-        primaryDb: { name: 'TimescaleDB Cluster', description: 'Distributed TimescaleDB for massive time-series' },
-        analyticsDb: { name: 'ClickHouse', description: 'Column-store OLAP database for fast analytics' },
-        queue: { name: 'Apache Kafka', description: 'Distributed streaming for high-throughput messaging' },
-        cache: { name: 'Redis Cluster', description: 'Redis Cluster for HA distributed caching' },
-        backend: isStreamingDomain
-          ? { name: 'Go + Fiber', description: 'High-performance Go for data ingestion services' }
-          : isTransactionalDomain
-            ? { name: 'Java + Spring Boot', description: 'Enterprise framework with transaction support' }
-            : { name: 'Node.js + Fastify', description: 'High-performance Node.js framework' },
+        primaryDb: isCloud
+          ? { name: largeCloudDb, description: 'Globally distributed managed database' }
+          : { name: 'TimescaleDB Cluster', description: 'Distributed TimescaleDB for massive time-series' },
+        analyticsDb: isCloud
+          ? { name: cloud.warehouse, description: 'Managed columnar analytics engine' }
+          : { name: 'ClickHouse', description: 'Column-store OLAP database for fast analytics' },
+        queue: isCloud
+          ? { name: cloudProvider === 'aws' ? 'Amazon MSK' : cloudProvider === 'azure' ? 'Azure Event Hubs' : 'Confluent Cloud', description: 'Managed Kafka service' }
+          : { name: 'Apache Kafka', description: 'Distributed streaming for high-throughput messaging' },
+        cache: isCloud
+          ? { name: cloud.cache + ' Cluster', description: 'Managed distributed cache cluster' }
+          : { name: 'Redis Cluster', description: 'Redis Cluster for HA distributed caching' },
+        backend: isCloud
+          ? (isStreamingDomain
+              ? { name: `Go + ${cloudProvider === 'aws' ? 'EKS' : cloudProvider === 'azure' ? 'AKS' : 'GKE'}`, description: 'Containerized Go on managed Kubernetes' }
+              : isTransactionalDomain
+                ? { name: `Java + Spring Boot (${cloudProvider === 'aws' ? 'EKS' : cloudProvider === 'azure' ? 'AKS' : 'GKE'})`, description: 'Enterprise Java on managed Kubernetes' }
+                : { name: `Node.js + ${cloudProvider === 'aws' ? 'ECS' : cloudProvider === 'azure' ? 'Azure Container Apps' : 'Cloud Run'}`, description: 'Managed container services' })
+          : (isStreamingDomain
+              ? { name: 'Go + Fiber', description: 'High-performance Go for data ingestion services' }
+              : isTransactionalDomain
+                ? { name: 'Java + Spring Boot', description: 'Enterprise framework with transaction support' }
+                : { name: 'Node.js + Fastify', description: 'High-performance Node.js framework' }),
         frontend: { name: 'React + Next.js + TanStack', description: 'Optimized React with advanced data fetching' },
-        streaming: { name: 'Apache Kafka + Flink', description: 'Stream processing with Apache Flink' },
-        etl: { name: 'Apache Spark', description: 'Distributed data processing for large datasets' },
+        streaming: isCloud
+          ? { name: `${cloud.streaming} + Flink (managed)`, description: 'Managed stream processing' }
+          : { name: 'Apache Kafka + Flink', description: 'Stream processing with Apache Flink' },
+        etl: isCloud
+          ? { name: cloudProvider === 'aws' ? 'AWS Glue' : cloudProvider === 'azure' ? 'Azure Synapse' : 'Dataproc', description: 'Managed Spark for large-scale ETL' }
+          : { name: 'Apache Spark', description: 'Distributed data processing for large datasets' },
         analytics: isAnalyticsDomain
           ? { name: 'ClickHouse + Grafana', description: 'Real-time analytics with custom dashboards' }
           : { name: 'Apache Superset + Cube.js', description: 'Semantic layer with BI visualization' },
-        dataWarehouse: { name: 'Snowflake / BigQuery', description: 'Cloud data warehouse for enterprise analytics' },
-        dataLake: { name: 'Delta Lake / S3', description: 'Lakehouse with ACID transactions on object storage' },
+        dataWarehouse: isCloud
+          ? { name: cloud.warehouse, description: 'Enterprise cloud data warehouse' }
+          : { name: 'ClickHouse Cluster', description: 'Self-hosted columnar warehouse for enterprise analytics' },
+        dataLake: isCloud
+          ? { name: cloud.lake + ' + Delta Lake', description: 'Managed lakehouse architecture' }
+          : { name: 'Delta Lake + MinIO', description: 'Self-hosted lakehouse with ACID transactions' },
         dataIngestion: isIoTDomain
-          ? { name: 'Apache NiFi + Kafka', description: 'Visual dataflow with Kafka for IoT ingestion' }
+          ? (isCloud ? { name: `${cloud.iot} + ${cloud.streaming}`, description: 'Managed IoT with stream processing' } : { name: 'Apache NiFi + Kafka', description: 'Visual dataflow with Kafka for IoT ingestion' })
           : { name: 'Kafka Connect + Debezium', description: 'CDC and streaming connectors for real-time sync' },
-        dataGovernance: { name: 'Atlan / Collibra', description: 'Enterprise data catalog with governance policies' }
+        dataGovernance: isCloud
+          ? { name: cloud.governance, description: 'Enterprise data governance platform' }
+          : { name: 'Atlan / Collibra', description: 'Enterprise data catalog with governance policies' }
       };
     case 'Massive':
     default:
+      const massiveCloudDb = cloudProvider === 'aws' ? 'Amazon DynamoDB' : cloudProvider === 'azure' ? 'Azure Cosmos DB' : 'Cloud Spanner';
+      const massiveCloudEtl = cloudProvider === 'aws' ? 'EMR Spark' : cloudProvider === 'azure' ? 'Synapse Spark' : 'Dataproc Spark';
+      const massiveCloudKafka = cloudProvider === 'aws' ? 'Amazon MSK' : cloudProvider === 'azure' ? 'Azure Event Hubs' : 'Confluent Cloud';
       return {
         tier,
-        primaryDb: { name: 'Apache Cassandra', description: 'Distributed NoSQL for planet-scale writes' },
-        analyticsDb: { name: 'ClickHouse Cluster', description: 'Distributed ClickHouse for petabyte analytics' },
-        queue: { name: 'Kafka Cluster', description: 'Multi-broker Kafka for extreme throughput' },
-        cache: { name: 'Redis Cluster', description: 'Geo-distributed Redis Cluster' },
-        backend: { name: 'Go + gRPC', description: 'High-performance microservices with gRPC' },
+        primaryDb: isCloud
+          ? { name: massiveCloudDb, description: 'Planet-scale managed NoSQL' }
+          : { name: 'Apache Cassandra', description: 'Distributed NoSQL for planet-scale writes' },
+        analyticsDb: isCloud
+          ? { name: `${cloud.warehouse} (Enterprise)`, description: 'Enterprise analytics with unlimited scale' }
+          : { name: 'ClickHouse Cluster', description: 'Distributed ClickHouse for petabyte analytics' },
+        queue: isCloud
+          ? { name: `${massiveCloudKafka} (Enterprise)`, description: 'Enterprise-grade managed Kafka' }
+          : { name: 'Kafka Cluster', description: 'Multi-broker Kafka for extreme throughput' },
+        cache: isCloud
+          ? { name: cloud.cache + ' Global', description: 'Geo-distributed managed cache' }
+          : { name: 'Redis Cluster', description: 'Geo-distributed Redis Cluster' },
+        backend: isCloud
+          ? { name: 'Go + gRPC (Multi-region K8s)', description: 'Global microservices on managed Kubernetes' }
+          : { name: 'Go + gRPC', description: 'High-performance microservices with gRPC' },
         frontend: { name: 'React + Micro-frontends', description: 'Distributed frontend architecture' },
-        streaming: { name: 'Kafka + Flink + Spark Streaming', description: 'Lambda architecture for real-time + batch' },
-        etl: { name: 'Apache Spark Cluster', description: 'Distributed Spark for petabyte ETL' },
-        analytics: { name: 'Databricks / Snowflake', description: 'Cloud data platform for enterprise analytics' },
-        dataWarehouse: { name: 'Databricks Lakehouse', description: 'Unified lakehouse for all analytics workloads' },
-        dataLake: { name: 'Delta Lake + Iceberg', description: 'Multi-format lakehouse with schema evolution' },
+        streaming: isCloud
+          ? { name: `${massiveCloudKafka} + Flink (managed)`, description: 'Fully managed Lambda architecture' }
+          : { name: 'Kafka + Flink + Spark Streaming', description: 'Lambda architecture for real-time + batch' },
+        etl: isCloud
+          ? { name: massiveCloudEtl, description: 'Enterprise managed Spark clusters' }
+          : { name: 'Apache Spark Cluster', description: 'Distributed Spark for petabyte ETL' },
+        analytics: isCloud
+          ? { name: 'Databricks', description: 'Unified analytics platform' }
+          : { name: 'Apache Superset + Trino', description: 'Self-hosted enterprise analytics platform' },
+        dataWarehouse: isCloud
+          ? { name: cloud.warehouse + ' (Enterprise)', description: 'Unified enterprise data platform' }
+          : { name: 'Trino + ClickHouse', description: 'Self-hosted distributed query engine with columnar store' },
+        dataLake: isCloud
+          ? { name: cloud.lake + ' + Iceberg', description: 'Open table format on cloud storage' }
+          : { name: 'Delta Lake + MinIO + Iceberg', description: 'Self-hosted multi-format lakehouse' },
         dataIngestion: isIoTDomain
-          ? { name: 'Apache Pulsar + NiFi', description: 'Geo-replicated messaging for global IoT' }
+          ? (isCloud ? { name: `${cloud.iot} + ${massiveCloudKafka} + Flink`, description: 'Global IoT with managed streaming' } : { name: 'Apache Pulsar + NiFi', description: 'Geo-replicated messaging for global IoT' })
           : { name: 'Kafka + Spark Structured Streaming', description: 'Unified batch and stream ingestion' },
-        dataGovernance: { name: 'Unity Catalog / Purview', description: 'Enterprise governance with fine-grained access' }
+        dataGovernance: isCloud
+          ? { name: 'Unity Catalog + ' + cloud.governance, description: 'Enterprise governance with fine-grained access' }
+          : { name: 'Apache Atlas + OpenMetadata', description: 'Self-hosted enterprise governance platform' }
       };
   }
 }
@@ -1729,7 +1855,7 @@ export default function App() {
     const security = getSecurityRequirements(compliance);
     const clusterConfig = getClusterConfig(infrastructure);
     
-    const techStack = getTechStackRecommendation(infrastructure.tier, domain);
+    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud);
     
     const analysisResult: AnalysisResult = {
       domain: DOMAINS.find(d => d.id === domain)?.name || domain,
