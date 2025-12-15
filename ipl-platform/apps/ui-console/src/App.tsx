@@ -1948,7 +1948,7 @@ export default function App() {
     const security = getSecurityRequirements(compliance);
     const clusterConfig = getClusterConfig(infrastructure);
     
-    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud, database);
+    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud, selectedDb);
     
     const analysisResult: AnalysisResult = {
       domain: DOMAINS.find(d => d.id === domain)?.name || domain,
