@@ -2,6 +2,7 @@ import { mockLLM, mockLLMForType } from "./providers/mock.js";
 import { openaiLLM, openaiLLMForType } from "./providers/openai.js";
 import { groqLLM, groqLLMForType } from "./providers/groq.js";
 import { generateApplicationCode, reviewCode, fixCode, explainCode } from "./providers/openai-extended.js";
+import { groqGenerateApplicationCode, groqReviewCode, groqFixCode, groqExplainCode } from "./providers/groq-extended.js";
 import { mockGenerateApplicationCode, mockReviewCode, mockFixCode, mockExplainCode } from "./providers/mock-extended.js";
 
 export interface GenerationContext {
@@ -75,6 +76,9 @@ export async function runGenerateCode(request: CodeGenerationRequest) {
   console.log(`Generating code with provider: ${provider}`);
 
   try {
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      return await groqGenerateApplicationCode(request);
+    }
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
       return await generateApplicationCode(request);
     }
@@ -90,6 +94,9 @@ export async function runReviewCode(code: string, language: string, context?: st
   console.log(`Reviewing code with provider: ${provider}`);
 
   try {
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      return await groqReviewCode(code, language);
+    }
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
       return await reviewCode({ code, language, context });
     }
@@ -105,6 +112,9 @@ export async function runFixCode(code: string, language: string, issues: string[
   console.log(`Fixing code with provider: ${provider}`);
 
   try {
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      return await groqFixCode(code, issues);
+    }
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
       return await fixCode({ code, language, issues });
     }
@@ -120,6 +130,9 @@ export async function runExplainCode(code: string, language: string) {
   console.log(`Explaining code with provider: ${provider}`);
 
   try {
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      return await groqExplainCode(code, language);
+    }
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
       return await explainCode(code, language);
     }
