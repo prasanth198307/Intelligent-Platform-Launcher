@@ -103,6 +103,12 @@ npm run dev
 - AI: OpenAI GPT-4o-mini (configurable)
 
 ## Recent Changes
+- December 15, 2025: Extended AI capabilities with full AI Code Assistant panel:
+  - **Generate Code**: Full application code generation (React components, API routes, DB schema)
+  - **Review Code**: LLM-powered code review with scoring, issue detection, and suggestions
+  - **Fix Code**: Automatic issue resolution and code patching
+  - **Explain Code**: Code explanation with key concepts identification
+  - New endpoints: /api/generate-code, /api/review-code, /api/fix-code, /api/explain-code
 - December 15, 2025: Added visual architecture diagrams (React Flow), hardware recommendations with specific cloud instance types (AWS/Azure/GCP), and export functionality (JSON/CSV)
 - December 15, 2025: Expanded to 26 industry domains including Education, Real Estate, Logistics, Hospitality, Government, Telecom, Pharma, Agriculture, HR, Travel, Media, Non-profit with industry-specific compliance standards
 - December 15, 2025: Added 10 cross-domain features:
