@@ -3093,8 +3093,8 @@ export default function App() {
                           <AICodePanel
                             domain={domain}
                             database={selectedDb}
-                            entityCount={devices}
-                            transactionsPerDay={readings}
+                            entityCount={parseInt(deviceCount) || 0}
+                            transactionsPerDay={parseInt(readingsPerDay) || 0}
                             compliance={compliance}
                             deploymentType={deploymentType}
                             modules={generatedArtifacts?.modules}
@@ -3137,7 +3137,13 @@ export default function App() {
                       </div>
                       {expandedSections.has('backend-api') && (
                         <div className="section-content">
-                          <CodeEditor domain={domain} tables={generatedArtifacts?.tables} />
+                          <CodeEditor 
+                            files={generatedArtifacts?.tables?.map(t => ({
+                              path: `${t.name.toLowerCase()}.sql`,
+                              content: `-- Table: ${t.name}\nCREATE TABLE ${t.name} (\n${t.columns.map(c => `  ${c.name} ${c.type}${c.primary ? ' PRIMARY KEY' : ''}${c.foreignKey ? ` REFERENCES ${c.foreignKey}` : ''}`).join(',\n')}\n);`
+                            })) || []}
+                            title="Database Schema"
+                          />
                         </div>
                       )}
                     </div>
