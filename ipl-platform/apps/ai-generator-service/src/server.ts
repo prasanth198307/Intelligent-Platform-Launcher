@@ -2,6 +2,9 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { runLLM, runLLMForType } from "./llm/index.js";
+import { db } from "./db/index.js";
+import { workspaces } from "./db/schema.js";
+import { eq, desc } from "drizzle-orm";
 
 const app = express();
 app.use(cors());
@@ -65,6 +68,137 @@ app.post("/api/generate-from-message-llm", async (req, res) => {
       error: "LLM pipeline failed",
       details: e?.message || String(e)
     });
+  }
+});
+
+app.post("/api/workspaces", async (req, res) => {
+  try {
+    const { name, sessionId, ...data } = req.body;
+    
+    if (!name || !sessionId) {
+      return res.status(400).json({ error: "name and sessionId are required" });
+    }
+
+    const [workspace] = await db.insert(workspaces).values({
+      name,
+      sessionId,
+      domain: data.domain || "custom",
+      database: data.database || "postgresql",
+      entityCount: data.entityCount,
+      transactionsPerDay: data.transactionsPerDay,
+      compliance: data.compliance,
+      deploymentType: data.deploymentType,
+      multiTenant: data.multiTenant,
+      multiLingual: data.multiLingual,
+      crossDomain: data.crossDomain,
+      modules: data.modules,
+      screens: data.screens,
+      tables: data.tables,
+      tests: data.tests,
+      integrations: data.integrations,
+      scaffolding: data.scaffolding,
+      infrastructure: data.infrastructure,
+      costs: data.costs,
+      security: data.security,
+      clusterConfig: data.clusterConfig,
+      mobileConfig: data.mobileConfig,
+      status: data.status || "draft",
+    }).returning();
+
+    res.json({ ok: true, workspace });
+  } catch (e: any) {
+    console.error("Save workspace failed:", e);
+    res.status(500).json({ error: "Failed to save workspace", details: e?.message || String(e) });
+  }
+});
+
+app.put("/api/workspaces/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const data = req.body;
+
+    const [workspace] = await db.update(workspaces)
+      .set({
+        name: data.name,
+        domain: data.domain,
+        database: data.database,
+        entityCount: data.entityCount,
+        transactionsPerDay: data.transactionsPerDay,
+        compliance: data.compliance,
+        deploymentType: data.deploymentType,
+        multiTenant: data.multiTenant,
+        multiLingual: data.multiLingual,
+        crossDomain: data.crossDomain,
+        modules: data.modules,
+        screens: data.screens,
+        tables: data.tables,
+        tests: data.tests,
+        integrations: data.integrations,
+        scaffolding: data.scaffolding,
+        infrastructure: data.infrastructure,
+        costs: data.costs,
+        security: data.security,
+        clusterConfig: data.clusterConfig,
+        mobileConfig: data.mobileConfig,
+        status: data.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(workspaces.id, id))
+      .returning();
+
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+
+    res.json({ ok: true, workspace });
+  } catch (e: any) {
+    console.error("Update workspace failed:", e);
+    res.status(500).json({ error: "Failed to update workspace", details: e?.message || String(e) });
+  }
+});
+
+app.get("/api/workspaces", async (req, res) => {
+  try {
+    const sessionId = req.query.sessionId as string;
+    
+    let result;
+    if (sessionId) {
+      result = await db.select().from(workspaces).where(eq(workspaces.sessionId, sessionId)).orderBy(desc(workspaces.updatedAt));
+    } else {
+      result = await db.select().from(workspaces).orderBy(desc(workspaces.updatedAt));
+    }
+    
+    res.json({ ok: true, workspaces: result });
+  } catch (e: any) {
+    console.error("List workspaces failed:", e);
+    res.status(500).json({ error: "Failed to list workspaces", details: e?.message || String(e) });
+  }
+});
+
+app.get("/api/workspaces/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, id));
+
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+
+    res.json({ ok: true, workspace });
+  } catch (e: any) {
+    console.error("Get workspace failed:", e);
+    res.status(500).json({ error: "Failed to get workspace", details: e?.message || String(e) });
+  }
+});
+
+app.delete("/api/workspaces/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.delete(workspaces).where(eq(workspaces.id, id));
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error("Delete workspace failed:", e);
+    res.status(500).json({ error: "Failed to delete workspace", details: e?.message || String(e) });
   }
 });
 
