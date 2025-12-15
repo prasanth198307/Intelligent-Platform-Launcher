@@ -200,6 +200,54 @@ web-build/
     content: generateReadme(projectName, config),
   });
 
+  files.push({
+    path: 'assets/icon.png',
+    description: 'App icon (replace with your own 1024x1024 PNG)',
+    content: '# Placeholder: Replace with your app icon (1024x1024 PNG)\n# You can generate one at https://appicon.co/',
+  });
+
+  files.push({
+    path: 'assets/splash.png',
+    description: 'Splash screen image (replace with your own)',
+    content: '# Placeholder: Replace with your splash screen image\n# Recommended size: 1284x2778 PNG',
+  });
+
+  files.push({
+    path: 'assets/adaptive-icon.png',
+    description: 'Android adaptive icon (replace with your own)',
+    content: '# Placeholder: Replace with your Android adaptive icon\n# Recommended size: 1024x1024 PNG',
+  });
+
+  files.push({
+    path: 'assets/favicon.png',
+    description: 'Web favicon (replace with your own)',
+    content: '# Placeholder: Replace with your favicon\n# Recommended size: 48x48 PNG',
+  });
+
+  files.push({
+    path: 'src/utils/helpers.ts',
+    description: 'Utility helper functions',
+    content: generateHelpers(),
+  });
+
+  files.push({
+    path: 'src/utils/validators.ts',
+    description: 'Form validation utilities',
+    content: generateValidators(),
+  });
+
+  files.push({
+    path: 'src/constants/config.ts',
+    description: 'App configuration constants',
+    content: generateConfig(config),
+  });
+
+  files.push({
+    path: 'src/components/Loading.tsx',
+    description: 'Loading spinner component',
+    content: generateLoadingComponent(),
+  });
+
   const dependencies: Record<string, string> = {
     'expo': '~50.0.0',
     'expo-status-bar': '~1.11.0',
@@ -1929,5 +1977,182 @@ npx expo build:ios
 2. Replace placeholder icons in assets/
 3. Modify colors in src/theme/colors.ts
 4. Update app.json with your app details
+`;
+}
+
+function generateHelpers(): string {
+  return `export function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+export function formatTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function formatCurrency(amount: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+  }).format(amount);
+}
+
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
+}
+
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+export function generateId(): string {
+  return Math.random().toString(36).substring(2, 15);
+}
+`;
+}
+
+function generateValidators(): string {
+  return `export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+  return emailRegex.test(email);
+}
+
+export function isValidPhone(phone: string): boolean {
+  const phoneRegex = /^[\\+]?[0-9]{10,15}$/;
+  return phoneRegex.test(phone.replace(/[\\s\\-\\(\\)]/g, ''));
+}
+
+export function isRequired(value: string | null | undefined): boolean {
+  return value !== null && value !== undefined && value.trim().length > 0;
+}
+
+export function minLength(value: string, min: number): boolean {
+  return value.length >= min;
+}
+
+export function maxLength(value: string, max: number): boolean {
+  return value.length <= max;
+}
+
+export function isNumeric(value: string): boolean {
+  return !isNaN(parseFloat(value)) && isFinite(Number(value));
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+export function validateForm(
+  data: Record<string, string>,
+  rules: Record<string, ((value: string) => boolean)[]>
+): ValidationResult {
+  const errors: string[] = [];
+  
+  for (const [field, validators] of Object.entries(rules)) {
+    for (const validator of validators) {
+      if (!validator(data[field] || '')) {
+        errors.push(\`\${field} is invalid\`);
+        break;
+      }
+    }
+  }
+  
+  return { isValid: errors.length === 0, errors };
+}
+`;
+}
+
+function generateConfig(config: MobileAppConfig): string {
+  return `export const APP_CONFIG = {
+  name: '${config.projectName || config.domain + 'App'}',
+  domain: '${config.domain}',
+  version: '1.0.0',
+  
+  api: {
+    baseUrl: 'https://api.example.com',
+    timeout: 30000,
+    retryAttempts: 3,
+  },
+  
+  features: {
+    authentication: ${config.authentication},
+    offlineSync: ${config.offlineSync},
+    pushNotifications: ${config.pushNotifications},
+  },
+  
+  platforms: ${JSON.stringify(config.platforms)},
+  
+  storage: {
+    prefix: '${config.domain}_',
+    version: 1,
+  },
+  
+  defaultLocale: 'en-US',
+  supportedLocales: ['en-US'],
+};
+
+export type AppConfig = typeof APP_CONFIG;
+`;
+}
+
+function generateLoadingComponent(): string {
+  return `import React from 'react';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { colors } from '../theme/colors';
+
+interface LoadingProps {
+  message?: string;
+  size?: 'small' | 'large';
+  fullScreen?: boolean;
+}
+
+export default function Loading({ 
+  message, 
+  size = 'large', 
+  fullScreen = false 
+}: LoadingProps) {
+  const content = (
+    <View style={[styles.container, fullScreen && styles.fullScreen]}>
+      <ActivityIndicator size={size} color={colors.primary} />
+      {message && <Text style={styles.message}>{message}</Text>}
+    </View>
+  );
+
+  return content;
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  fullScreen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  message: {
+    marginTop: 12,
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+});
 `;
 }
