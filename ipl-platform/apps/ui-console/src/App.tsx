@@ -267,6 +267,14 @@ interface GeneratedArtifacts {
   crossDomain: CrossDomainFeatures;
 }
 
+interface TechStackRecommendation {
+  tier: string;
+  primaryDb: { name: string; description: string };
+  analyticsDb: { name: string; description: string };
+  queue: { name: string; description: string };
+  cache: { name: string; description: string };
+}
+
 interface AnalysisResult {
   domain: string;
   infrastructure: InfraSpec;
@@ -276,6 +284,7 @@ interface AnalysisResult {
   clusterConfig: ClusterConfig;
   mobileConfig: MobileConfig;
   deploymentFormats: string[];
+  techStack?: TechStackRecommendation;
 }
 
 interface DomainConfig {
@@ -757,6 +766,44 @@ function formatNumber(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toString();
+}
+
+function getTechStackRecommendation(tier: string): TechStackRecommendation {
+  switch (tier) {
+    case 'Small':
+      return {
+        tier,
+        primaryDb: { name: 'PostgreSQL', description: 'Reliable RDBMS for transactional workloads' },
+        analyticsDb: { name: 'Same DB (PostgreSQL)', description: 'Use same database for analytics queries' },
+        queue: { name: 'PostgreSQL Queue / Redis', description: 'Simple queue using DB or Redis pub/sub' },
+        cache: { name: 'Redis', description: 'Single Redis instance for caching & sessions' }
+      };
+    case 'Medium':
+      return {
+        tier,
+        primaryDb: { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL for high-volume data' },
+        analyticsDb: { name: 'PostgreSQL Views', description: 'Materialized views for reporting queries' },
+        queue: { name: 'Redis Streams', description: 'Redis Streams for reliable message queuing' },
+        cache: { name: 'Redis', description: 'Redis cluster for distributed caching' }
+      };
+    case 'Large':
+      return {
+        tier,
+        primaryDb: { name: 'TimescaleDB Cluster', description: 'Distributed TimescaleDB for massive time-series' },
+        analyticsDb: { name: 'ClickHouse', description: 'Column-store OLAP database for fast analytics' },
+        queue: { name: 'Apache Kafka', description: 'Distributed streaming for high-throughput messaging' },
+        cache: { name: 'Redis Cluster', description: 'Redis Cluster for HA distributed caching' }
+      };
+    case 'Massive':
+    default:
+      return {
+        tier,
+        primaryDb: { name: 'Apache Cassandra', description: 'Distributed NoSQL for planet-scale writes' },
+        analyticsDb: { name: 'ClickHouse Cluster', description: 'Distributed ClickHouse for petabyte analytics' },
+        queue: { name: 'Kafka Cluster', description: 'Multi-broker Kafka for extreme throughput' },
+        cache: { name: 'Redis Cluster', description: 'Geo-distributed Redis Cluster' }
+      };
+  }
 }
 
 function calculateCosts(infra: InfraSpec): Record<string, CostEstimate> {
@@ -1606,6 +1653,8 @@ export default function App() {
     const security = getSecurityRequirements(compliance);
     const clusterConfig = getClusterConfig(infrastructure);
     
+    const techStack = getTechStackRecommendation(infrastructure.tier);
+    
     const analysisResult: AnalysisResult = {
       domain: DOMAINS.find(d => d.id === domain)?.name || domain,
       infrastructure,
@@ -1632,7 +1681,8 @@ export default function App() {
         ? ['Docker', 'Kubernetes Helm', 'Terraform'] 
         : deploymentType === 'onprem'
         ? ['Docker Compose', 'VM Images (OVA)', 'Ansible Playbooks', 'Air-Gapped Bundle']
-        : ['Docker', 'Kubernetes', 'VPN Gateway', 'Edge Sync Agent']
+        : ['Docker', 'Kubernetes', 'VPN Gateway', 'Edge Sync Agent'],
+      techStack
     };
     
     setResult(analysisResult);
@@ -2376,6 +2426,54 @@ export default function App() {
                         </div>
                       )}
                     </div>
+
+                    {/* Recommended Tech Stack Section */}
+                    {result.techStack && (
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('tech-stack')}>
+                        <span className="section-icon">{expandedSections.has('tech-stack') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">⚡</span> Recommended Tech Stack - {result.techStack.tier} Tier</h3>
+                      </div>
+                      {expandedSections.has('tech-stack') && (
+                        <div className="section-content">
+                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                            <div className="tech-stack-card" style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🗄️</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Primary Database</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6', marginBottom: '4px' }}>{result.techStack.primaryDb.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.primaryDb.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>📊</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Analytics Database</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6', marginBottom: '4px' }}>{result.techStack.analyticsDb.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.analyticsDb.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>📨</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Message Queue</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#f59e0b', marginBottom: '4px' }}>{result.techStack.queue.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.queue.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>⚡</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Cache Layer</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#ef4444', marginBottom: '4px' }}>{result.techStack.cache.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.cache.description}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    )}
 
                     <div className="collapsible-section">
                       <div className="section-header" onClick={() => toggleSection('hardware')}>
