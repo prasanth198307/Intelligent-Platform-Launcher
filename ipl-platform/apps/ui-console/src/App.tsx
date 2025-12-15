@@ -173,7 +173,7 @@ const DOMAINS: DomainConfig[] = [
     transactionLabel: 'Transactions per Day',
     transactionPlaceholder: 'e.g., 500000',
     defaultCompliance: ['pci', 'soc2'],
-    standards: ['sox', 'glba', 'basel3']
+    standards: ['sox', 'glba', 'basel3', 'pci']
   },
   { 
     id: 'insurance', 
@@ -195,7 +195,7 @@ const DOMAINS: DomainConfig[] = [
     transactionLabel: 'Records / Encounters per Day',
     transactionPlaceholder: 'e.g., 10000',
     defaultCompliance: ['hipaa'],
-    standards: ['hl7', 'fhir', 'dicom']
+    standards: ['hl7', 'fhir', 'dicom', 'hipaa']
   },
   { 
     id: 'manufacturing', 
@@ -217,7 +217,7 @@ const DOMAINS: DomainConfig[] = [
     transactionLabel: 'Orders per Day',
     transactionPlaceholder: 'e.g., 50000',
     defaultCompliance: ['pci', 'gdpr'],
-    standards: []
+    standards: ['pci']
   },
   { 
     id: 'custom', 
@@ -250,12 +250,12 @@ const CLOUD_PROVIDERS = [
 ];
 
 const COMPLIANCE_OPTIONS = [
-  { id: 'hipaa', name: 'HIPAA', category: 'general' },
-  { id: 'gdpr', name: 'GDPR', category: 'general' },
-  { id: 'pci', name: 'PCI-DSS', category: 'general' },
-  { id: 'soc2', name: 'SOC 2', category: 'general' },
-  { id: 'dpdp', name: 'DPDP (India)', category: 'general' },
-  { id: 'iso27001', name: 'ISO 27001', category: 'general' },
+  { id: 'gdpr', name: 'GDPR (EU)', category: 'global' },
+  { id: 'soc2', name: 'SOC 2', category: 'global' },
+  { id: 'iso27001', name: 'ISO 27001', category: 'global' },
+  { id: 'dpdp', name: 'DPDP (India)', category: 'global' },
+  { id: 'hipaa', name: 'HIPAA', category: 'healthcare' },
+  { id: 'pci', name: 'PCI-DSS', category: 'payment' },
   { id: 'iec62056', name: 'IEC 62056', category: 'ami' },
   { id: 'dlms', name: 'DLMS/COSEM', category: 'ami' },
   { id: 'ieee2030', name: 'IEEE 2030.5', category: 'ami' },
@@ -279,11 +279,10 @@ function getComplianceForDomain(domainId: string): typeof COMPLIANCE_OPTIONS {
   const domainConfig = DOMAINS.find(d => d.id === domainId);
   const domainStandards = domainConfig?.standards || [];
   
-  if (domainStandards.length > 0) {
-    return COMPLIANCE_OPTIONS.filter(opt => domainStandards.includes(opt.id));
-  }
+  const globalOptions = COMPLIANCE_OPTIONS.filter(opt => opt.category === 'global');
+  const domainSpecificOptions = COMPLIANCE_OPTIONS.filter(opt => domainStandards.includes(opt.id));
   
-  return COMPLIANCE_OPTIONS.filter(opt => opt.category === 'general');
+  return [...globalOptions, ...domainSpecificOptions];
 }
 
 function calculateInfrastructure(deviceCount: number, readingsPerDay: number): InfraSpec {
