@@ -5,6 +5,27 @@ import { runLLM, runLLMForType, runGenerateCode, runReviewCode, runFixCode, runE
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
+import {
+  generateTerraform,
+  generateCloudFormation,
+  generateDockerfile,
+  generateDockerCompose,
+  generateKubernetes,
+  generateHelmChart,
+  generateGitHubActions,
+  generateGitLabCI,
+  generateJenkinsPipeline,
+  generateOpenAPISpec,
+  generateSQLMigration,
+  generateDrizzleSchema,
+  generateJWTAuth,
+  generateOAuth,
+  generateK6Script,
+  generateJMeterConfig,
+  generateSecurityChecklist,
+  generateSecurityConfig,
+  generateCostOptimizations,
+} from "./generators/index.js";
 
 const app = express();
 app.use(cors());
@@ -141,6 +162,297 @@ app.post("/api/explain-code", async (req, res) => {
   } catch (e: any) {
     console.error("Code explanation failed:", e);
     res.status(500).json({ error: "Code explanation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-infrastructure", async (req, res) => {
+  try {
+    const { type, domain, database, tier, appServers, dbReplicas, cacheNodes, region, projectName } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      database: database || "postgresql",
+      tier: tier || "Medium",
+      appServers: appServers || 2,
+      dbReplicas: dbReplicas || 1,
+      cacheNodes: cacheNodes || 1,
+      region: region || "us-east-1",
+      projectName: projectName,
+    };
+    
+    let result: Record<string, string> = {};
+    
+    if (type === "all" || !type) {
+      result = {
+        terraform: generateTerraform(ctx),
+        cloudformation: generateCloudFormation(ctx),
+        dockerfile: generateDockerfile(ctx),
+        dockerCompose: generateDockerCompose(ctx),
+        kubernetes: generateKubernetes(ctx),
+        helmChart: generateHelmChart(ctx),
+      };
+    } else {
+      switch (type) {
+        case "terraform":
+          result.terraform = generateTerraform(ctx);
+          break;
+        case "cloudformation":
+          result.cloudformation = generateCloudFormation(ctx);
+          break;
+        case "dockerfile":
+          result.dockerfile = generateDockerfile(ctx);
+          break;
+        case "docker-compose":
+          result.dockerCompose = generateDockerCompose(ctx);
+          break;
+        case "kubernetes":
+          result.kubernetes = generateKubernetes(ctx);
+          break;
+        case "helm":
+          result.helmChart = generateHelmChart(ctx);
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid type. Use: terraform, cloudformation, dockerfile, docker-compose, kubernetes, helm, or all" });
+      }
+    }
+    
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Infrastructure generation failed:", e);
+    res.status(500).json({ error: "Infrastructure generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-cicd", async (req, res) => {
+  try {
+    const { type, domain, projectName, language, registry, cloudProvider } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      projectName: projectName,
+      language: language || "typescript",
+      registry: registry,
+      cloudProvider: cloudProvider || "aws",
+    };
+    
+    let result: Record<string, string> = {};
+    
+    if (type === "all" || !type) {
+      result = {
+        githubActions: generateGitHubActions(ctx),
+        gitlabCI: generateGitLabCI(ctx),
+        jenkinsPipeline: generateJenkinsPipeline(ctx),
+      };
+    } else {
+      switch (type) {
+        case "github-actions":
+          result.githubActions = generateGitHubActions(ctx);
+          break;
+        case "gitlab-ci":
+          result.gitlabCI = generateGitLabCI(ctx);
+          break;
+        case "jenkins":
+          result.jenkinsPipeline = generateJenkinsPipeline(ctx);
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid type. Use: github-actions, gitlab-ci, jenkins, or all" });
+      }
+    }
+    
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("CI/CD generation failed:", e);
+    res.status(500).json({ error: "CI/CD generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-api-docs", async (req, res) => {
+  try {
+    const { domain, projectName, tables, baseUrl } = req.body;
+    
+    if (!tables || !Array.isArray(tables) || tables.length === 0) {
+      return res.status(400).json({ error: "tables array is required" });
+    }
+    
+    const ctx = {
+      domain: domain || "custom",
+      projectName: projectName,
+      tables: tables,
+      baseUrl: baseUrl,
+    };
+    
+    const openApiSpec = generateOpenAPISpec(ctx);
+    
+    res.json({ ok: true, openApiSpec: JSON.parse(openApiSpec) });
+  } catch (e: any) {
+    console.error("API docs generation failed:", e);
+    res.status(500).json({ error: "API docs generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-migrations", async (req, res) => {
+  try {
+    const { type, domain, database, tables, projectName } = req.body;
+    
+    if (!tables || !Array.isArray(tables) || tables.length === 0) {
+      return res.status(400).json({ error: "tables array is required" });
+    }
+    
+    const ctx = {
+      domain: domain || "custom",
+      database: database || "postgresql",
+      tables: tables,
+      projectName: projectName,
+    };
+    
+    let result: Record<string, string> = {};
+    
+    if (type === "all" || !type) {
+      result = {
+        sqlMigration: generateSQLMigration(ctx),
+        drizzleSchema: generateDrizzleSchema(ctx),
+      };
+    } else {
+      switch (type) {
+        case "sql":
+          result.sqlMigration = generateSQLMigration(ctx);
+          break;
+        case "drizzle":
+          result.drizzleSchema = generateDrizzleSchema(ctx);
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid type. Use: sql, drizzle, or all" });
+      }
+    }
+    
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Migration generation failed:", e);
+    res.status(500).json({ error: "Migration generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-auth", async (req, res) => {
+  try {
+    const { type, domain, projectName, providers, mfa } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      projectName: projectName,
+      providers: providers || ["google", "github"],
+      mfa: mfa || false,
+    };
+    
+    let result: Record<string, string> = {};
+    
+    if (type === "all" || !type) {
+      result = {
+        jwtAuth: generateJWTAuth(ctx),
+        oAuth: generateOAuth(ctx),
+      };
+    } else {
+      switch (type) {
+        case "jwt":
+          result.jwtAuth = generateJWTAuth(ctx);
+          break;
+        case "oauth":
+          result.oAuth = generateOAuth(ctx);
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid type. Use: jwt, oauth, or all" });
+      }
+    }
+    
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Auth generation failed:", e);
+    res.status(500).json({ error: "Auth generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-load-tests", async (req, res) => {
+  try {
+    const { type, domain, projectName, baseUrl, targetRPS, duration, endpoints } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      projectName: projectName,
+      baseUrl: baseUrl || "http://localhost:3000",
+      targetRPS: targetRPS || 100,
+      duration: duration || "5m",
+      endpoints: endpoints,
+    };
+    
+    let result: Record<string, string> = {};
+    
+    if (type === "all" || !type) {
+      result = {
+        k6Script: generateK6Script(ctx),
+        jmeterConfig: generateJMeterConfig(ctx),
+      };
+    } else {
+      switch (type) {
+        case "k6":
+          result.k6Script = generateK6Script(ctx);
+          break;
+        case "jmeter":
+          result.jmeterConfig = generateJMeterConfig(ctx);
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid type. Use: k6, jmeter, or all" });
+      }
+    }
+    
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Load test generation failed:", e);
+    res.status(500).json({ error: "Load test generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/security-scan", async (req, res) => {
+  try {
+    const { domain, projectName, compliance, deploymentType } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      projectName: projectName,
+      compliance: compliance || [],
+      deploymentType: deploymentType || "cloud",
+    };
+    
+    const report = generateSecurityChecklist(ctx);
+    const securityConfig = generateSecurityConfig(ctx);
+    
+    res.json({ ok: true, report, securityConfig });
+  } catch (e: any) {
+    console.error("Security scan failed:", e);
+    res.status(500).json({ error: "Security scan failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/cost-optimization", async (req, res) => {
+  try {
+    const { domain, tier, cloudProvider, currentCost, appServers, dbReplicas, cacheNodes, storageGB, monthlyEgressGB } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      tier: tier || "Medium",
+      cloudProvider: cloudProvider || "aws",
+      currentCost: currentCost || 5000,
+      appServers: appServers || 2,
+      dbReplicas: dbReplicas || 1,
+      cacheNodes: cacheNodes || 1,
+      storageGB: storageGB || 1000,
+      monthlyEgressGB: monthlyEgressGB || 500,
+    };
+    
+    const report = generateCostOptimizations(ctx);
+    
+    res.json({ ok: true, ...report });
+  } catch (e: any) {
+    console.error("Cost optimization failed:", e);
+    res.status(500).json({ error: "Cost optimization failed", details: e?.message || String(e) });
   }
 });
 
