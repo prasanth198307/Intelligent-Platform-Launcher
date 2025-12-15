@@ -387,6 +387,28 @@ const DOMAINS: DomainConfig[] = [
     standards: ['pci']
   },
   { 
+    id: 'legal', 
+    name: 'Legal & Law Firms', 
+    icon: '⚖️',
+    entityLabel: 'Number of Cases / Matters',
+    entityPlaceholder: 'e.g., 10000',
+    transactionLabel: 'Documents / Actions per Day',
+    transactionPlaceholder: 'e.g., 5000',
+    defaultCompliance: ['gdpr', 'soc2'],
+    standards: ['aba', 'gdpr']
+  },
+  { 
+    id: 'accounting', 
+    name: 'Accounting & Finance', 
+    icon: '📊',
+    entityLabel: 'Number of Clients / Accounts',
+    entityPlaceholder: 'e.g., 50000',
+    transactionLabel: 'Transactions per Day',
+    transactionPlaceholder: 'e.g., 100000',
+    defaultCompliance: ['soc2', 'gdpr'],
+    standards: ['gaap', 'ifrs', 'sox']
+  },
+  { 
     id: 'custom', 
     name: 'Custom Domain', 
     icon: '🔧',
@@ -440,6 +462,9 @@ const COMPLIANCE_OPTIONS = [
   { id: 'opcua', name: 'OPC-UA', category: 'manufacturing' },
   { id: 'tcpa', name: 'TCPA', category: 'telecom' },
   { id: 'fcc', name: 'FCC Regulations', category: 'telecom' },
+  { id: 'aba', name: 'ABA Guidelines', category: 'legal' },
+  { id: 'gaap', name: 'GAAP', category: 'accounting' },
+  { id: 'ifrs', name: 'IFRS', category: 'accounting' },
 ];
 
 function getComplianceForDomain(domainId: string): typeof COMPLIANCE_OPTIONS {
