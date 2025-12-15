@@ -25,6 +25,8 @@ import {
   generateSecurityChecklist,
   generateSecurityConfig,
   generateCostOptimizations,
+  runBenchmark,
+  generateBenchmarkReport,
 } from "./generators/index.js";
 
 const app = express();
@@ -453,6 +455,34 @@ app.post("/api/cost-optimization", async (req, res) => {
   } catch (e: any) {
     console.error("Cost optimization failed:", e);
     res.status(500).json({ error: "Cost optimization failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/run-benchmark", async (req, res) => {
+  try {
+    const { targetUrl, method, headers, body, concurrentUsers, duration, rampUp } = req.body;
+    
+    if (!targetUrl) {
+      return res.status(400).json({ error: "targetUrl is required" });
+    }
+    
+    const config = {
+      targetUrl,
+      method: method || 'GET',
+      headers: headers || {},
+      body: body || '',
+      concurrentUsers: concurrentUsers || 10,
+      duration: duration || 30,
+      rampUp: rampUp || 5,
+    };
+    
+    const result = await runBenchmark(config as any);
+    const report = generateBenchmarkReport(result, config as any);
+    
+    res.json({ ...result, report });
+  } catch (e: any) {
+    console.error("Benchmark failed:", e);
+    res.status(500).json({ error: "Benchmark failed", details: e?.message || String(e) });
   }
 });
 

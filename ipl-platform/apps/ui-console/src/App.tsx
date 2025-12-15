@@ -3,6 +3,7 @@ import "./App.css";
 import ArchitectureDiagram from "./ArchitectureDiagram";
 import AICodePanel from "./AICodePanel";
 import DevOpsPanel from "./DevOpsPanel";
+import BenchmarkPanel from "./BenchmarkPanel";
 
 const API_BASE_URL = '';
 
@@ -2218,6 +2219,14 @@ export default function App() {
                   tables={generatedArtifacts?.tables || []}
                   cloudProvider={selectedCloud}
                 />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">⚡</span> App Benchmarking</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Run performance tests against your API endpoints and measure real metrics.
+                </p>
+                <BenchmarkPanel domain={domain} />
               </div>
 
               <div className="result-card">

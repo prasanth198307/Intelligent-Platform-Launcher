@@ -6,3 +6,4 @@ export * from './auth.js';
 export * from './load-testing.js';
 export * from './security.js';
 export * from './cost-optimizer.js';
+export * from './benchmarking.js';
