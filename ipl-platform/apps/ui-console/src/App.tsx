@@ -409,6 +409,17 @@ const DOMAINS: DomainConfig[] = [
     standards: ['gaap', 'ifrs', 'sox']
   },
   { 
+    id: 'erp', 
+    name: 'ERP (Enterprise Resource Planning)', 
+    icon: '🏢',
+    entityLabel: 'Number of Users / Employees',
+    entityPlaceholder: 'e.g., 5000',
+    transactionLabel: 'Business Transactions per Day',
+    transactionPlaceholder: 'e.g., 50000',
+    defaultCompliance: ['soc2', 'iso27001'],
+    standards: ['gaap', 'ifrs', 'sox', 'iso9001']
+  },
+  { 
     id: 'custom', 
     name: 'Custom Domain', 
     icon: '🔧',
@@ -465,6 +476,7 @@ const COMPLIANCE_OPTIONS = [
   { id: 'aba', name: 'ABA Guidelines', category: 'legal' },
   { id: 'gaap', name: 'GAAP', category: 'accounting' },
   { id: 'ifrs', name: 'IFRS', category: 'accounting' },
+  { id: 'iso9001', name: 'ISO 9001', category: 'erp' },
 ];
 
 function getComplianceForDomain(domainId: string): typeof COMPLIANCE_OPTIONS {
