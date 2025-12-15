@@ -37,6 +37,17 @@ export async function mockLLMForType(type: string, context: GenerationContext) {
   const domainScreens = getDomainScreens(context.domain);
   const domainTables = getDomainTables(context.domain, context.database);
   const domainTests = getDomainTests(context.domain);
+  const domainIntegrations = getDomainIntegrations(context.domain);
+  const scaffolding = getScaffolding(context.domain);
+  const multiTenant = getMultiTenantConfig(
+    context.multiTenant?.enabled || false,
+    context.multiTenant?.level || 'none'
+  );
+  const multiLingual = getMultiLingualConfig(
+    context.multiLingual?.enabled || false,
+    context.multiLingual?.level || 'none',
+    context.multiLingual?.languages || []
+  );
 
   switch (type) {
     case "modules":
@@ -47,12 +58,20 @@ export async function mockLLMForType(type: string, context: GenerationContext) {
       return { tables: domainTables };
     case "tests":
       return { tests: domainTests };
+    case "integrations":
+      return { integrations: domainIntegrations };
+    case "scaffolding":
+      return { scaffolding };
     case "all":
       return {
         modules: domainModules,
         screens: domainScreens,
         tables: domainTables,
-        tests: domainTests
+        tests: domainTests,
+        integrations: domainIntegrations,
+        scaffolding,
+        multiTenant,
+        multiLingual
       };
     default:
       return { error: `Unknown type: ${type}` };
@@ -316,4 +335,203 @@ function getDomainTests(domain: string) {
   };
 
   return [...baseTests, ...(domainSpecific[domain] || [])];
+}
+
+function getDomainIntegrations(domain: string) {
+  const baseIntegrations = [
+    { name: "Email Service", type: "communication", provider: "SendGrid", description: "Transactional and marketing emails", required: true },
+    { name: "SMS Gateway", type: "communication", provider: "Twilio", description: "SMS notifications and 2FA", required: false },
+    { name: "Push Notifications", type: "communication", provider: "Firebase", description: "Mobile push notifications", required: false },
+    { name: "Analytics", type: "analytics", provider: "Mixpanel", description: "User behavior analytics", required: false },
+    { name: "Error Tracking", type: "analytics", provider: "Sentry", description: "Application error monitoring", required: true },
+    { name: "Object Storage", type: "storage", provider: "AWS S3", description: "File and document storage", required: true },
+    { name: "Identity Provider", type: "auth", provider: "Auth0", description: "SSO and social login", required: false }
+  ];
+
+  const domainSpecific: Record<string, typeof baseIntegrations> = {
+    ami: [
+      { name: "MQTT Broker", type: "other", provider: "HiveMQ", description: "IoT device messaging", required: true },
+      { name: "Time-Series DB", type: "storage", provider: "TimescaleDB", description: "High-volume meter data storage", required: true },
+      { name: "GIS Service", type: "other", provider: "Mapbox", description: "Geographic mapping and visualization", required: false }
+    ],
+    cis: [
+      { name: "Payment Gateway", type: "payment", provider: "Stripe", description: "Credit card and ACH payments", required: true },
+      { name: "Bill Presentment", type: "other", provider: "Custom", description: "Electronic bill delivery", required: true },
+      { name: "Address Validation", type: "other", provider: "SmartyStreets", description: "USPS address verification", required: false }
+    ],
+    healthcare: [
+      { name: "Payment Gateway", type: "payment", provider: "Stripe", description: "Patient payment processing", required: true },
+      { name: "HL7/FHIR Gateway", type: "other", provider: "Epic/Cerner", description: "EHR data exchange", required: true },
+      { name: "E-Prescribing", type: "other", provider: "Surescripts", description: "Electronic prescription network", required: true },
+      { name: "Insurance Eligibility", type: "other", provider: "Availity", description: "Real-time eligibility checks", required: false }
+    ],
+    banking: [
+      { name: "Payment Gateway", type: "payment", provider: "Stripe", description: "Card payment processing", required: true },
+      { name: "ACH Processing", type: "payment", provider: "Plaid", description: "Bank account verification and transfers", required: true },
+      { name: "Real-Time Payments", type: "payment", provider: "Visa Direct", description: "Instant fund transfers", required: false },
+      { name: "KYC/AML Service", type: "other", provider: "Jumio", description: "Identity verification", required: true },
+      { name: "Credit Bureau", type: "other", provider: "Experian", description: "Credit checks and reports", required: false }
+    ],
+    insurance: [
+      { name: "Payment Gateway", type: "payment", provider: "Stripe", description: "Premium payment processing", required: true },
+      { name: "Document Generation", type: "other", provider: "DocuSign", description: "Policy document signing", required: true },
+      { name: "Claims Automation", type: "other", provider: "Guidewire", description: "Claims processing integration", required: false },
+      { name: "Rating Engine", type: "other", provider: "Custom", description: "Premium calculation service", required: true }
+    ],
+    retail: [
+      { name: "Payment Gateway", type: "payment", provider: "Stripe", description: "Online payment processing", required: true },
+      { name: "PayPal", type: "payment", provider: "PayPal", description: "Alternative payment method", required: false },
+      { name: "Shipping", type: "other", provider: "ShipStation", description: "Multi-carrier shipping", required: true },
+      { name: "Tax Calculation", type: "other", provider: "Avalara", description: "Sales tax automation", required: true },
+      { name: "Inventory Sync", type: "other", provider: "Custom", description: "Multi-channel inventory", required: false }
+    ],
+    manufacturing: [
+      { name: "OPC-UA Server", type: "other", provider: "Custom", description: "Industrial equipment integration", required: true },
+      { name: "ERP Integration", type: "other", provider: "SAP", description: "Enterprise resource planning", required: false },
+      { name: "Quality Management", type: "other", provider: "Custom", description: "QMS integration", required: false }
+    ],
+    crm: [
+      { name: "Email Marketing", type: "communication", provider: "Mailchimp", description: "Campaign management", required: false },
+      { name: "Calendar Integration", type: "other", provider: "Google/Microsoft", description: "Meeting scheduling", required: true },
+      { name: "Phone System", type: "communication", provider: "Twilio", description: "Call tracking and recording", required: false }
+    ]
+  };
+
+  return [...baseIntegrations, ...(domainSpecific[domain] || [])];
+}
+
+function getScaffolding(domain: string) {
+  const folders = [
+    "src/",
+    "src/api/",
+    "src/api/routes/",
+    "src/api/middleware/",
+    "src/api/validators/",
+    "src/services/",
+    "src/services/domain/",
+    "src/services/integrations/",
+    "src/models/",
+    "src/models/entities/",
+    "src/models/dto/",
+    "src/repositories/",
+    "src/utils/",
+    "src/config/",
+    "src/types/",
+    "tests/",
+    "tests/unit/",
+    "tests/integration/",
+    "tests/e2e/",
+    "docs/",
+    "scripts/",
+    "migrations/"
+  ];
+
+  const baseFiles = [
+    { path: "src/index.ts", description: "Application entry point" },
+    { path: "src/app.ts", description: "Express/Fastify app setup" },
+    { path: "src/config/database.ts", description: "Database connection configuration" },
+    { path: "src/config/env.ts", description: "Environment variables" },
+    { path: "src/api/routes/index.ts", description: "Route aggregator" },
+    { path: "src/api/routes/auth.ts", description: "Authentication routes" },
+    { path: "src/api/routes/users.ts", description: "User management routes" },
+    { path: "src/api/middleware/auth.ts", description: "JWT authentication middleware" },
+    { path: "src/api/middleware/validation.ts", description: "Request validation middleware" },
+    { path: "src/api/middleware/errorHandler.ts", description: "Global error handler" },
+    { path: "src/services/authService.ts", description: "Authentication business logic" },
+    { path: "src/services/userService.ts", description: "User management logic" },
+    { path: "src/models/entities/User.ts", description: "User entity model" },
+    { path: "src/models/entities/AuditLog.ts", description: "Audit log entity" },
+    { path: "src/repositories/userRepository.ts", description: "User data access" },
+    { path: "src/utils/logger.ts", description: "Logging utility" },
+    { path: "src/utils/crypto.ts", description: "Encryption utilities" },
+    { path: "src/types/index.ts", description: "Type definitions" },
+    { path: "tests/unit/authService.test.ts", description: "Auth service tests" },
+    { path: "tests/integration/api.test.ts", description: "API integration tests" },
+    { path: "package.json", description: "Project dependencies" },
+    { path: "tsconfig.json", description: "TypeScript configuration" },
+    { path: ".env.example", description: "Environment template" },
+    { path: "Dockerfile", description: "Container configuration" },
+    { path: "docker-compose.yml", description: "Local development setup" }
+  ];
+
+  const domainFiles: Record<string, typeof baseFiles> = {
+    ami: [
+      { path: "src/api/routes/meters.ts", description: "Meter management routes" },
+      { path: "src/api/routes/readings.ts", description: "Reading collection routes" },
+      { path: "src/services/domain/meterService.ts", description: "Meter business logic" },
+      { path: "src/services/domain/readingService.ts", description: "Reading processing" },
+      { path: "src/services/integrations/dlmsGateway.ts", description: "DLMS protocol adapter" },
+      { path: "src/services/integrations/mqttClient.ts", description: "MQTT message handler" },
+      { path: "src/models/entities/Meter.ts", description: "Meter entity" },
+      { path: "src/models/entities/MeterReading.ts", description: "Reading entity" }
+    ],
+    healthcare: [
+      { path: "src/api/routes/patients.ts", description: "Patient management routes" },
+      { path: "src/api/routes/encounters.ts", description: "Encounter routes" },
+      { path: "src/services/domain/patientService.ts", description: "Patient business logic" },
+      { path: "src/services/domain/ehrService.ts", description: "EHR integration" },
+      { path: "src/services/integrations/hl7Parser.ts", description: "HL7 message parser" },
+      { path: "src/services/integrations/fhirClient.ts", description: "FHIR API client" },
+      { path: "src/models/entities/Patient.ts", description: "Patient entity" },
+      { path: "src/models/entities/Encounter.ts", description: "Encounter entity" }
+    ],
+    banking: [
+      { path: "src/api/routes/accounts.ts", description: "Account management routes" },
+      { path: "src/api/routes/transactions.ts", description: "Transaction routes" },
+      { path: "src/services/domain/accountService.ts", description: "Account business logic" },
+      { path: "src/services/domain/transactionService.ts", description: "Transaction processing" },
+      { path: "src/services/integrations/plaidClient.ts", description: "Plaid integration" },
+      { path: "src/services/integrations/stripeClient.ts", description: "Stripe payment client" },
+      { path: "src/models/entities/Account.ts", description: "Account entity" },
+      { path: "src/models/entities/Transaction.ts", description: "Transaction entity" }
+    ],
+    retail: [
+      { path: "src/api/routes/products.ts", description: "Product catalog routes" },
+      { path: "src/api/routes/orders.ts", description: "Order management routes" },
+      { path: "src/services/domain/productService.ts", description: "Product business logic" },
+      { path: "src/services/domain/orderService.ts", description: "Order processing" },
+      { path: "src/services/integrations/stripeClient.ts", description: "Stripe payment client" },
+      { path: "src/services/integrations/shippingClient.ts", description: "Shipping integration" },
+      { path: "src/models/entities/Product.ts", description: "Product entity" },
+      { path: "src/models/entities/Order.ts", description: "Order entity" }
+    ]
+  };
+
+  return {
+    folders,
+    files: [...baseFiles, ...(domainFiles[domain] || [])]
+  };
+}
+
+function getMultiTenantConfig(enabled: boolean, level: string) {
+  if (!enabled) {
+    return { enabled: false, level: 'none', isolation: 'none' };
+  }
+  
+  const actualLevel = level || 'ui-and-db';
+  let isolation = 'none';
+  
+  if (actualLevel === 'ui-and-db') {
+    isolation = 'schema';
+  } else if (actualLevel === 'ui-only') {
+    isolation = 'none';
+  }
+  
+  return {
+    enabled: true,
+    level: actualLevel,
+    isolation
+  };
+}
+
+function getMultiLingualConfig(enabled: boolean, level: string, languages: string[]) {
+  if (!enabled) {
+    return { enabled: false, level: 'none', defaultLanguage: 'en', supportedLanguages: ['en'] };
+  }
+  return {
+    enabled: true,
+    level: level || 'ui-only',
+    defaultLanguage: 'en',
+    supportedLanguages: languages?.length > 0 ? languages : ['en', 'es', 'fr', 'de']
+  };
 }

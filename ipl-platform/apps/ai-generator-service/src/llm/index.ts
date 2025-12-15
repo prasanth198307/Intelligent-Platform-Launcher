@@ -8,6 +8,15 @@ export interface GenerationContext {
   database: string;
   compliance: string[];
   deploymentType: string;
+  multiTenant?: {
+    enabled: boolean;
+    level: string;
+  };
+  multiLingual?: {
+    enabled: boolean;
+    level: string;
+    languages: string[];
+  };
 }
 
 export async function runLLM(prompt: string) {

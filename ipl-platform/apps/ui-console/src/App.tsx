@@ -116,11 +116,41 @@ interface GeneratedTest {
   coverage: string[];
 }
 
+interface Integration {
+  name: string;
+  type: 'payment' | 'communication' | 'analytics' | 'storage' | 'auth' | 'other';
+  provider: string;
+  description: string;
+  required: boolean;
+}
+
+interface ScaffoldingStructure {
+  folders: string[];
+  files: { path: string; description: string }[];
+}
+
+interface MultiTenantConfig {
+  enabled: boolean;
+  level: 'ui-only' | 'ui-and-db' | 'none';
+  isolation: 'schema' | 'database' | 'row-level';
+}
+
+interface MultiLingualConfig {
+  enabled: boolean;
+  level: 'ui-only' | 'ui-and-db' | 'none';
+  defaultLanguage: string;
+  supportedLanguages: string[];
+}
+
 interface GeneratedArtifacts {
   modules: GeneratedModule[];
   screens: GeneratedScreen[];
   tables: GeneratedTable[];
   tests: GeneratedTest[];
+  integrations: Integration[];
+  scaffolding: ScaffoldingStructure;
+  multiTenant: MultiTenantConfig;
+  multiLingual: MultiLingualConfig;
 }
 
 interface AnalysisResult {
@@ -689,6 +719,13 @@ export default function App() {
   const [generatedArtifacts, setGeneratedArtifacts] = useState<GeneratedArtifacts | null>(null);
   const [generatingArtifacts, setGeneratingArtifacts] = useState(false);
   const [aiServiceStatus, setAiServiceStatus] = useState<'unknown' | 'connected' | 'mock' | 'error'>('unknown');
+  const [specPhase, setSpecPhase] = useState<'configure' | 'preview' | 'finalize'>('configure');
+  
+  const [multiTenantEnabled, setMultiTenantEnabled] = useState(false);
+  const [multiTenantLevel, setMultiTenantLevel] = useState<'ui-only' | 'ui-and-db'>('ui-and-db');
+  const [multiLingualEnabled, setMultiLingualEnabled] = useState(false);
+  const [multiLingualLevel, setMultiLingualLevel] = useState<'ui-only' | 'ui-and-db'>('ui-only');
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['en']);
 
   const handleComplianceToggle = (id: string) => {
     setCompliance(prev => 
@@ -715,7 +752,9 @@ export default function App() {
           transactionsPerDay: parseInt(readingsPerDay) || 96,
           database: selectedDb,
           compliance,
-          deploymentType
+          deploymentType,
+          multiTenant: { enabled: multiTenantEnabled, level: multiTenantLevel },
+          multiLingual: { enabled: multiLingualEnabled, level: multiLingualLevel, languages: selectedLanguages }
         })
       });
       
@@ -728,15 +767,26 @@ export default function App() {
           modules: artifacts.modules || [],
           screens: artifacts.screens || [],
           tables: artifacts.tables || [],
-          tests: artifacts.tests || []
+          tests: artifacts.tests || [],
+          integrations: artifacts.integrations || [],
+          scaffolding: artifacts.scaffolding || { folders: [], files: [] },
+          multiTenant: artifacts.multiTenant || { enabled: multiTenantEnabled, level: multiTenantLevel, isolation: 'row-level' },
+          multiLingual: artifacts.multiLingual || { enabled: multiLingualEnabled, level: multiLingualLevel, defaultLanguage: 'en', supportedLanguages: selectedLanguages }
         });
         setAiServiceStatus('connected');
+        setSpecPhase('preview');
       }
     } catch (err) {
       console.error('Failed to generate artifacts:', err);
       setAiServiceStatus('error');
     }
     setGeneratingArtifacts(false);
+  };
+
+  const handleLanguageToggle = (lang: string) => {
+    setSelectedLanguages(prev =>
+      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
+    );
   };
 
   const analyzeRequirements = async () => {
@@ -899,6 +949,79 @@ export default function App() {
                   {opt.name}
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Multi-Tenant Configuration</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input
+                  type="checkbox"
+                  checked={multiTenantEnabled}
+                  onChange={(e) => setMultiTenantEnabled(e.target.checked)}
+                />
+                Enable Multi-Tenancy
+              </label>
+              {multiTenantEnabled && (
+                <div className="level-selector">
+                  <div 
+                    className={`level-chip ${multiTenantLevel === 'ui-only' ? 'selected' : ''}`}
+                    onClick={() => setMultiTenantLevel('ui-only')}
+                  >
+                    UI Only
+                  </div>
+                  <div 
+                    className={`level-chip ${multiTenantLevel === 'ui-and-db' ? 'selected' : ''}`}
+                    onClick={() => setMultiTenantLevel('ui-and-db')}
+                  >
+                    UI + Database
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Multi-Lingual Support</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input
+                  type="checkbox"
+                  checked={multiLingualEnabled}
+                  onChange={(e) => setMultiLingualEnabled(e.target.checked)}
+                />
+                Enable Multi-Language
+              </label>
+              {multiLingualEnabled && (
+                <>
+                  <div className="level-selector">
+                    <div 
+                      className={`level-chip ${multiLingualLevel === 'ui-only' ? 'selected' : ''}`}
+                      onClick={() => setMultiLingualLevel('ui-only')}
+                    >
+                      UI Only
+                    </div>
+                    <div 
+                      className={`level-chip ${multiLingualLevel === 'ui-and-db' ? 'selected' : ''}`}
+                      onClick={() => setMultiLingualLevel('ui-and-db')}
+                    >
+                      UI + Database
+                    </div>
+                  </div>
+                  <div className="language-picker">
+                    {['en', 'es', 'fr', 'de', 'zh', 'ja', 'ar', 'hi', 'pt', 'ru'].map(lang => (
+                      <span
+                        key={lang}
+                        className={`lang-chip ${selectedLanguages.includes(lang) ? 'selected' : ''}`}
+                        onClick={() => handleLanguageToggle(lang)}
+                      >
+                        {lang.toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1258,6 +1381,91 @@ export default function App() {
                         ))}
                       </div>
                     </div>
+
+                    <div className="artifact-section">
+                      <h4>🔌 Integrations ({generatedArtifacts.integrations.length})</h4>
+                      <div className="integrations-grid">
+                        {generatedArtifacts.integrations.map((integ, idx) => (
+                          <div key={idx} className={`integration-card ${integ.type}`}>
+                            <div className="integration-header">
+                              <span className={`integration-type ${integ.type}`}>{integ.type}</span>
+                              {integ.required && <span className="required-badge">Required</span>}
+                            </div>
+                            <div className="integration-name">{integ.name}</div>
+                            <div className="integration-provider">{integ.provider}</div>
+                            <div className="integration-desc">{integ.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="artifact-section">
+                      <h4>📁 Code Scaffolding ({generatedArtifacts.scaffolding.files.length} files)</h4>
+                      <div className="scaffolding-section">
+                        <div className="folders-list">
+                          <h5>Folder Structure</h5>
+                          <div className="folder-tree">
+                            {generatedArtifacts.scaffolding.folders.map((folder, idx) => (
+                              <div key={idx} className="folder-item">
+                                <span className="folder-icon">📂</span> {folder}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="files-list">
+                          <h5>Key Files</h5>
+                          <div className="file-grid">
+                            {generatedArtifacts.scaffolding.files.slice(0, 12).map((file, idx) => (
+                              <div key={idx} className="file-item">
+                                <span className="file-icon">📄</span>
+                                <div className="file-info">
+                                  <span className="file-path">{file.path}</span>
+                                  <span className="file-desc">{file.description}</span>
+                                </div>
+                              </div>
+                            ))}
+                            {generatedArtifacts.scaffolding.files.length > 12 && (
+                              <div className="file-item more">
+                                +{generatedArtifacts.scaffolding.files.length - 12} more files...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(generatedArtifacts.multiTenant.enabled || generatedArtifacts.multiLingual.enabled) && (
+                      <div className="artifact-section">
+                        <h4>⚙️ Configuration Options</h4>
+                        <div className="config-options">
+                          {generatedArtifacts.multiTenant.enabled && (
+                            <div className="config-card">
+                              <h5>Multi-Tenant</h5>
+                              <div className="config-detail">
+                                <span>Level:</span> {generatedArtifacts.multiTenant.level}
+                              </div>
+                              <div className="config-detail">
+                                <span>Isolation:</span> {generatedArtifacts.multiTenant.isolation}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.multiLingual.enabled && (
+                            <div className="config-card">
+                              <h5>Multi-Lingual</h5>
+                              <div className="config-detail">
+                                <span>Level:</span> {generatedArtifacts.multiLingual.level}
+                              </div>
+                              <div className="config-detail">
+                                <span>Default:</span> {generatedArtifacts.multiLingual.defaultLanguage}
+                              </div>
+                              <div className="config-detail">
+                                <span>Languages:</span> {generatedArtifacts.multiLingual.supportedLanguages.join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
