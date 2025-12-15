@@ -1,5 +1,6 @@
 import { mockLLM, mockLLMForType } from "./providers/mock.js";
 import { openaiLLM, openaiLLMForType } from "./providers/openai.js";
+import { groqLLM, groqLLMForType } from "./providers/groq.js";
 import { generateApplicationCode, reviewCode, fixCode, explainCode } from "./providers/openai-extended.js";
 import { mockGenerateApplicationCode, mockReviewCode, mockFixCode, mockExplainCode } from "./providers/mock-extended.js";
 
@@ -35,6 +36,9 @@ export async function runLLM(prompt: string) {
   console.log("LLM provider:", provider);
 
   try {
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      return await groqLLM(prompt);
+    }
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
       return await openaiLLM(prompt);
     }
@@ -51,6 +55,9 @@ export async function runLLMForType(type: string, context: GenerationContext) {
   console.log(`LLM provider: ${provider}, type: ${type}`);
 
   try {
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      return await groqLLMForType(type, context);
+    }
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
       return await openaiLLMForType(type, context);
     }
