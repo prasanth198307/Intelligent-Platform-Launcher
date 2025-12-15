@@ -1012,7 +1012,7 @@ export default function App() {
 
   const deleteWorkspace = async (workspaceId: number) => {
     try {
-      await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}?sessionId=${getSessionId()}`, { method: 'DELETE' });
       if (currentWorkspaceId === workspaceId) {
         setCurrentWorkspaceId(null);
         setWorkspaceName('');

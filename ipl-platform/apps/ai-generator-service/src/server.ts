@@ -115,7 +115,21 @@ app.post("/api/workspaces", async (req, res) => {
 app.put("/api/workspaces/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const data = req.body;
+    const { sessionId, ...data } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId is required" });
+    }
+    
+    const [existing] = await db.select().from(workspaces).where(eq(workspaces.id, id));
+    
+    if (!existing) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+    
+    if (existing.sessionId !== sessionId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const [workspace] = await db.update(workspaces)
       .set({
@@ -146,10 +160,6 @@ app.put("/api/workspaces/:id", async (req, res) => {
       .where(eq(workspaces.id, id))
       .returning();
 
-    if (!workspace) {
-      return res.status(404).json({ error: "Workspace not found" });
-    }
-
     res.json({ ok: true, workspace });
   } catch (e: any) {
     console.error("Update workspace failed:", e);
@@ -161,13 +171,11 @@ app.get("/api/workspaces", async (req, res) => {
   try {
     const sessionId = req.query.sessionId as string;
     
-    let result;
-    if (sessionId) {
-      result = await db.select().from(workspaces).where(eq(workspaces.sessionId, sessionId)).orderBy(desc(workspaces.updatedAt));
-    } else {
-      result = await db.select().from(workspaces).orderBy(desc(workspaces.updatedAt));
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId is required" });
     }
     
+    const result = await db.select().from(workspaces).where(eq(workspaces.sessionId, sessionId)).orderBy(desc(workspaces.updatedAt));
     res.json({ ok: true, workspaces: result });
   } catch (e: any) {
     console.error("List workspaces failed:", e);
@@ -178,10 +186,16 @@ app.get("/api/workspaces", async (req, res) => {
 app.get("/api/workspaces/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const sessionId = req.query.sessionId as string;
+    
     const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, id));
 
     if (!workspace) {
       return res.status(404).json({ error: "Workspace not found" });
+    }
+    
+    if (sessionId && workspace.sessionId !== sessionId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     res.json({ ok: true, workspace });
@@ -194,6 +208,22 @@ app.get("/api/workspaces/:id", async (req, res) => {
 app.delete("/api/workspaces/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const sessionId = req.query.sessionId as string;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId is required" });
+    }
+    
+    const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, id));
+    
+    if (!workspace) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+    
+    if (workspace.sessionId !== sessionId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
     await db.delete(workspaces).where(eq(workspaces.id, id));
     res.json({ ok: true });
   } catch (e: any) {

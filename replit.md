@@ -69,6 +69,14 @@ The platform includes an AI generator service that can generate:
 
 When OPENAI_API_KEY is set, uses OpenAI for generation. Otherwise, uses realistic mock data.
 
+### 8. Workspace Management (Save/Load)
+Users can save their work and resume later:
+- **Save Workspaces**: Save project configurations including domain, database, compliance, and all settings
+- **Load Workspaces**: Resume previous work from saved state
+- **Session-based**: Each user session has its own isolated workspaces
+- **Persistence**: All workspaces stored in PostgreSQL database
+- **Delete**: Remove unwanted workspaces
+
 ## Running Locally
 
 ```bash
