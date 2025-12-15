@@ -1184,3 +1184,143 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.form-section-header {
+  margin: 24px 0 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(100, 100, 200, 0.2);
+}
+
+.form-section-header h3 {
+  color: #8b5cf6;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.option-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.option-chip {
+  padding: 6px 12px;
+  background: rgba(20, 20, 50, 0.6);
+  border: 1px solid rgba(100, 100, 200, 0.2);
+  border-radius: 6px;
+  color: #a0a0c0;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.option-chip:hover {
+  background: rgba(74, 74, 240, 0.15);
+  border-color: rgba(74, 74, 240, 0.3);
+}
+
+.option-chip.selected {
+  background: rgba(74, 74, 240, 0.25);
+  border-color: #4a4af0;
+  color: #e0e0e0;
+}
+
+.sla-info {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.sla-badge {
+  padding: 8px 14px;
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 8px;
+  color: #06b6d4;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.cross-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cross-domain-card {
+  background: rgba(30, 30, 60, 0.6);
+  border: 1px solid rgba(100, 100, 200, 0.2);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.cd-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cd-icon {
+  font-size: 1.4rem;
+}
+
+.cd-title {
+  color: #e0e0e0;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.cd-provider {
+  color: #8b5cf6;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  text-transform: capitalize;
+}
+
+.cd-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cd-feature-tag {
+  padding: 4px 10px;
+  background: rgba(74, 74, 240, 0.15);
+  border-radius: 4px;
+  color: #a0a0c0;
+  font-size: 0.75rem;
+}
+
+.cd-metrics {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cd-metric {
+  padding: 6px 12px;
+  background: rgba(6, 182, 212, 0.15);
+  border-radius: 6px;
+  color: #06b6d4;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.cd-envs, .cd-channels, .cd-doc-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.env-badge, .channel-badge, .doc-type-badge {
+  padding: 6px 12px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 6px;
+  color: #8b5cf6;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}

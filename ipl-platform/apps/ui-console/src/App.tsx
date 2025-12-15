@@ -142,6 +142,83 @@ interface MultiLingualConfig {
   supportedLanguages: string[];
 }
 
+interface CICDConfig {
+  enabled: boolean;
+  provider: 'github-actions' | 'gitlab-ci' | 'jenkins' | 'azure-devops' | 'circleci';
+  features: string[];
+}
+
+interface APIGatewayConfig {
+  enabled: boolean;
+  provider: 'kong' | 'aws-api-gateway' | 'azure-apim' | 'nginx' | 'envoy';
+  features: string[];
+}
+
+interface MonitoringConfig {
+  enabled: boolean;
+  stack: 'prometheus-grafana' | 'elk' | 'datadog' | 'newrelic' | 'cloudwatch';
+  features: string[];
+}
+
+interface BackupDRConfig {
+  enabled: boolean;
+  rpoHours: number;
+  rtoHours: number;
+  strategy: 'hot-standby' | 'warm-standby' | 'cold-backup' | 'pilot-light';
+  features: string[];
+}
+
+interface EnvironmentConfig {
+  enabled: boolean;
+  environments: string[];
+  promotionStrategy: 'manual' | 'gitops' | 'auto-promote';
+  features: string[];
+}
+
+interface NotificationConfig {
+  enabled: boolean;
+  channels: string[];
+  features: string[];
+}
+
+interface DocumentationConfig {
+  enabled: boolean;
+  types: string[];
+  features: string[];
+}
+
+interface PerformanceSLAConfig {
+  enabled: boolean;
+  latencyP99Ms: number;
+  uptimePercent: number;
+  features: string[];
+}
+
+interface DataMigrationConfig {
+  enabled: boolean;
+  strategy: 'big-bang' | 'phased' | 'parallel-run' | 'strangler';
+  features: string[];
+}
+
+interface VersionControlConfig {
+  enabled: boolean;
+  strategy: 'gitflow' | 'github-flow' | 'trunk-based' | 'feature-branch';
+  features: string[];
+}
+
+interface CrossDomainFeatures {
+  cicd: CICDConfig;
+  apiGateway: APIGatewayConfig;
+  monitoring: MonitoringConfig;
+  backupDR: BackupDRConfig;
+  environments: EnvironmentConfig;
+  notifications: NotificationConfig;
+  documentation: DocumentationConfig;
+  performanceSLA: PerformanceSLAConfig;
+  dataMigration: DataMigrationConfig;
+  versionControl: VersionControlConfig;
+}
+
 interface GeneratedArtifacts {
   modules: GeneratedModule[];
   screens: GeneratedScreen[];
@@ -151,6 +228,7 @@ interface GeneratedArtifacts {
   scaffolding: ScaffoldingStructure;
   multiTenant: MultiTenantConfig;
   multiLingual: MultiLingualConfig;
+  crossDomain: CrossDomainFeatures;
 }
 
 interface AnalysisResult {
@@ -727,6 +805,26 @@ export default function App() {
   const [multiLingualLevel, setMultiLingualLevel] = useState<'ui-only' | 'ui-and-db'>('ui-only');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['en']);
 
+  const [cicdEnabled, setCicdEnabled] = useState(false);
+  const [cicdProvider, setCicdProvider] = useState<'github-actions' | 'gitlab-ci' | 'jenkins' | 'azure-devops' | 'circleci'>('github-actions');
+  const [apiGatewayEnabled, setApiGatewayEnabled] = useState(false);
+  const [apiGatewayProvider, setApiGatewayProvider] = useState<'kong' | 'aws-api-gateway' | 'azure-apim' | 'nginx' | 'envoy'>('kong');
+  const [monitoringEnabled, setMonitoringEnabled] = useState(false);
+  const [monitoringStack, setMonitoringStack] = useState<'prometheus-grafana' | 'elk' | 'datadog' | 'newrelic' | 'cloudwatch'>('prometheus-grafana');
+  const [backupDREnabled, setBackupDREnabled] = useState(false);
+  const [backupDRStrategy, setBackupDRStrategy] = useState<'hot-standby' | 'warm-standby' | 'cold-backup' | 'pilot-light'>('warm-standby');
+  const [environmentsEnabled, setEnvironmentsEnabled] = useState(true);
+  const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(['dev', 'staging', 'prod']);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationChannels, setNotificationChannels] = useState<string[]>(['email']);
+  const [documentationEnabled, setDocumentationEnabled] = useState(false);
+  const [documentationTypes, setDocumentationTypes] = useState<string[]>(['api', 'user-guide']);
+  const [performanceSLAEnabled, setPerformanceSLAEnabled] = useState(false);
+  const [dataMigrationEnabled, setDataMigrationEnabled] = useState(false);
+  const [dataMigrationStrategy, setDataMigrationStrategy] = useState<'big-bang' | 'phased' | 'parallel-run' | 'strangler'>('phased');
+  const [versionControlEnabled, setVersionControlEnabled] = useState(true);
+  const [versionControlStrategy, setVersionControlStrategy] = useState<'gitflow' | 'github-flow' | 'trunk-based' | 'feature-branch'>('github-flow');
+
   const handleComplianceToggle = (id: string) => {
     setCompliance(prev => 
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
@@ -736,6 +834,24 @@ export default function App() {
   const handleMobileToggle = (platform: string) => {
     setMobileApps(prev =>
       prev.includes(platform) ? prev.filter(p => p !== platform) : [...prev, platform]
+    );
+  };
+
+  const handleEnvironmentToggle = (env: string) => {
+    setSelectedEnvironments(prev =>
+      prev.includes(env) ? prev.filter(e => e !== env) : [...prev, env]
+    );
+  };
+
+  const handleNotificationChannelToggle = (channel: string) => {
+    setNotificationChannels(prev =>
+      prev.includes(channel) ? prev.filter(c => c !== channel) : [...prev, channel]
+    );
+  };
+
+  const handleDocTypeToggle = (docType: string) => {
+    setDocumentationTypes(prev =>
+      prev.includes(docType) ? prev.filter(d => d !== docType) : [...prev, docType]
     );
   };
 
@@ -771,7 +887,19 @@ export default function App() {
           integrations: artifacts.integrations || [],
           scaffolding: artifacts.scaffolding || { folders: [], files: [] },
           multiTenant: artifacts.multiTenant || { enabled: multiTenantEnabled, level: multiTenantLevel, isolation: 'row-level' },
-          multiLingual: artifacts.multiLingual || { enabled: multiLingualEnabled, level: multiLingualLevel, defaultLanguage: 'en', supportedLanguages: selectedLanguages }
+          multiLingual: artifacts.multiLingual || { enabled: multiLingualEnabled, level: multiLingualLevel, defaultLanguage: 'en', supportedLanguages: selectedLanguages },
+          crossDomain: {
+            cicd: { enabled: cicdEnabled, provider: cicdProvider, features: ['Build automation', 'Test automation', 'Deploy automation', 'Artifact storage'] },
+            apiGateway: { enabled: apiGatewayEnabled, provider: apiGatewayProvider, features: ['Rate limiting', 'API versioning', 'Request/Response transformation', 'Authentication'] },
+            monitoring: { enabled: monitoringEnabled, stack: monitoringStack, features: ['Metrics collection', 'Log aggregation', 'Alerting', 'Dashboards'] },
+            backupDR: { enabled: backupDREnabled, rpoHours: 4, rtoHours: 1, strategy: backupDRStrategy, features: ['Automated backups', 'Point-in-time recovery', 'Cross-region replication', 'Failover testing'] },
+            environments: { enabled: environmentsEnabled, environments: selectedEnvironments, promotionStrategy: 'gitops', features: ['Environment isolation', 'Config management', 'Secrets management'] },
+            notifications: { enabled: notificationsEnabled, channels: notificationChannels, features: ['Alert routing', 'Escalation policies', 'On-call scheduling'] },
+            documentation: { enabled: documentationEnabled, types: documentationTypes, features: ['Auto-generated API docs', 'Code documentation', 'User guides'] },
+            performanceSLA: { enabled: performanceSLAEnabled, latencyP99Ms: 200, uptimePercent: 99.9, features: ['Load testing', 'Stress testing', 'Performance benchmarks'] },
+            dataMigration: { enabled: dataMigrationEnabled, strategy: dataMigrationStrategy, features: ['Schema migration', 'Data validation', 'Rollback support', 'Zero-downtime migration'] },
+            versionControl: { enabled: versionControlEnabled, strategy: versionControlStrategy, features: ['Branch protection', 'Code review', 'CI integration', 'Release management'] }
+          }
         });
         setAiServiceStatus('connected');
         setSpecPhase('preview');
@@ -1021,6 +1149,197 @@ export default function App() {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+
+          <div className="form-section-header">
+            <h3>Cross-Domain Features</h3>
+          </div>
+
+          <div className="form-group">
+            <label>CI/CD Pipeline</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={cicdEnabled} onChange={(e) => setCicdEnabled(e.target.checked)} />
+                Enable CI/CD
+              </label>
+              {cicdEnabled && (
+                <div className="option-selector">
+                  {(['github-actions', 'gitlab-ci', 'jenkins', 'azure-devops', 'circleci'] as const).map(p => (
+                    <span key={p} className={`option-chip ${cicdProvider === p ? 'selected' : ''}`} onClick={() => setCicdProvider(p)}>
+                      {p === 'github-actions' ? 'GitHub Actions' : p === 'gitlab-ci' ? 'GitLab CI' : p === 'azure-devops' ? 'Azure DevOps' : p === 'circleci' ? 'CircleCI' : 'Jenkins'}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>API Gateway</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={apiGatewayEnabled} onChange={(e) => setApiGatewayEnabled(e.target.checked)} />
+                Enable API Gateway
+              </label>
+              {apiGatewayEnabled && (
+                <div className="option-selector">
+                  {(['kong', 'aws-api-gateway', 'azure-apim', 'nginx', 'envoy'] as const).map(p => (
+                    <span key={p} className={`option-chip ${apiGatewayProvider === p ? 'selected' : ''}`} onClick={() => setApiGatewayProvider(p)}>
+                      {p === 'aws-api-gateway' ? 'AWS API GW' : p === 'azure-apim' ? 'Azure APIM' : p.charAt(0).toUpperCase() + p.slice(1)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Monitoring & Observability</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={monitoringEnabled} onChange={(e) => setMonitoringEnabled(e.target.checked)} />
+                Enable Monitoring
+              </label>
+              {monitoringEnabled && (
+                <div className="option-selector">
+                  {(['prometheus-grafana', 'elk', 'datadog', 'newrelic', 'cloudwatch'] as const).map(s => (
+                    <span key={s} className={`option-chip ${monitoringStack === s ? 'selected' : ''}`} onClick={() => setMonitoringStack(s)}>
+                      {s === 'prometheus-grafana' ? 'Prometheus+Grafana' : s === 'elk' ? 'ELK Stack' : s === 'cloudwatch' ? 'CloudWatch' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Backup & Disaster Recovery</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={backupDREnabled} onChange={(e) => setBackupDREnabled(e.target.checked)} />
+                Enable Backup/DR
+              </label>
+              {backupDREnabled && (
+                <div className="option-selector">
+                  {(['hot-standby', 'warm-standby', 'cold-backup', 'pilot-light'] as const).map(s => (
+                    <span key={s} className={`option-chip ${backupDRStrategy === s ? 'selected' : ''}`} onClick={() => setBackupDRStrategy(s)}>
+                      {s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Environments</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={environmentsEnabled} onChange={(e) => setEnvironmentsEnabled(e.target.checked)} />
+                Configure Environments
+              </label>
+              {environmentsEnabled && (
+                <div className="option-selector">
+                  {['dev', 'staging', 'uat', 'prod', 'dr'].map(env => (
+                    <span key={env} className={`option-chip ${selectedEnvironments.includes(env) ? 'selected' : ''}`} onClick={() => handleEnvironmentToggle(env)}>
+                      {env.toUpperCase()}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Notifications & Alerts</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={notificationsEnabled} onChange={(e) => setNotificationsEnabled(e.target.checked)} />
+                Enable Notifications
+              </label>
+              {notificationsEnabled && (
+                <div className="option-selector">
+                  {['email', 'sms', 'push', 'slack', 'teams', 'webhook'].map(ch => (
+                    <span key={ch} className={`option-chip ${notificationChannels.includes(ch) ? 'selected' : ''}`} onClick={() => handleNotificationChannelToggle(ch)}>
+                      {ch.charAt(0).toUpperCase() + ch.slice(1)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Documentation</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={documentationEnabled} onChange={(e) => setDocumentationEnabled(e.target.checked)} />
+                Generate Documentation
+              </label>
+              {documentationEnabled && (
+                <div className="option-selector">
+                  {['api', 'user-guide', 'admin-guide', 'developer', 'runbook'].map(dt => (
+                    <span key={dt} className={`option-chip ${documentationTypes.includes(dt) ? 'selected' : ''}`} onClick={() => handleDocTypeToggle(dt)}>
+                      {dt === 'api' ? 'API Docs' : dt.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Performance SLAs</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={performanceSLAEnabled} onChange={(e) => setPerformanceSLAEnabled(e.target.checked)} />
+                Define Performance SLAs
+              </label>
+              {performanceSLAEnabled && (
+                <div className="sla-info">
+                  <span className="sla-badge">P99 Latency: 200ms</span>
+                  <span className="sla-badge">Uptime: 99.9%</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Data Migration</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={dataMigrationEnabled} onChange={(e) => setDataMigrationEnabled(e.target.checked)} />
+                Plan Data Migration
+              </label>
+              {dataMigrationEnabled && (
+                <div className="option-selector">
+                  {(['big-bang', 'phased', 'parallel-run', 'strangler'] as const).map(s => (
+                    <span key={s} className={`option-chip ${dataMigrationStrategy === s ? 'selected' : ''}`} onClick={() => setDataMigrationStrategy(s)}>
+                      {s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Version Control Workflow</label>
+            <div className="toggle-section">
+              <label className="toggle-label">
+                <input type="checkbox" checked={versionControlEnabled} onChange={(e) => setVersionControlEnabled(e.target.checked)} />
+                Configure Git Workflow
+              </label>
+              {versionControlEnabled && (
+                <div className="option-selector">
+                  {(['gitflow', 'github-flow', 'trunk-based', 'feature-branch'] as const).map(s => (
+                    <span key={s} className={`option-chip ${versionControlStrategy === s ? 'selected' : ''}`} onClick={() => setVersionControlStrategy(s)}>
+                      {s === 'github-flow' ? 'GitHub Flow' : s === 'trunk-based' ? 'Trunk-Based' : s === 'feature-branch' ? 'Feature Branch' : 'GitFlow'}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -1460,6 +1779,154 @@ export default function App() {
                               </div>
                               <div className="config-detail">
                                 <span>Languages:</span> {generatedArtifacts.multiLingual.supportedLanguages.join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {generatedArtifacts.crossDomain && (
+                      <div className="artifact-section">
+                        <h4>🌐 Cross-Domain Features</h4>
+                        <div className="cross-domain-grid">
+                          {generatedArtifacts.crossDomain.cicd.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">🔄</span>
+                                <span className="cd-title">CI/CD Pipeline</span>
+                              </div>
+                              <div className="cd-provider">{generatedArtifacts.crossDomain.cicd.provider}</div>
+                              <div className="cd-features">
+                                {generatedArtifacts.crossDomain.cicd.features.map((f, i) => (
+                                  <span key={i} className="cd-feature-tag">{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.apiGateway.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">🚪</span>
+                                <span className="cd-title">API Gateway</span>
+                              </div>
+                              <div className="cd-provider">{generatedArtifacts.crossDomain.apiGateway.provider}</div>
+                              <div className="cd-features">
+                                {generatedArtifacts.crossDomain.apiGateway.features.map((f, i) => (
+                                  <span key={i} className="cd-feature-tag">{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.monitoring.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">📊</span>
+                                <span className="cd-title">Monitoring</span>
+                              </div>
+                              <div className="cd-provider">{generatedArtifacts.crossDomain.monitoring.stack}</div>
+                              <div className="cd-features">
+                                {generatedArtifacts.crossDomain.monitoring.features.map((f, i) => (
+                                  <span key={i} className="cd-feature-tag">{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.backupDR.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">💾</span>
+                                <span className="cd-title">Backup & DR</span>
+                              </div>
+                              <div className="cd-provider">{generatedArtifacts.crossDomain.backupDR.strategy}</div>
+                              <div className="cd-metrics">
+                                <span className="cd-metric">RPO: {generatedArtifacts.crossDomain.backupDR.rpoHours}h</span>
+                                <span className="cd-metric">RTO: {generatedArtifacts.crossDomain.backupDR.rtoHours}h</span>
+                              </div>
+                              <div className="cd-features">
+                                {generatedArtifacts.crossDomain.backupDR.features.map((f, i) => (
+                                  <span key={i} className="cd-feature-tag">{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.environments.enabled && generatedArtifacts.crossDomain.environments.environments.length > 0 && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">🌍</span>
+                                <span className="cd-title">Environments</span>
+                              </div>
+                              <div className="cd-envs">
+                                {generatedArtifacts.crossDomain.environments.environments.map((env, i) => (
+                                  <span key={i} className="env-badge">{env.toUpperCase()}</span>
+                                ))}
+                              </div>
+                              <div className="cd-provider">Strategy: {generatedArtifacts.crossDomain.environments.promotionStrategy}</div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.notifications.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">🔔</span>
+                                <span className="cd-title">Notifications</span>
+                              </div>
+                              <div className="cd-channels">
+                                {generatedArtifacts.crossDomain.notifications.channels.map((ch, i) => (
+                                  <span key={i} className="channel-badge">{ch}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.documentation.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">📚</span>
+                                <span className="cd-title">Documentation</span>
+                              </div>
+                              <div className="cd-doc-types">
+                                {generatedArtifacts.crossDomain.documentation.types.map((dt, i) => (
+                                  <span key={i} className="doc-type-badge">{dt}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.performanceSLA.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">⚡</span>
+                                <span className="cd-title">Performance SLAs</span>
+                              </div>
+                              <div className="cd-metrics">
+                                <span className="cd-metric">P99: {generatedArtifacts.crossDomain.performanceSLA.latencyP99Ms}ms</span>
+                                <span className="cd-metric">Uptime: {generatedArtifacts.crossDomain.performanceSLA.uptimePercent}%</span>
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.dataMigration.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">🔀</span>
+                                <span className="cd-title">Data Migration</span>
+                              </div>
+                              <div className="cd-provider">{generatedArtifacts.crossDomain.dataMigration.strategy}</div>
+                              <div className="cd-features">
+                                {generatedArtifacts.crossDomain.dataMigration.features.map((f, i) => (
+                                  <span key={i} className="cd-feature-tag">{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {generatedArtifacts.crossDomain.versionControl.enabled && (
+                            <div className="cross-domain-card">
+                              <div className="cd-header">
+                                <span className="cd-icon">📝</span>
+                                <span className="cd-title">Version Control</span>
+                              </div>
+                              <div className="cd-provider">{generatedArtifacts.crossDomain.versionControl.strategy}</div>
+                              <div className="cd-features">
+                                {generatedArtifacts.crossDomain.versionControl.features.map((f, i) => (
+                                  <span key={i} className="cd-feature-tag">{f}</span>
+                                ))}
                               </div>
                             </div>
                           )}
