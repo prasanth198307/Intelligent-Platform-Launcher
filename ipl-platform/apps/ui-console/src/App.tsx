@@ -1067,10 +1067,28 @@ function calculateCosts(infra: InfraSpec): Record<string, CostEstimate> {
     return { compute, storage, network, database, cache, queue, total, currency: 'USD' };
   }
   
+  // On-premises cost estimates (CapEx amortized + OpEx per month)
+  // Hardware costs typically amortized over 3-5 years
+  const onpremRates = {
+    appVCPU: 0.025, appRAM: 0.003, // Lower ongoing costs, hardware already owned
+    dbVCPU: 0.035, dbRAM: 0.004,
+    cacheRAM: 0.012,
+    queueBroker: 0.10,
+    storageGB: 0.02, backupGB: 0.01, logsGB: 0.015, // Enterprise SAN/NAS costs
+    egressGB: 0.01 // Internal network, minimal egress
+  };
+  
+  const onpremCost = computeProviderCost(onpremRates);
+  // Add hardware amortization (CapEx spread monthly over 3 years)
+  const hardwareCapex = Math.round((infra.compute.totalCPU * 200 + infra.compute.totalRAM * 15 + infra.storage.totalGB * 0.5) / 36);
+  onpremCost.compute += hardwareCapex;
+  onpremCost.total += hardwareCapex;
+
   return {
     aws: computeProviderCost(awsRates),
     azure: computeProviderCost(azureRates),
-    gcp: computeProviderCost(gcpRates)
+    gcp: computeProviderCost(gcpRates),
+    onprem: onpremCost
   };
 }
 
@@ -2572,15 +2590,25 @@ export default function App() {
                     </div>
                     <div className="highlight-item">
                       <span className="highlight-label">Est. Cost</span>
-                      <span className="highlight-value">${result.costs[selectedCloud]?.total?.toLocaleString()}/mo</span>
+                      <span className="highlight-value">
+                        {deploymentType === 'onprem' 
+                          ? `$${result.costs['onprem']?.total?.toLocaleString()}/mo` 
+                          : `$${result.costs[selectedCloud]?.total?.toLocaleString()}/mo`}
+                      </span>
                     </div>
                     <div className="highlight-item">
-                      <span className="highlight-label">Cloud</span>
-                      <span className="highlight-value">{selectedCloud.toUpperCase()}</span>
+                      <span className="highlight-label">{deploymentType === 'onprem' ? 'Deploy' : 'Cloud'}</span>
+                      <span className="highlight-value">
+                        {deploymentType === 'onprem' 
+                          ? 'On-Premises' 
+                          : deploymentType === 'hybrid' 
+                            ? `Hybrid (${selectedCloud.toUpperCase()})` 
+                            : selectedCloud.toUpperCase()}
+                      </span>
                     </div>
                     <div className="highlight-item">
-                      <span className="highlight-label">Deploy</span>
-                      <span className="highlight-value">{deploymentType}</span>
+                      <span className="highlight-label">Type</span>
+                      <span className="highlight-value" style={{ textTransform: 'capitalize' }}>{deploymentType}</span>
                     </div>
                   </div>
 
@@ -2808,23 +2836,43 @@ export default function App() {
                       {expandedSections.has('costs') && (
                         <div className="section-content">
                           <div className="cost-breakdown">
-                            {Object.entries(result.costs).map(([provider, cost]) => (
-                              <div key={provider} className={`cost-item ${provider === selectedCloud ? 'total' : ''}`}>
-                                <h4>{CLOUD_PROVIDERS.find(c => c.id === provider)?.icon} {provider.toUpperCase()}</h4>
-                                <div className="price">${cost.total.toLocaleString()}/mo</div>
-                                <div className="cost-details">
-                                  <div className="cost-line"><span>Compute (App):</span><span>${cost.compute.toLocaleString()}</span></div>
-                                  <div className="cost-line"><span>Database:</span><span>${cost.database.toLocaleString()}</span></div>
-                                  <div className="cost-line"><span>Cache (Redis):</span><span>${cost.cache.toLocaleString()}</span></div>
-                                  {cost.queue > 0 && <div className="cost-line"><span>Queue (Kafka):</span><span>${cost.queue.toLocaleString()}</span></div>}
-                                  <div className="cost-line"><span>Storage:</span><span>${cost.storage.toLocaleString()}</span></div>
-                                  <div className="cost-line"><span>Network Egress:</span><span>${cost.network.toLocaleString()}</span></div>
-                                </div>
-                              </div>
-                            ))}
+                            {Object.entries(result.costs)
+                              .filter(([provider]) => {
+                                if (deploymentType === 'onprem') return provider === 'onprem';
+                                if (deploymentType === 'cloud') return provider !== 'onprem';
+                                return true; // hybrid shows all
+                              })
+                              .map(([provider, cost]) => {
+                                const isOnprem = provider === 'onprem';
+                                const isSelected = isOnprem 
+                                  ? deploymentType === 'onprem' 
+                                  : provider === selectedCloud;
+                                return (
+                                  <div key={provider} className={`cost-item ${isSelected ? 'total' : ''}`}>
+                                    <h4>
+                                      {isOnprem ? '🏢' : CLOUD_PROVIDERS.find(c => c.id === provider)?.icon} 
+                                      {' '}{isOnprem ? 'ON-PREM' : provider.toUpperCase()}
+                                    </h4>
+                                    <div className="price">${cost.total.toLocaleString()}/mo</div>
+                                    <div className="cost-details">
+                                      <div className="cost-line">
+                                        <span>{isOnprem ? 'Compute + CapEx:' : 'Compute (App):'}</span>
+                                        <span>${cost.compute.toLocaleString()}</span>
+                                      </div>
+                                      <div className="cost-line"><span>Database:</span><span>${cost.database.toLocaleString()}</span></div>
+                                      <div className="cost-line"><span>Cache (Redis):</span><span>${cost.cache.toLocaleString()}</span></div>
+                                      {cost.queue > 0 && <div className="cost-line"><span>Queue (Kafka):</span><span>${cost.queue.toLocaleString()}</span></div>}
+                                      <div className="cost-line"><span>Storage:</span><span>${cost.storage.toLocaleString()}</span></div>
+                                      <div className="cost-line"><span>{isOnprem ? 'Network:' : 'Network Egress:'}</span><span>${cost.network.toLocaleString()}</span></div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                           </div>
                           <div className="pricing-note">
-                            Estimates based on on-demand pricing. Actual costs may vary. Reserved instances can reduce costs by 30-60%.
+                            {deploymentType === 'onprem' 
+                              ? 'On-premises estimates include hardware amortization (3-year lifecycle) plus operational costs. Actual costs depend on existing infrastructure.'
+                              : 'Estimates based on on-demand pricing. Actual costs may vary. Reserved instances can reduce costs by 30-60%.'}
                           </div>
                         </div>
                       )}

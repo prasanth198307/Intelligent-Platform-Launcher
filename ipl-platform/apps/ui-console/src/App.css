@@ -1,6 +1,7 @@
 .platform-launcher {
   min-height: 100vh;
   padding: 20px;
+  overflow-x: hidden;
 }
 
 .header {
@@ -29,6 +30,7 @@
   display: grid;
   grid-template-columns: 350px 1fr;
   gap: 24px;
+  align-items: start;
 }
 
 .input-panel {
@@ -3079,6 +3081,7 @@
   align-items: flex-start;
   min-height: calc(100vh - 200px);
   position: relative;
+  padding-bottom: 60px;
 }
 
 .category-sidebar {
@@ -3134,9 +3137,10 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: calc(100vh - 200px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 8px;
+  padding-bottom: 40px;
 }
 
 /* Highlights Card */
@@ -3180,7 +3184,7 @@
   background: rgba(30, 30, 60, 0.8);
   border-radius: 16px;
   border: 1px solid rgba(100, 100, 200, 0.2);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .collapsible-section .section-header {
@@ -3218,6 +3222,7 @@
 
 .collapsible-section .section-content {
   padding: 0 24px 24px 24px;
+  overflow: visible;
 }
 
 /* Hardware Recommendations */
