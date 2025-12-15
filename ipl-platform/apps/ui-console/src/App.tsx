@@ -1831,31 +1831,28 @@ export default function App() {
             </div>
           </div>
 
+          <div 
+            className="advanced-options-toggle"
+            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+          >
+            <span className="toggle-icon">{showAdvancedOptions ? '▼' : '▶'}</span>
+            <span>Advanced Options</span>
+            <span className="toggle-hint">{showAdvancedOptions ? 'Click to collapse' : 'Multi-Tenant, CI/CD, Monitoring, more...'}</span>
+          </div>
+
+          {showAdvancedOptions && (
+          <>
           <div className="form-group">
             <label>Multi-Tenant Configuration</label>
             <div className="toggle-section">
               <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={multiTenantEnabled}
-                  onChange={(e) => setMultiTenantEnabled(e.target.checked)}
-                />
+                <input type="checkbox" checked={multiTenantEnabled} onChange={(e) => setMultiTenantEnabled(e.target.checked)} />
                 Enable Multi-Tenancy
               </label>
               {multiTenantEnabled && (
                 <div className="level-selector">
-                  <div 
-                    className={`level-chip ${multiTenantLevel === 'ui-only' ? 'selected' : ''}`}
-                    onClick={() => setMultiTenantLevel('ui-only')}
-                  >
-                    UI Only
-                  </div>
-                  <div 
-                    className={`level-chip ${multiTenantLevel === 'ui-and-db' ? 'selected' : ''}`}
-                    onClick={() => setMultiTenantLevel('ui-and-db')}
-                  >
-                    UI + Database
-                  </div>
+                  <div className={`level-chip ${multiTenantLevel === 'ui-only' ? 'selected' : ''}`} onClick={() => setMultiTenantLevel('ui-only')}>UI Only</div>
+                  <div className={`level-chip ${multiTenantLevel === 'ui-and-db' ? 'selected' : ''}`} onClick={() => setMultiTenantLevel('ui-and-db')}>UI + Database</div>
                 </div>
               )}
             </div>
@@ -1865,38 +1862,18 @@ export default function App() {
             <label>Multi-Lingual Support</label>
             <div className="toggle-section">
               <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={multiLingualEnabled}
-                  onChange={(e) => setMultiLingualEnabled(e.target.checked)}
-                />
+                <input type="checkbox" checked={multiLingualEnabled} onChange={(e) => setMultiLingualEnabled(e.target.checked)} />
                 Enable Multi-Language
               </label>
               {multiLingualEnabled && (
                 <>
                   <div className="level-selector">
-                    <div 
-                      className={`level-chip ${multiLingualLevel === 'ui-only' ? 'selected' : ''}`}
-                      onClick={() => setMultiLingualLevel('ui-only')}
-                    >
-                      UI Only
-                    </div>
-                    <div 
-                      className={`level-chip ${multiLingualLevel === 'ui-and-db' ? 'selected' : ''}`}
-                      onClick={() => setMultiLingualLevel('ui-and-db')}
-                    >
-                      UI + Database
-                    </div>
+                    <div className={`level-chip ${multiLingualLevel === 'ui-only' ? 'selected' : ''}`} onClick={() => setMultiLingualLevel('ui-only')}>UI Only</div>
+                    <div className={`level-chip ${multiLingualLevel === 'ui-and-db' ? 'selected' : ''}`} onClick={() => setMultiLingualLevel('ui-and-db')}>UI + Database</div>
                   </div>
                   <div className="language-picker">
                     {['en', 'es', 'fr', 'de', 'zh', 'ja', 'ar', 'hi', 'pt', 'ru'].map(lang => (
-                      <span
-                        key={lang}
-                        className={`lang-chip ${selectedLanguages.includes(lang) ? 'selected' : ''}`}
-                        onClick={() => handleLanguageToggle(lang)}
-                      >
-                        {lang.toUpperCase()}
-                      </span>
+                      <span key={lang} className={`lang-chip ${selectedLanguages.includes(lang) ? 'selected' : ''}`} onClick={() => handleLanguageToggle(lang)}>{lang.toUpperCase()}</span>
                     ))}
                   </div>
                 </>
@@ -1904,17 +1881,6 @@ export default function App() {
             </div>
           </div>
 
-          <div 
-            className="advanced-options-toggle"
-            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-          >
-            <span className="toggle-icon">{showAdvancedOptions ? '▼' : '▶'}</span>
-            <span>Advanced Options</span>
-            <span className="toggle-hint">{showAdvancedOptions ? 'Click to collapse' : 'CI/CD, Monitoring, Environments...'}</span>
-          </div>
-
-          {showAdvancedOptions && (
-          <>
           <div className="form-section-header">
             <h3>Cross-Domain Features</h3>
           </div>
