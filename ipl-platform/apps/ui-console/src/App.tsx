@@ -1907,6 +1907,9 @@ export default function App() {
     
     setResult(analysisResult);
     setLoading(false);
+    
+    // Auto-generate code artifacts (modules, screens, tables for ERD)
+    generateCodeArtifacts();
   };
 
   return (
