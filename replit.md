@@ -74,7 +74,7 @@ ipl-platform/
 - **Specification Features**: Multi-tenant configurations, multi-lingual support, payment and 3rd party integration detection, and source code scaffolding previews.
 
 ## External Dependencies
-- **AI/LLM**: OpenAI (configurable, with fallback to mock data if `OPENAI_API_KEY` is not set). Uses `gpt-4o-mini` by default.
+- **AI/LLM**: Groq (free tier with Llama 3.1) or OpenAI (configurable). Set `LLM_PROVIDER=groq` for free Groq API or `LLM_PROVIDER=openai` for OpenAI. Falls back to mock data if no API key is set.
 - **Databases**: PostgreSQL (for workspace persistence), and support for integration with PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB.
 - **Cloud Providers**: AWS, Azure, Google Cloud (for cost estimation and deployment).
 - **Frontend Framework**: React, Vite, TypeScript.
