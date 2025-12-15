@@ -38,6 +38,7 @@ import {
   generateMigrationPlan,
   generateTargetDDL,
   generatePerformanceSuggestions,
+  generateProjectDocumentation,
   type SourceSchema,
   type MigrationConfig,
 } from "./generators/index.js";
@@ -557,6 +558,31 @@ app.post("/api/generate-backend", async (req, res) => {
   } catch (e: any) {
     console.error("Backend API generation failed:", e);
     res.status(500).json({ error: "Backend API generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/generate-documentation", async (req, res) => {
+  try {
+    const { domain, projectName, requirements, infrastructure, techStack, tables, security, deploymentType, cloudProvider, compliance } = req.body;
+    
+    const ctx = {
+      domain: domain || "custom",
+      projectName,
+      requirements,
+      infrastructure,
+      techStack,
+      tables: tables || [],
+      security: security || [],
+      deploymentType: deploymentType || "cloud",
+      cloudProvider: cloudProvider || "aws",
+      compliance: compliance || [],
+    };
+    
+    const result = generateProjectDocumentation(ctx);
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    console.error("Documentation generation failed:", e);
+    res.status(500).json({ error: "Documentation generation failed", details: e?.message || String(e) });
   }
 });
 

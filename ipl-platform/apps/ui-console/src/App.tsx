@@ -16,6 +16,7 @@ import MonitoringPanel from "./MonitoringPanel";
 import EnvironmentPanel from "./EnvironmentPanel";
 import GuidedWizard from "./GuidedWizard";
 import MigrationAssistantPanel from "./MigrationAssistantPanel";
+import DocumentationPanel from "./DocumentationPanel";
 
 const API_BASE_URL = '';
 

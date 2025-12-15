@@ -10,3 +10,4 @@ export * from './benchmarking.js';
 export * from './mobile-app.js';
 export * from './backend-api.js';
 export * from './migration-assistant.js';
+export * from './documentation.js';
