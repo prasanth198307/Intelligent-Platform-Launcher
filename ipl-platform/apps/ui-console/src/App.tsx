@@ -1161,6 +1161,31 @@ export default function App() {
   const [backendFramework, setBackendFramework] = useState<'nodejs' | 'python' | 'go'>('nodejs');
   const [viewMode, setViewMode] = useState<'dashboard' | 'wizard'>('dashboard');
 
+  // Category navigation state for reorganized UI
+  const [activeCategory, setActiveCategory] = useState<string>('overview');
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['infra-specs', 'hardware', 'cost-comparison']));
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
+
+  const RESULT_CATEGORIES = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'architecture', label: 'Architecture', icon: '🏗️' },
+    { id: 'build', label: 'Build & Code', icon: '🔧' },
+    { id: 'testing', label: 'Testing', icon: '🧪' },
+    { id: 'operations', label: 'Operations', icon: '⚙️' },
+    { id: 'integrations', label: 'Integrations', icon: '🔗' },
+  ];
+
   useEffect(() => {
     loadWorkspaces();
   }, []);
@@ -2136,953 +2161,600 @@ export default function App() {
                   <GuidedWizard domain={domain} onComplete={() => setViewMode('dashboard')} />
                 </div>
               ) : (
-              <>
-              <div className="result-card">
-                <h3><span className="icon">📊</span> Infrastructure Specifications - {result.infrastructure.tier} Tier</h3>
-                <div className="specs-grid">
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.devices}</div>
-                    <div className="label">Devices / Meters</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.dailyRecords}</div>
-                    <div className="label">Records / Day</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.compute.totalCPU}</div>
-                    <div className="label">Total vCPUs</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.compute.totalRAMDisplay}</div>
-                    <div className="label">Total RAM</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.compute.appServers}</div>
-                    <div className="label">App Servers</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.compute.dbReplicas + 1}</div>
-                    <div className="label">DB Nodes</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.storage.total}</div>
-                    <div className="label">Total Storage (Y1)</div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="value">{result.infrastructure.network.ingress}</div>
-                    <div className="label">Network Bandwidth</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🖥️</span> Hardware Recommendations</h3>
-                <div className="hardware-specs">
-                  {getHardwareRecommendations(result.infrastructure).map((hw, idx) => (
-                    <div key={idx} className="hardware-card">
-                      <h4>{hw.component} ({hw.count}x)</h4>
-                      <div className="hardware-row">
-                        <span className="label">Specs:</span>
-                        <span className="value">{hw.specs}</span>
-                      </div>
-                      <div className="hardware-row">
-                        <span className="label">AWS:</span>
-                        <span className="instance-type">{hw.awsInstance}</span>
-                      </div>
-                      <div className="hardware-row">
-                        <span className="label">Azure:</span>
-                        <span className="instance-type">{hw.azureInstance}</span>
-                      </div>
-                      <div className="hardware-row">
-                        <span className="label">GCP:</span>
-                        <span className="instance-type">{hw.gcpInstance}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🏗️</span> Architecture Diagram</h3>
-                <div className="diagram-controls">
-                  <button 
-                    className={`view-toggle ${diagramView === 'visual' ? 'active' : ''}`}
-                    onClick={() => setDiagramView('visual')}
-                  >
-                    Visual
-                  </button>
-                  <button 
-                    className={`view-toggle ${diagramView === 'ascii' ? 'active' : ''}`}
-                    onClick={() => setDiagramView('ascii')}
-                  >
-                    ASCII
-                  </button>
-                </div>
-                {diagramView === 'visual' ? (
-                  <ArchitectureDiagram 
-                    infra={result.infrastructure} 
-                    database={selectedDb}
-                    cloud={selectedCloud}
-                  />
-                ) : (
-                  <div className="architecture-diagram">
-                    {result.architecture}
-                  </div>
-                )}
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">💰</span> Cost Estimates (Monthly)</h3>
-                <div className="cost-breakdown">
-                  {Object.entries(result.costs).map(([provider, cost]) => (
-                    <div key={provider} className={`cost-item ${provider === selectedCloud ? 'total' : ''}`}>
-                      <h4>{CLOUD_PROVIDERS.find(c => c.id === provider)?.icon} {provider.toUpperCase()}</h4>
-                      <div className="price">${cost.total.toLocaleString()}/mo</div>
-                      <div className="cost-details">
-                        <div className="cost-line"><span>Compute (App):</span><span>${cost.compute.toLocaleString()}</span></div>
-                        <div className="cost-line"><span>Database:</span><span>${cost.database.toLocaleString()}</span></div>
-                        <div className="cost-line"><span>Cache (Redis):</span><span>${cost.cache.toLocaleString()}</span></div>
-                        {cost.queue > 0 && <div className="cost-line"><span>Queue (Kafka):</span><span>${cost.queue.toLocaleString()}</span></div>}
-                        <div className="cost-line"><span>Storage:</span><span>${cost.storage.toLocaleString()}</span></div>
-                        <div className="cost-line"><span>Network Egress:</span><span>${cost.network.toLocaleString()}</span></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="pricing-note">
-                  Estimates based on on-demand pricing. Actual costs may vary. Reserved instances can reduce costs by 30-60%.
-                </div>
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🔒</span> Security & Compliance</h3>
-                <div className="security-grid">
-                  {result.security.map((sec, idx) => (
-                    <div key={idx} className="security-item">
-                      <span className={`badge ${sec.status}`}>
-                        {sec.status === 'required' ? 'Required' : sec.status === 'recommended' ? 'Recommended' : 'Included'}
-                      </span>
-                      <div className="content">
-                        <h5>{sec.name}</h5>
-                        <p>{sec.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🚀</span> Deployment Options</h3>
-                <div className="deployment-options">
-                  <div 
-                    className={`deploy-option ${deploymentType === 'cloud' ? 'active' : ''}`}
-                    onClick={() => setDeploymentType('cloud')}
-                  >
-                    <h4>☁️ Cloud Deploy</h4>
-                    <p>One-click deployment to {selectedCloud.toUpperCase()}</p>
-                    <ul>
-                      <li>Auto-provisioning (5-10 min)</li>
-                      <li>Managed Kubernetes</li>
-                      <li>Auto SSL certificates</li>
-                      <li>Built-in monitoring</li>
-                    </ul>
-                  </div>
-                  <div 
-                    className={`deploy-option ${deploymentType === 'onprem' ? 'active' : ''}`}
-                    onClick={() => setDeploymentType('onprem')}
-                  >
-                    <h4>🏢 On-Premises</h4>
-                    <p>Deploy in your data center</p>
-                    <ul>
-                      <li>Docker Compose / Helm</li>
-                      <li>VM Images (OVA)</li>
-                      <li>Ansible Playbooks</li>
-                      <li>Air-Gapped Bundle</li>
-                    </ul>
-                  </div>
-                  <div 
-                    className={`deploy-option ${deploymentType === 'hybrid' ? 'active' : ''}`}
-                    onClick={() => setDeploymentType('hybrid')}
-                  >
-                    <h4>🔄 Hybrid</h4>
-                    <p>Cloud management + On-prem data</p>
-                    <ul>
-                      <li>Data stays local</li>
-                      <li>Cloud monitoring</li>
-                      <li>Secure VPN tunnel</li>
-                      <li>Remote updates</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="result-card export-section">
-                <h3><span className="icon">📥</span> Export Specifications</h3>
-                <div className="export-buttons">
-                  <button 
-                    className="export-btn primary"
-                    onClick={() => {
-                      const exportData = {
-                        project: {
-                          domain: DOMAINS.find(d => d.id === domain)?.name,
-                          database: selectedDb,
-                          cloud: selectedCloud,
-                          deploymentType,
-                          compliance: compliance.map(c => COMPLIANCE_OPTIONS.find(opt => opt.id === c)?.name)
-                        },
-                        infrastructure: result.infrastructure,
-                        hardware: getHardwareRecommendations(result.infrastructure),
-                        costs: result.costs,
-                        security: result.security,
-                        cluster: result.clusterConfig,
-                        generatedAt: new Date().toISOString()
-                      };
-                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `ipl-spec-${domain}-${Date.now()}.json`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                  >
-                    📄 Export JSON
-                  </button>
-                  <button 
-                    className="export-btn"
-                    onClick={() => {
-                      const hw = getHardwareRecommendations(result.infrastructure);
-                      let csv = 'Component,Count,Specs,AWS Instance,Azure Instance,GCP Instance\n';
-                      hw.forEach(h => {
-                        csv += `"${h.component}",${h.count},"${h.specs}","${h.awsInstance}","${h.azureInstance}","${h.gcpInstance}"\n`;
-                      });
-                      const blob = new Blob([csv], { type: 'text/csv' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `ipl-hardware-${domain}-${Date.now()}.csv`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                  >
-                    📊 Export Hardware CSV
-                  </button>
-                </div>
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🤖</span> AI Code Assistant</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Generate, review, and fix code using AI for your {DOMAINS.find(d => d.id === domain)?.name} application.
-                </p>
-                <AICodePanel
-                  domain={domain}
-                  database={selectedDb}
-                  entityCount={devices}
-                  transactionsPerDay={readings}
-                  compliance={compliance}
-                  deploymentType={deploymentType}
-                  modules={generatedArtifacts?.modules}
-                  screens={generatedArtifacts?.screens}
-                  tables={generatedArtifacts?.tables}
-                />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🛠️</span> DevOps & Automation</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Generate infrastructure code, CI/CD pipelines, API docs, migrations, and security configurations.
-                </p>
-                <DevOpsPanel
-                  domain={domain}
-                  database={selectedDb}
-                  tier={result.infrastructure.tier}
-                  appServers={result.infrastructure.compute.appServers}
-                  dbReplicas={result.infrastructure.compute.dbReplicas}
-                  cacheNodes={result.infrastructure.compute.cacheNodes}
-                  storageGB={result.infrastructure.storage.totalGB}
-                  monthlyEgressGB={result.infrastructure.network.monthlyEgressGB}
-                  currentCost={result.costs[selectedCloud]?.total || 5000}
-                  compliance={compliance}
-                  tables={generatedArtifacts?.tables || []}
-                  cloudProvider={selectedCloud}
-                />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">⚡</span> App Benchmarking</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Run performance tests against your API endpoints and measure real metrics.
-                </p>
-                <BenchmarkPanel domain={domain} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">📊</span> Database Schema (ERD)</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Visual Entity-Relationship Diagram showing tables, columns, and relationships.
-                </p>
-                <ERDiagram tables={generatedArtifacts?.tables || []} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🔌</span> API Testing</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Test your API endpoints with a built-in HTTP client. Send requests and view responses.
-                </p>
-                <ApiTestPanel />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🤖</span> AI Automation</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Natural language to code, security vulnerability scanner, and AI-powered debugging assistant.
-                </p>
-                <AIAutomationPanel domain={domain} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🔗</span> Integrations & APIs</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Configure webhooks, generate GraphQL schemas, and set up message queues.
-                </p>
-                <IntegrationPanel domain={domain} tables={generatedArtifacts?.tables} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🛠️</span> Development Tools</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Git integration, visual query builder, and automatic API endpoint discovery.
-                </p>
-                <DevToolsPanel domain={domain} tables={generatedArtifacts?.tables} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🧪</span> Testing & Quality</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Run tests, analyze coverage, check accessibility, and audit SEO.
-                </p>
-                <TestingQualityPanel domain={domain} tables={generatedArtifacts?.tables} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🔌</span> Data Connectivity</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Connect to databases, discover schemas, and set up data pipelines.
-                </p>
-                <DataConnectivityPanel domain={domain} selectedDb={selectedDb} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">📊</span> Monitoring & Observability</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Real-time metrics, logs, alerts, and health checks.
-                </p>
-                <MonitoringPanel domain={domain} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🌍</span> Environment Manager</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Manage dev, staging, and production environments with promotion workflows.
-                </p>
-                <EnvironmentPanel domain={domain} />
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🔧</span> Cluster Configuration</h3>
-                <div className="cluster-config">
-                  <div className="cluster-section">
-                    <h4>🖥️ Application Cluster</h4>
-                    <div className="cluster-item">
-                      <span className="name">Node Count</span>
-                      <span className="value">{result.clusterConfig.appCluster.nodes}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Load Balancer</span>
-                      <span className="value">{result.clusterConfig.appCluster.loadBalancer}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Auto-Scaling</span>
-                      <span className="value">{result.clusterConfig.appCluster.autoScaling ? 'Enabled' : 'Disabled'}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Scale Range</span>
-                      <span className="value">{result.clusterConfig.appCluster.minNodes} - {result.clusterConfig.appCluster.maxNodes}</span>
-                    </div>
-                  </div>
-                  <div className="cluster-section">
-                    <h4>🗄️ Database Cluster</h4>
-                    <div className="cluster-item">
-                      <span className="name">Cluster Type</span>
-                      <span className="value">{result.clusterConfig.dbCluster.type}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Primary Nodes</span>
-                      <span className="value">{result.clusterConfig.dbCluster.primaryNodes}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Replica Nodes</span>
-                      <span className="value">{result.clusterConfig.dbCluster.replicaNodes}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Sharding</span>
-                      <span className="value">{result.clusterConfig.dbCluster.sharding ? 'Enabled' : 'Disabled'}</span>
-                    </div>
-                    <div className="cluster-item">
-                      <span className="name">Replication</span>
-                      <span className="value">{result.clusterConfig.dbCluster.replicationMode}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">📱</span> Mobile App Generation</h3>
-                <div className="mobile-section">
-                  <div 
-                    className={`mobile-option ${mobileApps.includes('ios') ? 'selected' : ''}`}
-                    onClick={() => handleMobileToggle('ios')}
-                  >
-                    <div className="icon">🍎</div>
-                    <h5>iOS App</h5>
-                    <p>Native Swift or React Native</p>
-                  </div>
-                  <div 
-                    className={`mobile-option ${mobileApps.includes('android') ? 'selected' : ''}`}
-                    onClick={() => handleMobileToggle('android')}
-                  >
-                    <div className="icon">🤖</div>
-                    <h5>Android App</h5>
-                    <p>Native Kotlin or React Native</p>
-                  </div>
-                  <div 
-                    className={`mobile-option ${mobileApps.includes('pwa') ? 'selected' : ''}`}
-                    onClick={() => handleMobileToggle('pwa')}
-                  >
-                    <div className="icon">🌐</div>
-                    <h5>Progressive Web App</h5>
-                    <p>Works on any device</p>
-                  </div>
-                </div>
-                <div style={{ marginTop: '20px', padding: '16px', background: mobileApps.length > 0 ? 'rgba(74, 74, 240, 0.1)' : 'rgba(100, 100, 100, 0.1)', borderRadius: '10px' }}>
-                  {mobileApps.length > 0 ? (
-                    <p style={{ color: '#a0a0c0', fontSize: '0.9rem' }}>
-                      <strong style={{ color: '#4a4af0' }}>Selected:</strong> {mobileApps.map(p => p.toUpperCase()).join(', ')} | 
-                      <strong style={{ color: '#4a4af0' }}> Framework:</strong> {result.mobileConfig.framework} | 
-                      <strong style={{ color: '#4a4af0' }}> Features:</strong> {result.mobileConfig.features.join(', ')}
-                    </p>
-                  ) : (
-                    <p style={{ color: '#888', fontSize: '0.9rem', fontStyle: 'italic' }}>
-                      No mobile platforms selected. Click on iOS, Android, or PWA above to include mobile app generation.
-                    </p>
-                  )}
-                </div>
-                
-                {mobileApps.length > 0 && (
-                  <div style={{ marginTop: '20px' }}>
+              <div className="results-layout">
+                {/* Category Sidebar */}
+                <div className="category-sidebar">
+                  {RESULT_CATEGORIES.map(cat => (
                     <button
-                      className="action-btn primary"
-                      onClick={generateMobileAppCode}
-                      disabled={generatingMobileApp}
-                      style={{ marginRight: '10px' }}
+                      key={cat.id}
+                      className={`category-btn ${activeCategory === cat.id ? 'active' : ''}`}
+                      onClick={() => setActiveCategory(cat.id)}
                     >
-                      {generatingMobileApp ? '⏳ Generating...' : '📲 Generate Mobile App Code'}
+                      <span className="cat-icon">{cat.icon}</span>
+                      <span className="cat-label">{cat.label}</span>
                     </button>
-                    
-                    {mobileAppResult && (
-                      <button
-                        className="action-btn secondary"
-                        onClick={downloadMobileAppFiles}
-                      >
-                        📥 Download All Files
-                      </button>
-                    )}
-                  </div>
-                )}
-                
-                {mobileAppResult && (
-                  <div style={{ marginTop: '20px' }}>
-                    <CodeEditor 
-                      files={mobileAppResult.files || []}
-                      title="Mobile App Code"
-                      onDownload={downloadMobileAppFiles}
-                    />
-                    
-                    {mobileAppResult.instructions && (
-                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px', marginTop: '16px' }}>
-                        <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Setup Instructions</h4>
-                        <pre style={{ 
-                          color: '#a0a0c0', 
-                          fontSize: '0.85rem', 
-                          whiteSpace: 'pre-wrap', 
-                          fontFamily: 'monospace',
-                          maxHeight: '200px',
-                          overflow: 'auto'
-                        }}>
-                          {mobileAppResult.instructions}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">🖥️</span> Backend API Generation</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Generate complete backend API projects with authentication, CRUD endpoints, and database integration.
-                </p>
-                <div className="mobile-section">
-                  <div 
-                    className={`mobile-option ${backendFramework === 'nodejs' ? 'selected' : ''}`}
-                    onClick={() => setBackendFramework('nodejs')}
-                  >
-                    <div className="icon">🟢</div>
-                    <h5>Node.js / Express</h5>
-                    <p>TypeScript, JWT auth, Zod validation</p>
-                  </div>
-                  <div 
-                    className={`mobile-option ${backendFramework === 'python' ? 'selected' : ''}`}
-                    onClick={() => setBackendFramework('python')}
-                  >
-                    <div className="icon">🐍</div>
-                    <h5>Python / FastAPI</h5>
-                    <p>Pydantic, SQLAlchemy, OAuth2</p>
-                  </div>
-                  <div 
-                    className={`mobile-option ${backendFramework === 'go' ? 'selected' : ''}`}
-                    onClick={() => setBackendFramework('go')}
-                  >
-                    <div className="icon">🔷</div>
-                    <h5>Go / Gin</h5>
-                    <p>High performance, GORM, JWT</p>
-                  </div>
-                </div>
-                <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(74, 74, 240, 0.1)', borderRadius: '10px' }}>
-                  <p style={{ color: '#a0a0c0', fontSize: '0.9rem' }}>
-                    <strong style={{ color: '#4a4af0' }}>Selected:</strong> {backendFramework === 'nodejs' ? 'Node.js/Express' : backendFramework === 'python' ? 'Python/FastAPI' : 'Go/Gin'} | 
-                    <strong style={{ color: '#4a4af0' }}> Database:</strong> {selectedDb} | 
-                    <strong style={{ color: '#4a4af0' }}> Features:</strong> JWT Auth, CRUD, Validation, Docker
-                  </p>
-                </div>
-                
-                <div style={{ marginTop: '20px' }}>
-                  <button
-                    className="action-btn primary"
-                    onClick={generateBackendApiCode}
-                    disabled={generatingBackendApi || !generatedArtifacts?.tables}
-                    style={{ marginRight: '10px' }}
-                  >
-                    {generatingBackendApi ? '⏳ Generating...' : '🖥️ Generate Backend API'}
-                  </button>
-                  
-                  {backendApiResult && (
-                    <button
-                      className="action-btn secondary"
-                      onClick={downloadBackendApiFiles}
-                    >
-                      📥 Download All Files
-                    </button>
-                  )}
-                  
-                  {!generatedArtifacts?.tables && (
-                    <p style={{ color: '#f0a040', fontSize: '0.85rem', marginTop: '10px' }}>
-                      Generate code specifications first to enable backend API generation.
-                    </p>
-                  )}
-                </div>
-                
-                {backendApiResult && (
-                  <div style={{ marginTop: '20px' }}>
-                    <CodeEditor 
-                      files={backendApiResult.files || []}
-                      title="Backend API Code"
-                      onDownload={downloadBackendApiFiles}
-                    />
-                    
-                    {backendApiResult.instructions && (
-                      <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px', marginTop: '16px' }}>
-                        <h4 style={{ color: '#4a4af0', marginBottom: '12px' }}>Setup Instructions</h4>
-                        <pre style={{ 
-                          color: '#a0a0c0', 
-                          fontSize: '0.85rem', 
-                          whiteSpace: 'pre-wrap', 
-                          fontFamily: 'monospace',
-                          maxHeight: '200px',
-                          overflow: 'auto'
-                        }}>
-                          {backendApiResult.instructions}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="result-card">
-                <h3><span className="icon">📦</span> Deployment Artifacts</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Based on your {deploymentType} deployment choice, the following artifacts will be generated:
-                </p>
-                <div className="specs-grid">
-                  {result.deploymentFormats.map((format, idx) => (
-                    <div key={idx} className="spec-item">
-                      <div className="value" style={{ fontSize: '1.2rem' }}>📄</div>
-                      <div className="label">{format}</div>
-                    </div>
                   ))}
                 </div>
-                <div className="action-buttons">
-                  <button className="action-btn primary">
-                    ⚡ Deploy Now
-                  </button>
-                  <button className="action-btn secondary">
-                    📥 Download Package
-                  </button>
-                  <button className="action-btn secondary">
-                    📋 Export Spec
-                  </button>
-                </div>
-              </div>
 
-              <div className="result-card">
-                <h3><span className="icon">🤖</span> AI Code Generation</h3>
-                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
-                  Generate application modules, UI screens, database schema, and test cases based on your requirements.
-                  {aiServiceStatus === 'mock' && <span style={{ color: '#f0a040' }}> (Using mock data - add OPENAI_API_KEY for AI generation)</span>}
-                  {aiServiceStatus === 'error' && <span style={{ color: '#f04040' }}> (AI service unavailable)</span>}
-                </p>
-                <button
-                  className="action-btn primary"
-                  onClick={generateCodeArtifacts}
-                  disabled={generatingArtifacts}
-                  style={{ marginBottom: '20px' }}
-                >
-                  {generatingArtifacts ? '⏳ Generating...' : '🧠 Generate Code Specifications'}
-                </button>
-
-                {generatedArtifacts && (
-                  <div className="generated-artifacts">
-                    <div className="artifact-section">
-                      <h4>📦 Modules ({generatedArtifacts.modules.length})</h4>
-                      <div className="artifact-list">
-                        {generatedArtifacts.modules.map((mod, idx) => (
-                          <div key={idx} className="artifact-item">
-                            <span className={`priority-badge ${mod.priority}`}>{mod.priority}</span>
-                            <div className="artifact-content">
-                              <strong>{mod.name}</strong>
-                              <p>{mod.description}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                {/* Category Content */}
+                <div className="category-content">
+                  {/* Highlights Summary Card */}
+                  <div className="highlights-card">
+                    <div className="highlight-item">
+                      <span className="highlight-label">Tier</span>
+                      <span className="highlight-value">{result.infrastructure.tier}</span>
                     </div>
-
-                    <div className="artifact-section">
-                      <h4>🖥️ Screens ({generatedArtifacts.screens.length})</h4>
-                      <div className="artifact-grid">
-                        {generatedArtifacts.screens.map((screen, idx) => (
-                          <div key={idx} className="screen-card">
-                            <div className="screen-type">{screen.type}</div>
-                            <div className="screen-name">{screen.name}</div>
-                            <div className="screen-desc">{screen.description}</div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="highlight-item">
+                      <span className="highlight-label">Est. Cost</span>
+                      <span className="highlight-value">${result.costs[selectedCloud]?.total?.toLocaleString()}/mo</span>
                     </div>
-
-                    <div className="artifact-section">
-                      <h4>🗄️ Database Schema ({generatedArtifacts.tables.length} tables)</h4>
-                      <div className="tables-list">
-                        {generatedArtifacts.tables.map((table, idx) => (
-                          <div key={idx} className="table-card">
-                            <div className="table-name">{table.name}</div>
-                            <div className="columns-list">
-                              {table.columns.map((col, colIdx) => (
-                                <div key={colIdx} className="column-item">
-                                  <span className="col-name">{col.name}</span>
-                                  <span className="col-type">{col.type}</span>
-                                  {col.primary && <span className="col-badge pk">PK</span>}
-                                  {col.unique && <span className="col-badge unique">UQ</span>}
-                                  {col.foreignKey && <span className="col-badge fk">FK</span>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="highlight-item">
+                      <span className="highlight-label">Cloud</span>
+                      <span className="highlight-value">{selectedCloud.toUpperCase()}</span>
                     </div>
-
-                    <div className="artifact-section">
-                      <h4>🧪 Test Cases ({generatedArtifacts.tests.length})</h4>
-                      <div className="tests-list">
-                        {generatedArtifacts.tests.map((test, idx) => (
-                          <div key={idx} className="test-card">
-                            <div className="test-header">
-                              <span className={`test-type ${test.type}`}>{test.type}</span>
-                              <span className="test-name">{test.name}</span>
-                            </div>
-                            <div className="test-coverage">
-                              {test.coverage.map((cov, covIdx) => (
-                                <span key={covIdx} className="coverage-tag">{cov}</span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="highlight-item">
+                      <span className="highlight-label">Deploy</span>
+                      <span className="highlight-value">{deploymentType}</span>
                     </div>
+                  </div>
 
-                    <div className="artifact-section">
-                      <h4>🔌 Integrations ({generatedArtifacts.integrations.length})</h4>
-                      <div className="integrations-grid">
-                        {generatedArtifacts.integrations.map((integ, idx) => (
-                          <div key={idx} className={`integration-card ${integ.type}`}>
-                            <div className="integration-header">
-                              <span className={`integration-type ${integ.type}`}>{integ.type}</span>
-                              {integ.required && <span className="required-badge">Required</span>}
-                            </div>
-                            <div className="integration-name">{integ.name}</div>
-                            <div className="integration-provider">{integ.provider}</div>
-                            <div className="integration-desc">{integ.description}</div>
-                          </div>
-                        ))}
+                  {/* OVERVIEW Category */}
+                  {activeCategory === 'overview' && (
+                  <>
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('infra-specs')}>
+                        <span className="section-icon">{expandedSections.has('infra-specs') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">📊</span> Infrastructure Specifications - {result.infrastructure.tier} Tier</h3>
                       </div>
-                    </div>
-
-                    <div className="artifact-section">
-                      <h4>📁 Code Scaffolding ({generatedArtifacts.scaffolding.files.length} files)</h4>
-                      <div className="scaffolding-section">
-                        <div className="folders-list">
-                          <h5>Folder Structure</h5>
-                          <div className="folder-tree">
-                            {generatedArtifacts.scaffolding.folders.map((folder, idx) => (
-                              <div key={idx} className="folder-item">
-                                <span className="folder-icon">📂</span> {folder}
-                              </div>
-                            ))}
+                      {expandedSections.has('infra-specs') && (
+                        <div className="section-content">
+                          <div className="specs-grid">
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.devices}</div>
+                              <div className="label">Devices / Meters</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.dailyRecords}</div>
+                              <div className="label">Records / Day</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.compute.totalCPU}</div>
+                              <div className="label">Total vCPUs</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.compute.totalRAMDisplay}</div>
+                              <div className="label">Total RAM</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.compute.appServers}</div>
+                              <div className="label">App Servers</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.compute.dbReplicas + 1}</div>
+                              <div className="label">DB Nodes</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.storage.total}</div>
+                              <div className="label">Total Storage (Y1)</div>
+                            </div>
+                            <div className="spec-item">
+                              <div className="value">{result.infrastructure.network.ingress}</div>
+                              <div className="label">Network Bandwidth</div>
+                            </div>
                           </div>
                         </div>
-                        <div className="files-list">
-                          <h5>Key Files</h5>
-                          <div className="file-grid">
-                            {generatedArtifacts.scaffolding.files.slice(0, 12).map((file, idx) => (
-                              <div key={idx} className="file-item">
-                                <span className="file-icon">📄</span>
-                                <div className="file-info">
-                                  <span className="file-path">{file.path}</span>
-                                  <span className="file-desc">{file.description}</span>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('hardware')}>
+                        <span className="section-icon">{expandedSections.has('hardware') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🖥️</span> Hardware Recommendations</h3>
+                      </div>
+                      {expandedSections.has('hardware') && (
+                        <div className="section-content">
+                          <div className="hardware-specs">
+                            {getHardwareRecommendations(result.infrastructure).map((hw, idx) => (
+                              <div key={idx} className="hardware-card">
+                                <h4>{hw.component} ({hw.count}x)</h4>
+                                <div className="hardware-row">
+                                  <span className="label">Specs:</span>
+                                  <span className="value">{hw.specs}</span>
+                                </div>
+                                <div className="hardware-row">
+                                  <span className="label">AWS:</span>
+                                  <span className="instance-type">{hw.awsInstance}</span>
+                                </div>
+                                <div className="hardware-row">
+                                  <span className="label">Azure:</span>
+                                  <span className="instance-type">{hw.azureInstance}</span>
+                                </div>
+                                <div className="hardware-row">
+                                  <span className="label">GCP:</span>
+                                  <span className="instance-type">{hw.gcpInstance}</span>
                                 </div>
                               </div>
                             ))}
-                            {generatedArtifacts.scaffolding.files.length > 12 && (
-                              <div className="file-item more">
-                                +{generatedArtifacts.scaffolding.files.length - 12} more files...
-                              </div>
-                            )}
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
-                    {(generatedArtifacts.multiTenant.enabled || generatedArtifacts.multiLingual.enabled) && (
-                      <div className="artifact-section">
-                        <h4>⚙️ Configuration Options</h4>
-                        <div className="config-options">
-                          {generatedArtifacts.multiTenant.enabled && (
-                            <div className="config-card">
-                              <h5>Multi-Tenant</h5>
-                              <div className="config-detail">
-                                <span>Level:</span> {generatedArtifacts.multiTenant.level}
-                              </div>
-                              <div className="config-detail">
-                                <span>Isolation:</span> {generatedArtifacts.multiTenant.isolation}
-                              </div>
-                            </div>
-                          )}
-                          {generatedArtifacts.multiLingual.enabled && (
-                            <div className="config-card">
-                              <h5>Multi-Lingual</h5>
-                              <div className="config-detail">
-                                <span>Level:</span> {generatedArtifacts.multiLingual.level}
-                              </div>
-                              <div className="config-detail">
-                                <span>Default:</span> {generatedArtifacts.multiLingual.defaultLanguage}
-                              </div>
-                              <div className="config-detail">
-                                <span>Languages:</span> {generatedArtifacts.multiLingual.supportedLanguages.join(', ')}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                    {/* Cost Comparison Section */}
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('costs')}>
+                        <span className="section-icon">{expandedSections.has('costs') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">💰</span> Cost Estimates (Monthly)</h3>
                       </div>
-                    )}
+                      {expandedSections.has('costs') && (
+                        <div className="section-content">
+                          <div className="cost-breakdown">
+                            {Object.entries(result.costs).map(([provider, cost]) => (
+                              <div key={provider} className={`cost-item ${provider === selectedCloud ? 'total' : ''}`}>
+                                <h4>{CLOUD_PROVIDERS.find(c => c.id === provider)?.icon} {provider.toUpperCase()}</h4>
+                                <div className="price">${cost.total.toLocaleString()}/mo</div>
+                                <div className="cost-details">
+                                  <div className="cost-line"><span>Compute (App):</span><span>${cost.compute.toLocaleString()}</span></div>
+                                  <div className="cost-line"><span>Database:</span><span>${cost.database.toLocaleString()}</span></div>
+                                  <div className="cost-line"><span>Cache (Redis):</span><span>${cost.cache.toLocaleString()}</span></div>
+                                  {cost.queue > 0 && <div className="cost-line"><span>Queue (Kafka):</span><span>${cost.queue.toLocaleString()}</span></div>}
+                                  <div className="cost-line"><span>Storage:</span><span>${cost.storage.toLocaleString()}</span></div>
+                                  <div className="cost-line"><span>Network Egress:</span><span>${cost.network.toLocaleString()}</span></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="pricing-note">
+                            Estimates based on on-demand pricing. Actual costs may vary. Reserved instances can reduce costs by 30-60%.
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-                    {generatedArtifacts.crossDomain && (
-                      <div className="artifact-section">
-                        <h4>🌐 Cross-Domain Features</h4>
-                        <div className="cross-domain-grid">
-                          {generatedArtifacts.crossDomain.cicd.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">🔄</span>
-                                <span className="cd-title">CI/CD Pipeline</span>
+                    {/* Security Section */}
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('security')}>
+                        <span className="section-icon">{expandedSections.has('security') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🔒</span> Security & Compliance</h3>
+                      </div>
+                      {expandedSections.has('security') && (
+                        <div className="section-content">
+                          <div className="security-grid">
+                            {result.security.map((sec, idx) => (
+                              <div key={idx} className="security-item">
+                                <span className={`badge ${sec.status}`}>
+                                  {sec.status === 'required' ? 'Required' : sec.status === 'recommended' ? 'Recommended' : 'Included'}
+                                </span>
+                                <div className="content">
+                                  <h5>{sec.name}</h5>
+                                  <p>{sec.description}</p>
+                                </div>
                               </div>
-                              <div className="cd-provider">{generatedArtifacts.crossDomain.cicd.provider}</div>
-                              <div className="cd-features">
-                                {generatedArtifacts.crossDomain.cicd.features.map((f, i) => (
-                                  <span key={i} className="cd-feature-tag">{f}</span>
-                                ))}
-                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Deployment Section */}
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('deployment')}>
+                        <span className="section-icon">{expandedSections.has('deployment') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🚀</span> Deployment Options</h3>
+                      </div>
+                      {expandedSections.has('deployment') && (
+                        <div className="section-content">
+                          <div className="deployment-options">
+                            <div 
+                              className={`deploy-option ${deploymentType === 'cloud' ? 'active' : ''}`}
+                              onClick={() => setDeploymentType('cloud')}
+                            >
+                              <h4>☁️ Cloud Deploy</h4>
+                              <p>One-click deployment to {selectedCloud.toUpperCase()}</p>
+                              <ul>
+                                <li>Auto-provisioning (5-10 min)</li>
+                                <li>Managed Kubernetes</li>
+                                <li>Auto SSL certificates</li>
+                                <li>Built-in monitoring</li>
+                              </ul>
                             </div>
-                          )}
-                          {generatedArtifacts.crossDomain.apiGateway.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">🚪</span>
-                                <span className="cd-title">API Gateway</span>
-                              </div>
-                              <div className="cd-provider">{generatedArtifacts.crossDomain.apiGateway.provider}</div>
-                              <div className="cd-features">
-                                {generatedArtifacts.crossDomain.apiGateway.features.map((f, i) => (
-                                  <span key={i} className="cd-feature-tag">{f}</span>
-                                ))}
-                              </div>
+                            <div 
+                              className={`deploy-option ${deploymentType === 'onprem' ? 'active' : ''}`}
+                              onClick={() => setDeploymentType('onprem')}
+                            >
+                              <h4>🏢 On-Premises</h4>
+                              <p>Deploy in your data center</p>
+                              <ul>
+                                <li>Docker Compose / Helm</li>
+                                <li>VM Images (OVA)</li>
+                                <li>Ansible Playbooks</li>
+                                <li>Air-Gapped Bundle</li>
+                              </ul>
                             </div>
-                          )}
-                          {generatedArtifacts.crossDomain.monitoring.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">📊</span>
-                                <span className="cd-title">Monitoring</span>
-                              </div>
-                              <div className="cd-provider">{generatedArtifacts.crossDomain.monitoring.stack}</div>
-                              <div className="cd-features">
-                                {generatedArtifacts.crossDomain.monitoring.features.map((f, i) => (
-                                  <span key={i} className="cd-feature-tag">{f}</span>
-                                ))}
-                              </div>
+                            <div 
+                              className={`deploy-option ${deploymentType === 'hybrid' ? 'active' : ''}`}
+                              onClick={() => setDeploymentType('hybrid')}
+                            >
+                              <h4>🔄 Hybrid</h4>
+                              <p>Cloud management + On-prem data</p>
+                              <ul>
+                                <li>Data stays local</li>
+                                <li>Cloud monitoring</li>
+                                <li>Secure VPN tunnel</li>
+                                <li>Remote updates</li>
+                              </ul>
                             </div>
-                          )}
-                          {generatedArtifacts.crossDomain.backupDR.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">💾</span>
-                                <span className="cd-title">Backup & DR</span>
-                              </div>
-                              <div className="cd-provider">{generatedArtifacts.crossDomain.backupDR.strategy}</div>
-                              <div className="cd-metrics">
-                                <span className="cd-metric">RPO: {generatedArtifacts.crossDomain.backupDR.rpoHours}h</span>
-                                <span className="cd-metric">RTO: {generatedArtifacts.crossDomain.backupDR.rtoHours}h</span>
-                              </div>
-                              <div className="cd-features">
-                                {generatedArtifacts.crossDomain.backupDR.features.map((f, i) => (
-                                  <span key={i} className="cd-feature-tag">{f}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {generatedArtifacts.crossDomain.environments.enabled && generatedArtifacts.crossDomain.environments.environments.length > 0 && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">🌍</span>
-                                <span className="cd-title">Environments</span>
-                              </div>
-                              <div className="cd-envs">
-                                {generatedArtifacts.crossDomain.environments.environments.map((env, i) => (
-                                  <span key={i} className="env-badge">{env.toUpperCase()}</span>
-                                ))}
-                              </div>
-                              <div className="cd-provider">Strategy: {generatedArtifacts.crossDomain.environments.promotionStrategy}</div>
-                            </div>
-                          )}
-                          {generatedArtifacts.crossDomain.notifications.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">🔔</span>
-                                <span className="cd-title">Notifications</span>
-                              </div>
-                              <div className="cd-channels">
-                                {generatedArtifacts.crossDomain.notifications.channels.map((ch, i) => (
-                                  <span key={i} className="channel-badge">{ch}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {generatedArtifacts.crossDomain.documentation.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">📚</span>
-                                <span className="cd-title">Documentation</span>
-                              </div>
-                              <div className="cd-doc-types">
-                                {generatedArtifacts.crossDomain.documentation.types.map((dt, i) => (
-                                  <span key={i} className="doc-type-badge">{dt}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {generatedArtifacts.crossDomain.performanceSLA.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">⚡</span>
-                                <span className="cd-title">Performance SLAs</span>
-                              </div>
-                              <div className="cd-metrics">
-                                <span className="cd-metric">P99: {generatedArtifacts.crossDomain.performanceSLA.latencyP99Ms}ms</span>
-                                <span className="cd-metric">Uptime: {generatedArtifacts.crossDomain.performanceSLA.uptimePercent}%</span>
-                              </div>
-                            </div>
-                          )}
-                          {generatedArtifacts.crossDomain.dataMigration.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">🔀</span>
-                                <span className="cd-title">Data Migration</span>
-                              </div>
-                              <div className="cd-provider">{generatedArtifacts.crossDomain.dataMigration.strategy}</div>
-                              <div className="cd-features">
-                                {generatedArtifacts.crossDomain.dataMigration.features.map((f, i) => (
-                                  <span key={i} className="cd-feature-tag">{f}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {generatedArtifacts.crossDomain.versionControl.enabled && (
-                            <div className="cross-domain-card">
-                              <div className="cd-header">
-                                <span className="cd-icon">📝</span>
-                                <span className="cd-title">Version Control</span>
-                              </div>
-                              <div className="cd-provider">{generatedArtifacts.crossDomain.versionControl.strategy}</div>
-                              <div className="cd-features">
-                                {generatedArtifacts.crossDomain.versionControl.features.map((f, i) => (
-                                  <span key={i} className="cd-feature-tag">{f}</span>
-                                ))}
-                              </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Export Section */}
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('export')}>
+                        <span className="section-icon">{expandedSections.has('export') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">📥</span> Export Specifications</h3>
+                      </div>
+                      {expandedSections.has('export') && (
+                        <div className="section-content">
+                          <div className="export-buttons">
+                            <button 
+                              className="export-btn primary"
+                              onClick={() => {
+                                const exportData = {
+                                  project: {
+                                    domain: DOMAINS.find(d => d.id === domain)?.name,
+                                    database: selectedDb,
+                                    cloud: selectedCloud,
+                                    deploymentType,
+                                    compliance: compliance.map(c => COMPLIANCE_OPTIONS.find(opt => opt.id === c)?.name)
+                                  },
+                                  infrastructure: result.infrastructure,
+                                  hardware: getHardwareRecommendations(result.infrastructure),
+                                  costs: result.costs,
+                                  security: result.security,
+                                  cluster: result.clusterConfig,
+                                  generatedAt: new Date().toISOString()
+                                };
+                                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `ipl-spec-${domain}-${Date.now()}.json`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              }}
+                            >
+                              📄 Export JSON
+                            </button>
+                            <button 
+                              className="export-btn"
+                              onClick={() => {
+                                const hw = getHardwareRecommendations(result.infrastructure);
+                                let csv = 'Component,Count,Specs,AWS Instance,Azure Instance,GCP Instance\n';
+                                hw.forEach(h => {
+                                  csv += `"${h.component}",${h.count},"${h.specs}","${h.awsInstance}","${h.azureInstance}","${h.gcpInstance}"\n`;
+                                });
+                                const blob = new Blob([csv], { type: 'text/csv' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `ipl-hardware-${domain}-${Date.now()}.csv`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              }}
+                            >
+                              📊 Export Hardware CSV
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
+
+                  {/* ARCHITECTURE Category */}
+                  {activeCategory === 'architecture' && (
+                  <>
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('arch-diagram')}>
+                        <span className="section-icon">{expandedSections.has('arch-diagram') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🏗️</span> Architecture Diagram</h3>
+                      </div>
+                      {expandedSections.has('arch-diagram') && (
+                        <div className="section-content">
+                          <div className="diagram-controls">
+                            <button 
+                              className={`view-toggle ${diagramView === 'visual' ? 'active' : ''}`}
+                              onClick={() => setDiagramView('visual')}
+                            >
+                              Visual
+                            </button>
+                            <button 
+                              className={`view-toggle ${diagramView === 'ascii' ? 'active' : ''}`}
+                              onClick={() => setDiagramView('ascii')}
+                            >
+                              ASCII
+                            </button>
+                          </div>
+                          {diagramView === 'visual' ? (
+                            <ArchitectureDiagram 
+                              infra={result.infrastructure} 
+                              database={selectedDb}
+                              cloud={selectedCloud}
+                            />
+                          ) : (
+                            <div className="architecture-diagram">
+                              {result.architecture}
                             </div>
                           )}
                         </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('erd')}>
+                        <span className="section-icon">{expandedSections.has('erd') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">📊</span> Database Schema (ERD)</h3>
                       </div>
-                    )}
-                  </div>
-                )}
+                      {expandedSections.has('erd') && (
+                        <div className="section-content">
+                          <ERDiagram tables={generatedArtifacts?.tables || []} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('cluster')}>
+                        <span className="section-icon">{expandedSections.has('cluster') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🔧</span> Cluster Configuration</h3>
+                      </div>
+                      {expandedSections.has('cluster') && (
+                        <div className="section-content">
+                          <div className="cluster-config">
+                            <div className="cluster-section">
+                              <h4>🖥️ Application Cluster</h4>
+                              <div className="cluster-item">
+                                <span className="name">Node Count</span>
+                                <span className="value">{result.clusterConfig.appCluster.nodes}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Load Balancer</span>
+                                <span className="value">{result.clusterConfig.appCluster.loadBalancer}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Auto-Scaling</span>
+                                <span className="value">{result.clusterConfig.appCluster.autoScaling ? 'Enabled' : 'Disabled'}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Scale Range</span>
+                                <span className="value">{result.clusterConfig.appCluster.minNodes} - {result.clusterConfig.appCluster.maxNodes}</span>
+                              </div>
+                            </div>
+                            <div className="cluster-section">
+                              <h4>🗄️ Database Cluster</h4>
+                              <div className="cluster-item">
+                                <span className="name">Cluster Type</span>
+                                <span className="value">{result.clusterConfig.dbCluster.type}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Primary Nodes</span>
+                                <span className="value">{result.clusterConfig.dbCluster.primaryNodes}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Replica Nodes</span>
+                                <span className="value">{result.clusterConfig.dbCluster.replicaNodes}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Sharding</span>
+                                <span className="value">{result.clusterConfig.dbCluster.sharding ? 'Enabled' : 'Disabled'}</span>
+                              </div>
+                              <div className="cluster-item">
+                                <span className="name">Replication</span>
+                                <span className="value">{result.clusterConfig.dbCluster.replicationMode}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
+
+                  {/* BUILD Category */}
+                  {activeCategory === 'build' && (
+                  <>
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('ai-code')}>
+                        <span className="section-icon">{expandedSections.has('ai-code') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🤖</span> AI Code Assistant</h3>
+                      </div>
+                      {expandedSections.has('ai-code') && (
+                        <div className="section-content">
+                          <AICodePanel
+                            domain={domain}
+                            database={selectedDb}
+                            entityCount={devices}
+                            transactionsPerDay={readings}
+                            compliance={compliance}
+                            deploymentType={deploymentType}
+                            modules={generatedArtifacts?.modules}
+                            screens={generatedArtifacts?.screens}
+                            tables={generatedArtifacts?.tables}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('devops')}>
+                        <span className="section-icon">{expandedSections.has('devops') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🛠️</span> DevOps & Automation</h3>
+                      </div>
+                      {expandedSections.has('devops') && (
+                        <div className="section-content">
+                          <DevOpsPanel
+                            domain={domain}
+                            database={selectedDb}
+                            tier={result.infrastructure.tier}
+                            appServers={result.infrastructure.compute.appServers}
+                            dbReplicas={result.infrastructure.compute.dbReplicas}
+                            cacheNodes={result.infrastructure.compute.cacheNodes}
+                            storageGB={result.infrastructure.storage.totalGB}
+                            monthlyEgressGB={result.infrastructure.network.monthlyEgressGB}
+                            currentCost={result.costs[selectedCloud]?.total || 5000}
+                            compliance={compliance}
+                            tables={generatedArtifacts?.tables || []}
+                            cloudProvider={selectedCloud}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('backend-api')}>
+                        <span className="section-icon">{expandedSections.has('backend-api') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">⚙️</span> Backend API Code</h3>
+                      </div>
+                      {expandedSections.has('backend-api') && (
+                        <div className="section-content">
+                          <CodeEditor domain={domain} tables={generatedArtifacts?.tables} />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
+
+                  {/* TESTING Category */}
+                  {activeCategory === 'testing' && (
+                  <>
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('benchmarking')}>
+                        <span className="section-icon">{expandedSections.has('benchmarking') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">⚡</span> App Benchmarking</h3>
+                      </div>
+                      {expandedSections.has('benchmarking') && (
+                        <div className="section-content">
+                          <BenchmarkPanel domain={domain} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('api-testing')}>
+                        <span className="section-icon">{expandedSections.has('api-testing') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🔌</span> API Testing</h3>
+                      </div>
+                      {expandedSections.has('api-testing') && (
+                        <div className="section-content">
+                          <ApiTestPanel />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('ai-automation')}>
+                        <span className="section-icon">{expandedSections.has('ai-automation') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🤖</span> AI Automation</h3>
+                      </div>
+                      {expandedSections.has('ai-automation') && (
+                        <div className="section-content">
+                          <AIAutomationPanel domain={domain} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('testing-quality')}>
+                        <span className="section-icon">{expandedSections.has('testing-quality') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🧪</span> Testing & Quality</h3>
+                      </div>
+                      {expandedSections.has('testing-quality') && (
+                        <div className="section-content">
+                          <TestingQualityPanel domain={domain} tables={generatedArtifacts?.tables} />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
+
+                  {/* OPERATIONS Category */}
+                  {activeCategory === 'operations' && (
+                  <>
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('monitoring')}>
+                        <span className="section-icon">{expandedSections.has('monitoring') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">📊</span> Monitoring & Observability</h3>
+                      </div>
+                      {expandedSections.has('monitoring') && (
+                        <div className="section-content">
+                          <MonitoringPanel domain={domain} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('environments')}>
+                        <span className="section-icon">{expandedSections.has('environments') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🌍</span> Environment Manager</h3>
+                      </div>
+                      {expandedSections.has('environments') && (
+                        <div className="section-content">
+                          <EnvironmentPanel domain={domain} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('data-connectivity')}>
+                        <span className="section-icon">{expandedSections.has('data-connectivity') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🔌</span> Data Connectivity</h3>
+                      </div>
+                      {expandedSections.has('data-connectivity') && (
+                        <div className="section-content">
+                          <DataConnectivityPanel domain={domain} selectedDb={selectedDb} />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
+
+                  {/* INTEGRATIONS Category */}
+                  {activeCategory === 'integrations' && (
+                  <>
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('integrations-apis')}>
+                        <span className="section-icon">{expandedSections.has('integrations-apis') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🔗</span> Integrations & APIs</h3>
+                      </div>
+                      {expandedSections.has('integrations-apis') && (
+                        <div className="section-content">
+                          <IntegrationPanel domain={domain} tables={generatedArtifacts?.tables} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('dev-tools')}>
+                        <span className="section-icon">{expandedSections.has('dev-tools') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">🛠️</span> Development Tools</h3>
+                      </div>
+                      {expandedSections.has('dev-tools') && (
+                        <div className="section-content">
+                          <DevToolsPanel domain={domain} tables={generatedArtifacts?.tables} />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                  )}
+
+                </div>
               </div>
-              </>
               )}
             </>
           )}
         </div>
       </div>
-
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <div className="spinner"></div>
-            <p>Analyzing requirements and generating architecture...</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
