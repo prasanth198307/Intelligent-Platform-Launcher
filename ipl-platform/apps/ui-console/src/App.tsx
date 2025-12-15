@@ -717,7 +717,7 @@ export default function App() {
 
       <div className="main-container">
         <div className="input-panel">
-          <h2>Configure Your Application</h2>
+          <h2>Build Your Application</h2>
 
           <div className="form-group">
             <label>Requirements (Natural Language)</label>
