@@ -11,6 +11,10 @@ import AIAutomationPanel from "./AIAutomationPanel";
 import IntegrationPanel from "./IntegrationPanel";
 import DevToolsPanel from "./DevToolsPanel";
 import TestingQualityPanel from "./TestingQualityPanel";
+import DataConnectivityPanel from "./DataConnectivityPanel";
+import MonitoringPanel from "./MonitoringPanel";
+import EnvironmentPanel from "./EnvironmentPanel";
+import GuidedWizard from "./GuidedWizard";
 
 const API_BASE_URL = '';
 
@@ -1143,6 +1147,7 @@ export default function App() {
   const [generatingBackendApi, setGeneratingBackendApi] = useState(false);
   const [backendApiResult, setBackendApiResult] = useState<any>(null);
   const [backendFramework, setBackendFramework] = useState<'nodejs' | 'python' | 'go'>('nodejs');
+  const [viewMode, setViewMode] = useState<'dashboard' | 'wizard'>('dashboard');
 
   useEffect(() => {
     loadWorkspaces();
@@ -2075,6 +2080,51 @@ export default function App() {
 
           {result && (
             <>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'flex-end', 
+                gap: 8, 
+                marginBottom: 16,
+                padding: '0 8px'
+              }}>
+                <button
+                  onClick={() => setViewMode('dashboard')}
+                  style={{
+                    padding: '8px 16px',
+                    background: viewMode === 'dashboard' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+                    border: viewMode === 'dashboard' ? 'none' : '1px solid #475569',
+                    borderRadius: 6,
+                    color: '#e2e8f0',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: viewMode === 'dashboard' ? 600 : 400,
+                  }}
+                >
+                  Dashboard View
+                </button>
+                <button
+                  onClick={() => setViewMode('wizard')}
+                  style={{
+                    padding: '8px 16px',
+                    background: viewMode === 'wizard' ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : 'transparent',
+                    border: viewMode === 'wizard' ? 'none' : '1px solid #475569',
+                    borderRadius: 6,
+                    color: '#e2e8f0',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: viewMode === 'wizard' ? 600 : 400,
+                  }}
+                >
+                  Setup Wizard
+                </button>
+              </div>
+
+              {viewMode === 'wizard' ? (
+                <div style={{ padding: '0 8px' }}>
+                  <GuidedWizard domain={domain} onComplete={() => setViewMode('dashboard')} />
+                </div>
+              ) : (
+              <>
               <div className="result-card">
                 <h3><span className="icon">📊</span> Infrastructure Specifications - {result.infrastructure.tier} Tier</h3>
                 <div className="specs-grid">
@@ -2401,6 +2451,30 @@ export default function App() {
                   Run tests, analyze coverage, check accessibility, and audit SEO.
                 </p>
                 <TestingQualityPanel domain={domain} tables={generatedArtifacts?.tables} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🔌</span> Data Connectivity</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Connect to databases, discover schemas, and set up data pipelines.
+                </p>
+                <DataConnectivityPanel domain={domain} selectedDb={selectedDb} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">📊</span> Monitoring & Observability</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Real-time metrics, logs, alerts, and health checks.
+                </p>
+                <MonitoringPanel domain={domain} />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🌍</span> Environment Manager</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Manage dev, staging, and production environments with promotion workflows.
+                </p>
+                <EnvironmentPanel domain={domain} />
               </div>
 
               <div className="result-card">
@@ -2982,6 +3056,8 @@ export default function App() {
                   </div>
                 )}
               </div>
+              </>
+              )}
             </>
           )}
         </div>

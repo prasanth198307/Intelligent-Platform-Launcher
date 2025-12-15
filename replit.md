@@ -1,19 +1,27 @@
 # Intelligent Platform Launcher (IPL)
 
 ## Overview
-An intelligent platform launcher that helps users design and deploy applications regardless of domain or database type. The platform analyzes requirements and provides:
+The Intelligent Platform Launcher (IPL) is designed to streamline the application design and deployment process across various domains and database types. It automates critical decisions by analyzing user requirements to provide comprehensive recommendations. IPL aims to simplify complex technical choices, offering users a powerful tool for efficient and cost-effective application development and deployment.
 
-- Infrastructure recommendations (compute, storage, network)
-- Architecture diagrams showing system topology
-- Cost estimates for AWS, Azure, and GCP
-- Security and compliance analysis (HIPAA, GDPR, PCI-DSS, SOC2, DPDP)
-- Deployment options (Cloud, On-Premises, Hybrid)
-- App and database clustering configurations
-- Mobile app generation (iOS, Android, PWA)
-- AI-generated code specifications (Modules, Screens, DB Schema, Tests)
+Key capabilities include:
+- Infrastructure and architecture recommendations.
+- Multi-cloud cost estimations (AWS, Azure, GCP).
+- Security and compliance analysis (HIPAA, GDPR, PCI-DSS, SOC2, DPDP).
+- Flexible deployment options (Cloud, On-Premises, Hybrid).
+- Mobile application generation (iOS, Android, PWA).
+- AI-driven code generation for modules, screens, database schemas, and test cases.
 
-## Project Structure
+## User Preferences
+- **Communication Style**: I prefer clear, concise, and simple language.
+- **Workflow**: I want iterative development.
+- **Interaction**: Ask before making major changes.
+- **Explanations**: I prefer detailed explanations.
+- **Code Changes**: Do not make changes to files in the `domain-packs/` folder.
 
+## System Architecture
+The IPL platform is structured as a monorepo containing several microservices and a UI console.
+
+**Project Structure:**
 ```
 ipl-platform/
 ├── apps/
@@ -23,236 +31,52 @@ ipl-platform/
 │   ├── workflow-engine-service/ # Workflow orchestration
 │   └── connector-service/    # Integration gateway
 ├── domain-packs/             # Industry-specific templates
-│   ├── ami/                  # AMI/Smart Metering
-│   ├── banking/              # Banking & Finance
-│   ├── healthcare/           # Healthcare
-│   ├── insurance/            # Insurance
-│   └── manufacturing/        # Manufacturing
 └── package.json              # Root monorepo config
 ```
 
-## Key Features
+**UI/UX Decisions:**
+- Frontend developed with React 19, Vite 7, and TypeScript.
+- Styling uses CSS with custom properties.
+- Interactive Entity-Relationship Diagrams (ERD) for database schema visualization are implemented using React Flow.
+- A project setup wizard guides users through five phases (Discovery, Design, Build, Deploy, Operate) with task checklists.
 
-### 1. Domain Agnostic
-Supports multiple industries: AMI, CIS, CRM, IVRS, Contact Center, Banking, Insurance, Healthcare, Manufacturing, Retail, Custom
+**Technical Implementations & Feature Specifications:**
+- **Domain Agnostic**: Supports 26+ industry domains (e.g., AMI, Banking, Healthcare, Manufacturing) and industry-specific compliance standards.
+- **Database Agnostic**: Compatible with various databases including PostgreSQL, MySQL, MongoDB, Oracle, and Cassandra.
+- **Infrastructure Auto-Selector**: Calculates infrastructure needs based on device/meter count, transactions, and scale tier (Small, Medium, Large, Massive).
+- **Multi-Cloud Support**: Provides cost comparison across AWS, Azure, and Google Cloud.
+- **Deployment Flexibility**: Offers one-click cloud deployment, Docker Compose/Helm Charts for on-premises, and hybrid options.
+- **Mobile App Generation**: Generates iOS, Android, and PWA apps with features like offline sync, push notifications, and biometric authentication. Uses React Native/Expo for full project generation.
+- **AI Code Generation**: The `ai-generator-service` (LLM-ready) generates application modules, UI screens (list, form, detail, chart, map), database schemas (tables, columns, relationships), and comprehensive test cases (unit, integration, E2E, security).
+- **Workspace Management**: Allows users to save, load, and delete project configurations, persisting data in a PostgreSQL database.
+- **DevOps & Automation Panel**: Unified panel with generators for Infrastructure as Code (Terraform, CloudFormation, Docker), CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins), API Documentation (OpenAPI), Database Migrations, Authentication Templates (JWT, OAuth), Load Testing (k6, JMeter), Security Scanning, and Cost Optimization.
+- **App Benchmarking**: Executes live performance tests against API endpoints, providing metrics (response times, latency percentiles, throughput), performance grading, and AI-powered optimization recommendations.
+- **Backend API Code Generation**: Generates complete server-side API projects for Node.js/Express (TypeScript), Python/FastAPI, and Go/Gin, including CRUD endpoints, authentication, database connection, and Docker support.
+- **API Testing Interface**: A built-in HTTP client similar to Postman for testing APIs with support for various methods, headers, and body editing.
+- **Live Code Editor**: A syntax-highlighted editor for viewing generated code, with file browsing, editing, and download capabilities.
+- **AI Automation Panel**: Advanced AI tools for Natural Language to Code, Security Vulnerability Scanning, and AI Debugging Assistance.
+- **Integrations & APIs Panel**: Configuration for webhooks, GraphQL schema generation from database, and message queue setup (RabbitMQ, Kafka).
+- **Development Tools Panel**: Includes Git integration, a visual SQL query builder, and API endpoint discovery.
+- **Testing & Quality Panel**: Features a test runner, code coverage analysis, accessibility checker, and SEO analyzer.
+- **Data Connectivity Panel**: Provides a database connection wizard, schema discovery, data pipeline creation, and data import functionalities.
+- **Monitoring & Observability Panel**: Real-time metrics dashboards, log viewer, alert configuration, and health checks.
+- **Environment Manager Panel**: Manages multiple environments (dev, staging, production) with variable management and promotion workflows.
+- **Cross-Domain Features**: Includes CI/CD Pipeline integration, API Gateway configurations, Monitoring & Observability setups, Backup & Disaster Recovery strategies, Notification & Alert systems, Documentation Generation, Performance SLAs, Data Migration Strategies, and Version Control Workflow guidance.
+- **Specification Features**: Multi-tenant configurations, multi-lingual support, payment and 3rd party integration detection, and source code scaffolding previews.
 
-### 2. Database Agnostic
-Works with: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB
-
-### 3. Infrastructure Auto-Selector
-Calculates infrastructure needs based on:
-- Device/meter count
-- Transactions per day
-- Scale tier (Small, Medium, Large, Massive)
-
-### 4. Multi-Cloud Support
-Cost comparison across AWS, Azure, and Google Cloud
-
-### 5. Deployment Flexibility
-- Cloud: One-click deployment with auto-provisioning
-- On-Premises: Docker Compose, Helm Charts, VM Images, Ansible
-- Hybrid: Cloud management with on-prem data storage
-
-### 6. Mobile App Generation
-Generates iOS, Android, or PWA apps with:
-- Offline sync
-- Push notifications
-- Biometric auth
-- Real-time updates
-
-### 7. AI Code Generation (LLM-Ready)
-The platform includes an AI generator service that can generate:
-- **Modules**: Domain-specific application modules with priorities
-- **Screens**: UI screens with types (list, form, detail, chart, map)
-- **Database Schema**: Tables with columns, types, and relationships
-- **Test Cases**: Unit, integration, E2E, and security tests
-
-When OPENAI_API_KEY is set, uses OpenAI for generation. Otherwise, uses realistic mock data.
-
-### 8. Workspace Management (Save/Load)
-Users can save their work and resume later:
-- **Save Workspaces**: Save project configurations including domain, database, compliance, and all settings
-- **Load Workspaces**: Resume previous work from saved state
-- **Session-based**: Each user session has its own isolated workspaces
-- **Persistence**: All workspaces stored in PostgreSQL database
-- **Delete**: Remove unwanted workspaces
-
-## Running Locally
-
-```bash
-# UI Console (Port 5000)
-cd ipl-platform/apps/ui-console
-npm install
-npm run dev
-
-# AI Generator Service (Port 8080)
-cd ipl-platform/apps/ai-generator-service
-npm install
-npm run dev
-```
-
-## Environment Variables
-- `OPENAI_API_KEY`: OpenAI API key for LLM-powered generation (optional, falls back to mock)
-- `LLM_PROVIDER`: Set to "openai" to use OpenAI (default: "mock")
-- `OPENAI_MODEL`: OpenAI model to use (default: "gpt-4o-mini")
-
-## Technical Stack
-- Frontend: React 19 + Vite 7 + TypeScript
-- Styling: CSS with custom properties
-- Backend: Express.js with OpenAI integration
-- AI: OpenAI GPT-4o-mini (configurable)
-
-### 9. DevOps & Automation Panel
-New unified DevOps panel with 8 generators:
-- **Infrastructure as Code**: Terraform, CloudFormation, Dockerfile, Docker Compose, Kubernetes, Helm
-- **CI/CD Pipelines**: GitHub Actions, GitLab CI, Jenkins
-- **API Documentation**: OpenAPI/Swagger specification generator
-- **Database Migrations**: SQL migrations and Drizzle ORM schemas
-- **Authentication Templates**: JWT and OAuth (Google/GitHub) blueprints
-- **Load Testing**: k6 scripts and JMeter configurations
-- **Security Scanner**: Compliance checklist with scoring (A-F grade)
-- **Cost Optimizer**: AI-powered cloud cost optimization recommendations
-
-### 10. App Benchmarking
-Run real performance tests against API endpoints:
-- **Live Testing**: Execute HTTP requests against target URLs with configurable concurrency
-- **Metrics**: Response times (min/avg/max), P50/P95/P99 latency percentiles
-- **Throughput**: Requests per second, data transferred, success rate
-- **Performance Grade**: A-F scoring based on latency and reliability
-- **Recommendations**: AI-powered suggestions for optimization
-- **Report Export**: Download detailed Markdown reports
-- **Endpoint**: /api/run-benchmark
-
-### 11. Mobile App Code Generation
-Generate complete React Native/Expo mobile app projects:
-- **Full Project Structure**: 22+ files including screens, components, services, hooks, and configuration
-- **Platform Support**: iOS, Android, and PWA with cross-platform React Native
-- **Features**: Authentication, offline sync, push notifications
-- **Components**: Reusable Card, Button, Input, Loading components
-- **Services**: API layer, storage service, auth service, notifications
-- **Utilities**: Form validation, date formatting, debounce helpers
-- **Assets**: Placeholder icons and splash screens with instructions
-- **Download**: Get all files as a single downloadable bundle
-- **Endpoint**: /api/generate-mobile-app
-
-### 12. Backend API Code Generation
-Generate complete server-side API projects for multiple frameworks:
-- **Node.js/Express**: TypeScript, routes, controllers, middleware, JWT auth, Zod validation
-- **Python/FastAPI**: Pydantic models, SQLAlchemy ORM, OAuth2, automatic OpenAPI docs
-- **Go/Gin**: Handlers, models, GORM, high-performance REST API
-- **Features**: Database connection (PostgreSQL), CRUD endpoints for each table, authentication middleware, error handling, Docker support, README with setup instructions
-- **Download**: Get all files as a single downloadable bundle
-- **Endpoint**: /api/generate-backend
-
-### 13. Database Schema Visualization (ERD)
-Interactive Entity-Relationship Diagram using React Flow:
-- **Visual Tables**: Each table displayed as a node with columns and types
-- **Relationships**: Foreign key connections shown as animated edges
-- **Visual Indicators**: Primary keys (gold), foreign keys (blue), unique constraints
-- **Interactive**: Pan, zoom, and controls for exploring the schema
-- **Legend**: Key type indicators shown at the bottom
-
-### 14. API Testing Interface
-Built-in Postman-like HTTP client for testing APIs:
-- **HTTP Methods**: GET, POST, PUT, DELETE, PATCH support
-- **Headers Editor**: Add/remove/toggle request headers
-- **Body Editor**: JSON body input for POST/PUT/PATCH requests
-- **Response Viewer**: Status, timing, size, headers, and body
-- **Copy Response**: One-click copy of response data
-
-### 15. Live Code Editor
-Syntax-highlighted code editor for viewing generated files:
-- **File Browser**: Search and navigate generated files
-- **Syntax Highlighting**: TypeScript, JavaScript, Python, Go, SQL, JSON, etc.
-- **Edit Mode**: Switch between view and edit modes
-- **File Operations**: Copy, download individual files
-- **Download All**: Export all files as a bundle
-
-### 16. AI Automation Panel
-Advanced AI-powered development tools:
-- **Natural Language to Code**: Describe what you want in plain English, get TypeScript/Python/Go code
-- **Security Vulnerability Scanner**: Paste code to detect SQL injection, XSS, hardcoded secrets, etc.
-- **AI Debugging Assistant**: Describe errors and get root cause analysis with fix suggestions
-
-### 17. Integrations & APIs Panel
-Configure external integrations and API schemas:
-- **Webhooks**: Configure webhook endpoints with event selection and secret generation
-- **GraphQL Schema Generator**: Auto-generate GraphQL types, queries, mutations from database schema
-- **Message Queue Setup**: Generate RabbitMQ, Kafka, Redis Pub/Sub, or AWS SQS configurations
-
-### 18. Development Tools Panel
-Built-in development utilities:
-- **Git Integration**: Branch management, commit history, pull/push simulation
-- **Visual Query Builder**: Build SQL queries visually with table/column selection
-- **API Endpoint Discovery**: Auto-discover API endpoints from codebase and schema
-
-### 19. Testing & Quality Panel
-Comprehensive testing and quality analysis:
-- **Test Runner**: Execute unit, integration, and E2E tests with real-time results
-- **Code Coverage Analysis**: Visualize line coverage per file with percentage scores
-- **Accessibility Checker**: WCAG compliance analysis with severity levels and fix suggestions
-- **SEO Analyzer**: Page optimization scoring with actionable recommendations
-
-## Recent Changes
-- December 15, 2025: Added Backend API Code Generation feature:
-  - Generate complete backend projects for Node.js/Express, Python/FastAPI, and Go/Gin
-  - TypeScript/Python/Go with proper project structure
-  - CRUD endpoints for each table from generated schema
-  - JWT authentication middleware
-  - Database connection and models
-  - Docker support and README
-  - New endpoint: /api/generate-backend
-- December 15, 2025: Added Mobile App Code Generation feature:
-  - Generate complete React Native/Expo project (22+ files)
-  - Includes screens (list, form, detail, chart), components, services
-  - Authentication, offline sync, push notification support
-  - Asset placeholders for icons and splash screens
-  - Utility helpers, validators, and app configuration
-  - Download all files as a bundle
-  - New endpoint: /api/generate-mobile-app
-- December 15, 2025: Added App Benchmarking feature for real performance testing:
-  - Live HTTP benchmarking against target URLs
-  - Configurable concurrent users, duration, and ramp-up time
-  - Metrics: P50/P95/P99 latency, throughput, success rate
-  - Performance grading (A-F) with recommendations
-  - Download Markdown reports
-  - New endpoint: /api/run-benchmark
-- December 15, 2025: Added DevOps & Automation panel with 8 generators:
-  - Infrastructure as Code (Terraform, CloudFormation, Docker, K8s, Helm)
-  - CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins)
-  - API Documentation (OpenAPI/Swagger)
-  - Database Migrations (SQL, Drizzle ORM)
-  - Authentication Templates (JWT, OAuth)
-  - Load Testing (k6, JMeter)
-  - Security Scanner with compliance checks
-  - Cost Optimizer with savings recommendations
-  - New endpoints: /api/generate-infrastructure, /api/generate-cicd, /api/generate-api-docs, /api/generate-migrations, /api/generate-auth, /api/generate-load-tests, /api/security-scan, /api/cost-optimization
-- December 15, 2025: Extended AI capabilities with full AI Code Assistant panel:
-  - **Generate Code**: Full application code generation (React components, API routes, DB schema)
-  - **Review Code**: LLM-powered code review with scoring, issue detection, and suggestions
-  - **Fix Code**: Automatic issue resolution and code patching
-  - **Explain Code**: Code explanation with key concepts identification
-  - New endpoints: /api/generate-code, /api/review-code, /api/fix-code, /api/explain-code
-- December 15, 2025: Added visual architecture diagrams (React Flow), hardware recommendations with specific cloud instance types (AWS/Azure/GCP), and export functionality (JSON/CSV)
-- December 15, 2025: Expanded to 26 industry domains including Education, Real Estate, Logistics, Hospitality, Government, Telecom, Pharma, Agriculture, HR, Travel, Media, Non-profit with industry-specific compliance standards
-- December 15, 2025: Added 10 cross-domain features:
-  - CI/CD Pipeline (GitHub Actions, GitLab CI, Jenkins, Azure DevOps, CircleCI)
-  - API Gateway (Kong, AWS API Gateway, Azure APIM, Nginx, Envoy)
-  - Monitoring & Observability (Prometheus+Grafana, ELK, Datadog, New Relic, CloudWatch)
-  - Backup & Disaster Recovery (Hot/Warm/Cold standby, Pilot Light)
-  - Environment Management (Dev, Staging, UAT, Prod, DR)
-  - Notifications & Alerts (Email, SMS, Push, Slack, Teams, Webhook)
-  - Documentation Generation (API docs, User Guide, Admin Guide, Developer, Runbook)
-  - Performance SLAs (P99 latency, Uptime targets)
-  - Data Migration Strategy (Big-bang, Phased, Parallel-run, Strangler)
-  - Version Control Workflow (GitFlow, GitHub Flow, Trunk-based, Feature Branch)
-- December 15, 2025: Added comprehensive specification features:
-  - Multi-tenant configuration options (UI only vs UI+DB with schema/row-level isolation)
-  - Multi-lingual support with 10 language options and level selection
-  - Payment and 3rd party integration detection per domain (Stripe, Plaid, Twilio, etc.)
-  - Source code scaffolding structure preview (folder tree and key files)
-  - Configuration options display in generated artifacts
-- December 15, 2025: Added AI Code Generation feature with LLM-ready backend service (port 8080), generates Modules, Screens, DB Schema, and Test Cases
-- December 15, 2025: Added new domains (CIS, CRM, IVRS, Contact Center), dynamic field labels, domain-specific standards, and deployment type selector in input panel
-- December 15, 2025: Enhanced cost breakdown UI to display all components (Compute, Database, Cache, Queue, Storage, Network) with pricing assumptions note
-- December 15, 2025: Initial implementation of Intelligent Platform Launcher with full UI
+## External Dependencies
+- **AI/LLM**: OpenAI (configurable, with fallback to mock data if `OPENAI_API_KEY` is not set). Uses `gpt-4o-mini` by default.
+- **Databases**: PostgreSQL (for workspace persistence), and support for integration with PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB.
+- **Cloud Providers**: AWS, Azure, Google Cloud (for cost estimation and deployment).
+- **Frontend Framework**: React, Vite, TypeScript.
+- **Backend Framework**: Express.js.
+- **Version Control**: Git (integration for branch management, commit history).
+- **CI/CD Tools**: GitHub Actions, GitLab CI, Jenkins, Azure DevOps, CircleCI.
+- **Infrastructure as Code**: Terraform, CloudFormation, Docker, Kubernetes, Helm.
+- **Load Testing**: k6, JMeter.
+- **ORM**: Drizzle ORM (for database migrations), SQLAlchemy (FastAPI), GORM (Go/Gin).
+- **Auth**: JWT, OAuth (Google/GitHub).
+- **Messaging Queues**: RabbitMQ, Kafka, Redis Pub/Sub, AWS SQS.
+- **API Gateways**: Kong, AWS API Gateway, Azure APIM, Nginx, Envoy.
+- **Monitoring**: Prometheus, Grafana, ELK, Datadog, New Relic, CloudWatch.
+- **Payment & Third-party Integrations**: Stripe, Plaid, Twilio (detected per domain).
