@@ -75,4 +75,5 @@ The UI runs on port 5000.
 - Backend: Express.js with OpenAI integration (planned)
 
 ## Recent Changes
+- December 15, 2025: Enhanced cost breakdown UI to display all components (Compute, Database, Cache, Queue, Storage, Network) with pricing assumptions note
 - December 15, 2025: Initial implementation of Intelligent Platform Launcher with full UI
