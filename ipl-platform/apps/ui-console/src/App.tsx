@@ -2162,6 +2162,16 @@ export default function App() {
                   <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Integrations</div>
                   <div style={{ fontSize: '12px', color: '#94a3b8' }}>Webhooks, GraphQL & message queues</div>
                 </div>
+                <div style={{ background: 'rgba(168, 85, 247, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🏢</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Flexible Deployment</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Cloud, On-Prem, Hybrid & Docker/Helm</div>
+                </div>
+                <div style={{ background: 'rgba(34, 197, 94, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📱</div>
+                  <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>Mobile Apps</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>iOS, Android & PWA generation</div>
+                </div>
               </div>
             </div>
           )}
