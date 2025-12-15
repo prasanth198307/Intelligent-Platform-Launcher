@@ -33,8 +33,8 @@ function mapColumnTypeToSwagger(type: string): { type: string; format?: string }
 }
 
 export function generateOpenAPISpec(ctx: APIDocsContext): string {
-  const project = ctx.projectName || `${ctx.domain}-platform`;
-  const baseUrl = ctx.baseUrl || `https://api.${project}.example.com`;
+  const project = ctx.projectName || ctx.domain + '-platform';
+  const baseUrl = ctx.baseUrl || 'https://api.' + project + '.example.com';
   
   const schemas: Record<string, any> = {};
   const paths: Record<string, any> = {};
@@ -42,7 +42,6 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
   for (const table of ctx.tables) {
     const entityName = table.name.charAt(0).toUpperCase() + table.name.slice(1);
     const properties: Record<string, any> = {};
-    const required: string[] = [];
     
     for (const col of table.columns) {
       properties[col.name] = {
@@ -61,7 +60,7 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
       required: table.columns.filter(c => c.primary).map(c => c.name),
     };
     
-    schemas[\`\${entityName}Create\`] = {
+    schemas[entityName + 'Create'] = {
       type: 'object',
       properties: Object.fromEntries(
         Object.entries(properties).filter(([key]) => 
@@ -70,7 +69,7 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
       ),
     };
     
-    schemas[\`\${entityName}Update\`] = {
+    schemas[entityName + 'Update'] = {
       type: 'object',
       properties: Object.fromEntries(
         Object.entries(properties).filter(([key]) => 
@@ -79,12 +78,12 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
       ),
     };
     
-    const basePath = \`/api/\${table.name}\`;
+    const basePath = '/api/' + table.name;
     
     paths[basePath] = {
       get: {
-        summary: \`List all \${table.name}\`,
-        operationId: \`list\${entityName}\`,
+        summary: 'List all ' + table.name,
+        operationId: 'list' + entityName,
         tags: [entityName],
         parameters: [
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
@@ -100,7 +99,7 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
                 schema: {
                   type: 'object',
                   properties: {
-                    data: { type: 'array', items: { \$ref: \`#/components/schemas/\${entityName}\` } },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/' + entityName } },
                     pagination: {
                       type: 'object',
                       properties: {
@@ -115,20 +114,20 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
               },
             },
           },
-          '401': { \$ref: '#/components/responses/Unauthorized' },
-          '500': { \$ref: '#/components/responses/InternalError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '500': { $ref: '#/components/responses/InternalError' },
         },
         security: [{ bearerAuth: [] }],
       },
       post: {
-        summary: \`Create a new \${table.name.slice(0, -1)}\`,
-        operationId: \`create\${entityName}\`,
+        summary: 'Create a new ' + table.name.slice(0, -1),
+        operationId: 'create' + entityName,
         tags: [entityName],
         requestBody: {
           required: true,
           content: {
             'application/json': {
-              schema: { \$ref: \`#/components/schemas/\${entityName}Create\` },
+              schema: { $ref: '#/components/schemas/' + entityName + 'Create' },
             },
           },
         },
@@ -137,22 +136,22 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
             description: 'Created successfully',
             content: {
               'application/json': {
-                schema: { \$ref: \`#/components/schemas/\${entityName}\` },
+                schema: { $ref: '#/components/schemas/' + entityName },
               },
             },
           },
-          '400': { \$ref: '#/components/responses/BadRequest' },
-          '401': { \$ref: '#/components/responses/Unauthorized' },
-          '500': { \$ref: '#/components/responses/InternalError' },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '500': { $ref: '#/components/responses/InternalError' },
         },
         security: [{ bearerAuth: [] }],
       },
     };
     
-    paths[\`\${basePath}/{id}\`] = {
+    paths[basePath + '/{id}'] = {
       get: {
-        summary: \`Get a \${table.name.slice(0, -1)} by ID\`,
-        operationId: \`get\${entityName}\`,
+        summary: 'Get a ' + table.name.slice(0, -1) + ' by ID',
+        operationId: 'get' + entityName,
         tags: [entityName],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
@@ -162,18 +161,18 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
             description: 'Successful response',
             content: {
               'application/json': {
-                schema: { \$ref: \`#/components/schemas/\${entityName}\` },
+                schema: { $ref: '#/components/schemas/' + entityName },
               },
             },
           },
-          '404': { \$ref: '#/components/responses/NotFound' },
-          '401': { \$ref: '#/components/responses/Unauthorized' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
         },
         security: [{ bearerAuth: [] }],
       },
       put: {
-        summary: \`Update a \${table.name.slice(0, -1)}\`,
-        operationId: \`update\${entityName}\`,
+        summary: 'Update a ' + table.name.slice(0, -1),
+        operationId: 'update' + entityName,
         tags: [entityName],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
@@ -182,7 +181,7 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
           required: true,
           content: {
             'application/json': {
-              schema: { \$ref: \`#/components/schemas/\${entityName}Update\` },
+              schema: { $ref: '#/components/schemas/' + entityName + 'Update' },
             },
           },
         },
@@ -191,27 +190,27 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
             description: 'Updated successfully',
             content: {
               'application/json': {
-                schema: { \$ref: \`#/components/schemas/\${entityName}\` },
+                schema: { $ref: '#/components/schemas/' + entityName },
               },
             },
           },
-          '400': { \$ref: '#/components/responses/BadRequest' },
-          '404': { \$ref: '#/components/responses/NotFound' },
-          '401': { \$ref: '#/components/responses/Unauthorized' },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
         },
         security: [{ bearerAuth: [] }],
       },
       delete: {
-        summary: \`Delete a \${table.name.slice(0, -1)}\`,
-        operationId: \`delete\${entityName}\`,
+        summary: 'Delete a ' + table.name.slice(0, -1),
+        operationId: 'delete' + entityName,
         tags: [entityName],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
         ],
         responses: {
           '204': { description: 'Deleted successfully' },
-          '404': { \$ref: '#/components/responses/NotFound' },
-          '401': { \$ref: '#/components/responses/Unauthorized' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
         },
         security: [{ bearerAuth: [] }],
       },
@@ -221,16 +220,11 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
   const spec = {
     openapi: '3.0.3',
     info: {
-      title: \`\${project} API\`,
-      description: \`REST API for \${project} - Generated by Intelligent Platform Launcher\`,
+      title: project + ' API',
+      description: 'REST API for ' + project + ' - Generated by Intelligent Platform Launcher',
       version: '1.0.0',
-      contact: {
-        email: 'api@example.com',
-      },
-      license: {
-        name: 'MIT',
-        url: 'https://opensource.org/licenses/MIT',
-      },
+      contact: { email: 'api@example.com' },
+      license: { name: 'MIT', url: 'https://opensource.org/licenses/MIT' },
     },
     servers: [
       { url: baseUrl, description: 'Production' },
@@ -239,22 +233,14 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
     ],
     tags: ctx.tables.map(t => ({
       name: t.name.charAt(0).toUpperCase() + t.name.slice(1),
-      description: \`Operations for \${t.name}\`,
+      description: 'Operations for ' + t.name,
     })),
     paths,
     components: {
       schemas,
       securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-        apiKey: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'X-API-Key',
-        },
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
       },
       responses: {
         BadRequest: {
@@ -277,9 +263,7 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
             'application/json': {
               schema: {
                 type: 'object',
-                properties: {
-                  error: { type: 'string', example: 'Unauthorized' },
-                },
+                properties: { error: { type: 'string', example: 'Unauthorized' } },
               },
             },
           },
@@ -290,9 +274,7 @@ export function generateOpenAPISpec(ctx: APIDocsContext): string {
             'application/json': {
               schema: {
                 type: 'object',
-                properties: {
-                  error: { type: 'string', example: 'Resource not found' },
-                },
+                properties: { error: { type: 'string', example: 'Resource not found' } },
               },
             },
           },

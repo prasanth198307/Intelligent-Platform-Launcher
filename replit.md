@@ -102,7 +102,28 @@ npm run dev
 - Backend: Express.js with OpenAI integration
 - AI: OpenAI GPT-4o-mini (configurable)
 
+### 9. DevOps & Automation Panel
+New unified DevOps panel with 8 generators:
+- **Infrastructure as Code**: Terraform, CloudFormation, Dockerfile, Docker Compose, Kubernetes, Helm
+- **CI/CD Pipelines**: GitHub Actions, GitLab CI, Jenkins
+- **API Documentation**: OpenAPI/Swagger specification generator
+- **Database Migrations**: SQL migrations and Drizzle ORM schemas
+- **Authentication Templates**: JWT and OAuth (Google/GitHub) blueprints
+- **Load Testing**: k6 scripts and JMeter configurations
+- **Security Scanner**: Compliance checklist with scoring (A-F grade)
+- **Cost Optimizer**: AI-powered cloud cost optimization recommendations
+
 ## Recent Changes
+- December 15, 2025: Added DevOps & Automation panel with 8 generators:
+  - Infrastructure as Code (Terraform, CloudFormation, Docker, K8s, Helm)
+  - CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins)
+  - API Documentation (OpenAPI/Swagger)
+  - Database Migrations (SQL, Drizzle ORM)
+  - Authentication Templates (JWT, OAuth)
+  - Load Testing (k6, JMeter)
+  - Security Scanner with compliance checks
+  - Cost Optimizer with savings recommendations
+  - New endpoints: /api/generate-infrastructure, /api/generate-cicd, /api/generate-api-docs, /api/generate-migrations, /api/generate-auth, /api/generate-load-tests, /api/security-scan, /api/cost-optimization
 - December 15, 2025: Extended AI capabilities with full AI Code Assistant panel:
   - **Generate Code**: Full application code generation (React components, API routes, DB schema)
   - **Review Code**: LLM-powered code review with scoring, issue detection, and suggestions

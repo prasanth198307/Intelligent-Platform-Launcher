@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import ArchitectureDiagram from "./ArchitectureDiagram";
 import AICodePanel from "./AICodePanel";
+import DevOpsPanel from "./DevOpsPanel";
 
 const API_BASE_URL = '';
 
@@ -2195,6 +2196,27 @@ export default function App() {
                   modules={generatedArtifacts?.modules}
                   screens={generatedArtifacts?.screens}
                   tables={generatedArtifacts?.tables}
+                />
+              </div>
+
+              <div className="result-card">
+                <h3><span className="icon">🛠️</span> DevOps & Automation</h3>
+                <p style={{ color: '#a0a0c0', marginBottom: '16px' }}>
+                  Generate infrastructure code, CI/CD pipelines, API docs, migrations, and security configurations.
+                </p>
+                <DevOpsPanel
+                  domain={domain}
+                  database={selectedDb}
+                  tier={result.infrastructure.tier}
+                  appServers={result.infrastructure.compute.appServers}
+                  dbReplicas={result.infrastructure.compute.dbReplicas}
+                  cacheNodes={result.infrastructure.compute.cacheNodes}
+                  storageGB={result.infrastructure.storage.totalGB}
+                  monthlyEgressGB={result.infrastructure.network.monthlyEgressGB}
+                  currentCost={result.costs[selectedCloud]?.total || 5000}
+                  compliance={compliance}
+                  tables={generatedArtifacts?.tables || []}
+                  cloudProvider={selectedCloud}
                 />
               </div>
 

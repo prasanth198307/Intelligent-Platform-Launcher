@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const AI_SERVICE_URL = 'http://localhost:8080';
+const AI_SERVICE_URL = '';
 
 interface DevOpsPanelProps {
   domain: string;
