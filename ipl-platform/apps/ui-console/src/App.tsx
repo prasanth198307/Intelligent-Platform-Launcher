@@ -759,50 +759,11 @@ export default function App() {
 
           <div className="form-group">
             <label>Preferred Database</label>
-            <div className="db-grid">
+            <select value={selectedDb} onChange={e => setSelectedDb(e.target.value)}>
               {DATABASES.map(db => (
-                <div
-                  key={db.id}
-                  className={`db-chip ${selectedDb === db.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedDb(db.id)}
-                >
-                  <div className="name">{db.name}</div>
-                  <div className="type">{db.type}</div>
-                </div>
+                <option key={db.id} value={db.id}>{db.name} ({db.type})</option>
               ))}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Cloud Provider</label>
-            <div className="cloud-providers">
-              {CLOUD_PROVIDERS.map(cp => (
-                <div
-                  key={cp.id}
-                  className={`cloud-chip ${selectedCloud === cp.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedCloud(cp.id)}
-                >
-                  <span>{cp.icon}</span>
-                  <span className="name">{cp.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Compliance & Standards</label>
-            <div className="checkbox-group">
-              {getComplianceForDomain(domain).map(opt => (
-                <label key={opt.id} className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={compliance.includes(opt.id)}
-                    onChange={() => handleComplianceToggle(opt.id)}
-                  />
-                  {opt.name}
-                </label>
-              ))}
-            </div>
+            </select>
           </div>
 
           <div className="form-group">
@@ -826,6 +787,40 @@ export default function App() {
               >
                 <span>🔄</span> Hybrid
               </div>
+            </div>
+          </div>
+
+          {deploymentType !== 'onprem' && (
+            <div className="form-group">
+              <label>Cloud Provider</label>
+              <div className="cloud-providers">
+                {CLOUD_PROVIDERS.map(cp => (
+                  <div
+                    key={cp.id}
+                    className={`cloud-chip ${selectedCloud === cp.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedCloud(cp.id)}
+                  >
+                    <span>{cp.icon}</span>
+                    <span className="name">{cp.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>Compliance & Standards</label>
+            <div className="checkbox-group">
+              {getComplianceForDomain(domain).map(opt => (
+                <label key={opt.id} className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={compliance.includes(opt.id)}
+                    onChange={() => handleComplianceToggle(opt.id)}
+                  />
+                  {opt.name}
+                </label>
+              ))}
             </div>
           </div>
 
