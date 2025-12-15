@@ -787,8 +787,21 @@ function getTechStackRecommendation(
   tier: string, 
   domainId: string = '', 
   deploymentType: 'cloud' | 'onprem' | 'hybrid' = 'cloud',
-  cloudProvider: string = 'aws'
+  cloudProvider: string = 'aws',
+  selectedDatabase: string = 'postgresql'
 ): TechStackRecommendation {
+  const dbDisplayNames: Record<string, { name: string; description: string }> = {
+    postgresql: { name: 'PostgreSQL', description: 'Reliable open-source RDBMS' },
+    mysql: { name: 'MySQL', description: 'Popular open-source RDBMS' },
+    mongodb: { name: 'MongoDB', description: 'Document-oriented NoSQL database' },
+    mssql: { name: 'SQL Server', description: 'Enterprise Microsoft database' },
+    oracle: { name: 'Oracle', description: 'Enterprise-grade RDBMS' },
+    cassandra: { name: 'Cassandra', description: 'Distributed wide-column store' },
+    dynamodb: { name: 'DynamoDB', description: 'AWS managed NoSQL' },
+    timescaledb: { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL' },
+    cosmosdb: { name: 'Cosmos DB', description: 'Azure multi-model database' }
+  };
+  const userDb = dbDisplayNames[selectedDatabase] || dbDisplayNames.postgresql;
   const isStreamingDomain = ['ami', 'telecom', 'manufacturing', 'logistics', 'agriculture'].includes(domainId);
   const isTransactionalDomain = ['banking', 'insurance', 'retail', 'erp', 'accounting'].includes(domainId);
   const isAnalyticsDomain = ['ami', 'telecom', 'media', 'manufacturing', 'healthcare'].includes(domainId);
@@ -840,8 +853,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: smallCloudDb, description: 'Managed PostgreSQL with automatic backups' }
-          : { name: 'PostgreSQL', description: 'Reliable RDBMS for transactional workloads' },
+          ? { name: `Managed ${userDb.name}`, description: `Cloud-managed ${userDb.name} with automatic backups` }
+          : { name: userDb.name, description: userDb.description },
         analyticsDb: { name: 'Same DB (PostgreSQL)', description: 'Use same database for analytics queries' },
         queue: isCloud
           ? { name: cloud.queue, description: 'Managed queue service - no infrastructure to manage' }
@@ -870,8 +883,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: mediumCloudDb, description: 'Managed scalable database with auto-scaling' }
-          : { name: 'TimescaleDB', description: 'Time-series optimized PostgreSQL for high-volume data' },
+          ? { name: `Managed ${userDb.name}`, description: `Cloud-managed ${userDb.name} with auto-scaling` }
+          : { name: userDb.name, description: userDb.description },
         analyticsDb: { name: 'PostgreSQL Views', description: 'Materialized views for reporting queries' },
         queue: isCloud
           ? { name: cloud.queue, description: 'Managed message queue with auto-scaling' }
@@ -916,8 +929,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: largeCloudDb, description: 'Globally distributed managed database' }
-          : { name: 'TimescaleDB Cluster', description: 'Distributed TimescaleDB for massive time-series' },
+          ? { name: `Managed ${userDb.name}`, description: `Globally distributed ${userDb.name}` }
+          : { name: `${userDb.name} Cluster`, description: `Clustered ${userDb.description}` },
         analyticsDb: isCloud
           ? { name: cloud.warehouse, description: 'Managed columnar analytics engine' }
           : { name: 'ClickHouse', description: 'Column-store OLAP database for fast analytics' },
@@ -969,8 +982,8 @@ function getTechStackRecommendation(
       return {
         tier,
         primaryDb: isCloud
-          ? { name: massiveCloudDb, description: 'Planet-scale managed NoSQL' }
-          : { name: 'Apache Cassandra', description: 'Distributed NoSQL for planet-scale writes' },
+          ? { name: `Managed ${userDb.name}`, description: `Planet-scale managed ${userDb.name}` }
+          : { name: `${userDb.name} Cluster`, description: `Distributed ${userDb.name} for high availability` },
         analyticsDb: isCloud
           ? { name: `${cloud.warehouse} (Enterprise)`, description: 'Enterprise analytics with unlimited scale' }
           : { name: 'ClickHouse Cluster', description: 'Distributed ClickHouse for petabyte analytics' },
@@ -1922,7 +1935,7 @@ export default function App() {
     const security = getSecurityRequirements(compliance);
     const clusterConfig = getClusterConfig(infrastructure);
     
-    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud);
+    const techStack = getTechStackRecommendation(infrastructure.tier, domain, deploymentType, selectedCloud, database);
     
     const analysisResult: AnalysisResult = {
       domain: DOMAINS.find(d => d.id === domain)?.name || domain,
