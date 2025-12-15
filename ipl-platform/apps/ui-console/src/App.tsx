@@ -283,6 +283,10 @@ interface TechStackRecommendation {
   streaming: TechComponent;
   etl: TechComponent;
   analytics: TechComponent;
+  dataWarehouse: TechComponent;
+  dataLake: TechComponent;
+  dataIngestion: TechComponent;
+  dataGovernance: TechComponent;
 }
 
 interface AnalysisResult {
@@ -782,6 +786,8 @@ function getTechStackRecommendation(tier: string, domainId: string = ''): TechSt
   const isStreamingDomain = ['ami', 'telecom', 'manufacturing', 'logistics', 'agriculture'].includes(domainId);
   const isTransactionalDomain = ['banking', 'insurance', 'retail', 'erp', 'accounting'].includes(domainId);
   const isAnalyticsDomain = ['ami', 'telecom', 'media', 'manufacturing', 'healthcare'].includes(domainId);
+  const isIoTDomain = ['ami', 'manufacturing', 'agriculture', 'logistics'].includes(domainId);
+  const isDataHeavyDomain = ['ami', 'telecom', 'media', 'healthcare', 'pharma'].includes(domainId);
   
   switch (tier) {
     case 'Small':
@@ -795,7 +801,13 @@ function getTechStackRecommendation(tier: string, domainId: string = ''): TechSt
         frontend: { name: 'React + Vite', description: 'Modern React with fast build tooling' },
         streaming: { name: 'Not Required', description: 'Small scale - batch processing sufficient' },
         etl: { name: 'Python + Pandas', description: 'Simple ETL with Python scripts' },
-        analytics: { name: 'Metabase', description: 'Open-source BI for dashboards & reports' }
+        analytics: { name: 'Metabase', description: 'Open-source BI for dashboards & reports' },
+        dataWarehouse: { name: 'PostgreSQL', description: 'Use primary database for warehousing at small scale' },
+        dataLake: { name: 'Not Required', description: 'Small scale - structured storage sufficient' },
+        dataIngestion: isIoTDomain
+          ? { name: 'MQTT + Python', description: 'MQTT broker with Python collectors for devices' }
+          : { name: 'REST APIs + Batch', description: 'API-based data collection with batch imports' },
+        dataGovernance: { name: 'Basic Docs', description: 'Simple documentation and naming conventions' }
       };
     case 'Medium':
       return {
@@ -812,7 +824,15 @@ function getTechStackRecommendation(tier: string, domainId: string = ''): TechSt
           ? { name: 'Apache Kafka', description: 'Distributed streaming for real-time data ingestion' }
           : { name: 'Redis Streams', description: 'Lightweight streaming with Redis' },
         etl: { name: 'Apache Airflow', description: 'Workflow orchestration for data pipelines' },
-        analytics: { name: 'Apache Superset', description: 'Enterprise BI with advanced visualizations' }
+        analytics: { name: 'Apache Superset', description: 'Enterprise BI with advanced visualizations' },
+        dataWarehouse: isDataHeavyDomain
+          ? { name: 'ClickHouse', description: 'Column-store for fast analytical queries' }
+          : { name: 'PostgreSQL + dbt', description: 'PostgreSQL with dbt for data transformations' },
+        dataLake: { name: 'MinIO / S3', description: 'Object storage for raw data and archives' },
+        dataIngestion: isIoTDomain
+          ? { name: 'EMQX + Kafka Connect', description: 'MQTT broker with Kafka for device telemetry' }
+          : { name: 'Airbyte / Fivetran', description: 'ELT connectors for data source integration' },
+        dataGovernance: { name: 'Apache Atlas', description: 'Data catalog with lineage tracking' }
       };
     case 'Large':
       return {
@@ -831,7 +851,13 @@ function getTechStackRecommendation(tier: string, domainId: string = ''): TechSt
         etl: { name: 'Apache Spark', description: 'Distributed data processing for large datasets' },
         analytics: isAnalyticsDomain
           ? { name: 'ClickHouse + Grafana', description: 'Real-time analytics with custom dashboards' }
-          : { name: 'Apache Superset + Cube.js', description: 'Semantic layer with BI visualization' }
+          : { name: 'Apache Superset + Cube.js', description: 'Semantic layer with BI visualization' },
+        dataWarehouse: { name: 'Snowflake / BigQuery', description: 'Cloud data warehouse for enterprise analytics' },
+        dataLake: { name: 'Delta Lake / S3', description: 'Lakehouse with ACID transactions on object storage' },
+        dataIngestion: isIoTDomain
+          ? { name: 'Apache NiFi + Kafka', description: 'Visual dataflow with Kafka for IoT ingestion' }
+          : { name: 'Kafka Connect + Debezium', description: 'CDC and streaming connectors for real-time sync' },
+        dataGovernance: { name: 'Atlan / Collibra', description: 'Enterprise data catalog with governance policies' }
       };
     case 'Massive':
     default:
@@ -845,7 +871,13 @@ function getTechStackRecommendation(tier: string, domainId: string = ''): TechSt
         frontend: { name: 'React + Micro-frontends', description: 'Distributed frontend architecture' },
         streaming: { name: 'Kafka + Flink + Spark Streaming', description: 'Lambda architecture for real-time + batch' },
         etl: { name: 'Apache Spark Cluster', description: 'Distributed Spark for petabyte ETL' },
-        analytics: { name: 'Databricks / Snowflake', description: 'Cloud data platform for enterprise analytics' }
+        analytics: { name: 'Databricks / Snowflake', description: 'Cloud data platform for enterprise analytics' },
+        dataWarehouse: { name: 'Databricks Lakehouse', description: 'Unified lakehouse for all analytics workloads' },
+        dataLake: { name: 'Delta Lake + Iceberg', description: 'Multi-format lakehouse with schema evolution' },
+        dataIngestion: isIoTDomain
+          ? { name: 'Apache Pulsar + NiFi', description: 'Geo-replicated messaging for global IoT' }
+          : { name: 'Kafka + Spark Structured Streaming', description: 'Unified batch and stream ingestion' },
+        dataGovernance: { name: 'Unity Catalog / Purview', description: 'Enterprise governance with fine-grained access' }
       };
   }
 }
@@ -2537,7 +2569,7 @@ export default function App() {
                           </div>
 
                           <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data Processing & Analytics</h4>
-                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                             <div className="tech-stack-card" style={{ background: 'rgba(236, 72, 153, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                 <span style={{ fontSize: '1.5rem' }}>🌊</span>
@@ -2561,6 +2593,42 @@ export default function App() {
                               </div>
                               <div style={{ fontSize: '18px', fontWeight: 700, color: '#fbbf24', marginBottom: '4px' }}>{result.techStack.analytics.name}</div>
                               <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.analytics.description}</div>
+                            </div>
+                          </div>
+
+                          <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data Platform</h4>
+                          <div className="tech-stack-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                            <div className="tech-stack-card" style={{ background: 'rgba(14, 165, 233, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(14, 165, 233, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🏢</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Data Warehouse</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#0ea5e9', marginBottom: '4px' }}>{result.techStack.dataWarehouse.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.dataWarehouse.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(34, 197, 94, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🌊</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Data Lake</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e', marginBottom: '4px' }}>{result.techStack.dataLake.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.dataLake.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(249, 115, 22, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(249, 115, 22, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>📡</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Data Ingestion</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#f97316', marginBottom: '4px' }}>{result.techStack.dataIngestion.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.dataIngestion.description}</div>
+                            </div>
+                            <div className="tech-stack-card" style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🔐</span>
+                                <span style={{ fontWeight: 600, color: '#e2e8f0' }}>Data Governance</span>
+                              </div>
+                              <div style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1', marginBottom: '4px' }}>{result.techStack.dataGovernance.name}</div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>{result.techStack.dataGovernance.description}</div>
                             </div>
                           </div>
                         </div>
