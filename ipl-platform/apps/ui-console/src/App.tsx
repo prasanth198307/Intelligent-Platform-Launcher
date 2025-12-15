@@ -3298,6 +3298,28 @@ Or upload a requirements document (PDF, Word, TXT) using the button above."
                     </div>
 
                     <div className="collapsible-section">
+                      <div className="section-header" onClick={() => toggleSection('documentation')}>
+                        <span className="section-icon">{expandedSections.has('documentation') ? '▼' : '▶'}</span>
+                        <h3><span className="icon">📚</span> Project Documentation</h3>
+                      </div>
+                      {expandedSections.has('documentation') && (
+                        <div className="section-content">
+                          <DocumentationPanel
+                            domain={domain}
+                            requirements={requirements}
+                            infrastructure={result?.infrastructure}
+                            techStack={result?.techStack}
+                            tables={generatedArtifacts?.tables?.map(t => ({ name: t.name, columns: t.columns }))}
+                            security={result?.security}
+                            deploymentType={deploymentType}
+                            cloudProvider={selectedCloud}
+                            compliance={compliance}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="collapsible-section">
                       <div className="section-header" onClick={() => toggleSection('backend-api')}>
                         <span className="section-icon">{expandedSections.has('backend-api') ? '▼' : '▶'}</span>
                         <h3><span className="icon">⚙️</span> Backend API Code</h3>
