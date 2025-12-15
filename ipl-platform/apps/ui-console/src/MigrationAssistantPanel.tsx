@@ -66,6 +66,16 @@ interface DataTypeConversion {
   potentialIssues?: string;
 }
 
+interface DataMigrationTask {
+  tableName: string;
+  rowCount: number;
+  sizeGB: number;
+  estimatedDuration: string;
+  strategy: string;
+  priority: number;
+  dependencies: string[];
+}
+
 interface MigrationPlan {
   phases: MigrationPhase[];
   totalDays: number;
@@ -73,6 +83,7 @@ interface MigrationPlan {
   risks: MigrationRisk[];
   recommendations: string[];
   dataTypeConversions: DataTypeConversion[];
+  dataMigrationTasks?: DataMigrationTask[];
 }
 
 interface PerformanceSuggestion {
@@ -104,10 +115,15 @@ const SOURCE_DATABASES = [
   { id: 'mysql', name: 'MySQL' },
   { id: 'oracle', name: 'Oracle' },
   { id: 'postgresql', name: 'PostgreSQL' },
+  { id: 'mongodb', name: 'MongoDB' },
 ];
 
 const TARGET_DATABASES = [
-  { id: 'postgresql', name: 'PostgreSQL (Recommended)' },
+  { id: 'postgresql', name: 'PostgreSQL' },
+  { id: 'mysql', name: 'MySQL' },
+  { id: 'mssql', name: 'Microsoft SQL Server' },
+  { id: 'oracle', name: 'Oracle' },
+  { id: 'mongodb', name: 'MongoDB' },
 ];
 
 interface Props {
@@ -117,11 +133,21 @@ interface Props {
 export default function MigrationAssistantPanel({ onClose }: Props) {
   const [sourceDatabase, setSourceDatabase] = useState('mssql');
   const [targetDatabase, setTargetDatabase] = useState('postgresql');
+  const [inputMode, setInputMode] = useState<'connect' | 'text'>('connect');
   const [schemaInput, setSchemaInput] = useState('');
   const [activeTab, setActiveTab] = useState<'input' | 'analysis' | 'plan' | 'ddl' | 'performance'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   
+  const [sourceConnection, setSourceConnection] = useState({
+    host: '',
+    port: '',
+    database: '',
+    username: '',
+    password: '',
+  });
+
   const [parsedSchema, setParsedSchema] = useState<SourceSchema | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [migrationPlan, setMigrationPlan] = useState<MigrationPlan | null>(null);
@@ -129,6 +155,17 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
   const [conversionNotes, setConversionNotes] = useState<string[]>([]);
   const [performanceSuggestions, setPerformanceSuggestions] = useState<PerformanceSuggestion[]>([]);
   const [aiNotes, setAiNotes] = useState<string[]>([]);
+
+  const getDefaultPort = (dbType: string) => {
+    const ports: Record<string, string> = {
+      mssql: '1433',
+      mysql: '3306',
+      postgresql: '5432',
+      oracle: '1521',
+      mongodb: '27017',
+    };
+    return ports[dbType] || '';
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -140,6 +177,70 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
       setSchemaInput(content);
     };
     reader.readAsText(file);
+  };
+
+  const testConnection = async () => {
+    setConnectionStatus('testing');
+    setError(null);
+
+    try {
+      const response = await fetch('/api/migration/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseType: sourceDatabase,
+          ...sourceConnection,
+          port: parseInt(sourceConnection.port) || parseInt(getDefaultPort(sourceDatabase)),
+        }),
+      });
+
+      const data = await response.json();
+      if (data.ok) {
+        setConnectionStatus('connected');
+      } else {
+        setConnectionStatus('failed');
+        setError(data.error || 'Connection failed');
+      }
+    } catch (err: any) {
+      setConnectionStatus('failed');
+      setError(err.message || 'Connection failed');
+    }
+  };
+
+  const discoverSchema = async () => {
+    if (connectionStatus !== 'connected') {
+      setError('Please test and establish connection first');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/migration/discover-schema', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          databaseType: sourceDatabase,
+          ...sourceConnection,
+          port: parseInt(sourceConnection.port) || parseInt(getDefaultPort(sourceDatabase)),
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.ok) {
+        throw new Error(data.error || 'Schema discovery failed');
+      }
+
+      setParsedSchema(data.schema);
+      setAiNotes(data.notes || []);
+      await runAnalysis(data.schema);
+      setActiveTab('analysis');
+    } catch (err: any) {
+      setError(err.message || 'Failed to discover schema');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const analyzeWithAI = async () => {
@@ -239,6 +340,7 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
           sourceDatabase,
           targetDatabase,
           schema: parsedSchema,
+          includeDataMigration: true,
         }),
       });
 
@@ -254,6 +356,7 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
         risks: data.risks,
         recommendations: data.recommendations,
         dataTypeConversions: data.dataTypeConversions,
+        dataMigrationTasks: data.dataMigrationTasks,
       });
       setActiveTab('plan');
     } catch (err: any) {
@@ -341,7 +444,41 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPlan = () => {
+  const downloadPlanAsExcel = async () => {
+    if (!migrationPlan) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/migration/export-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: migrationPlan,
+          sourceDatabase,
+          targetDatabase,
+          schema: parsedSchema,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate Excel file');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `migration_plan_${sourceDatabase}_to_${targetDatabase}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export Excel');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const downloadPlanAsJSON = () => {
     if (!migrationPlan) return;
     const planText = JSON.stringify(migrationPlan, null, 2);
     const blob = new Blob([planText], { type: 'application/json' });
@@ -357,6 +494,7 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
     <div className="migration-assistant-panel">
       <div className="migration-header">
         <h2>Database Migration Assistant</h2>
+        <p className="migration-subtitle">Plan and execute migrations between any database platforms</p>
         {onClose && <button className="close-btn" onClick={onClose}>×</button>}
       </div>
 
@@ -365,7 +503,7 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
           className={`tab-btn ${activeTab === 'input' ? 'active' : ''}`}
           onClick={() => setActiveTab('input')}
         >
-          1. Schema Input
+          1. Connection & Schema
         </button>
         <button 
           className={`tab-btn ${activeTab === 'analysis' ? 'active' : ''}`}
@@ -410,7 +548,11 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
             <div className="db-selection">
               <div className="db-select-group">
                 <label>Source Database:</label>
-                <select value={sourceDatabase} onChange={(e) => setSourceDatabase(e.target.value)}>
+                <select value={sourceDatabase} onChange={(e) => {
+                  setSourceDatabase(e.target.value);
+                  setSourceConnection(prev => ({ ...prev, port: getDefaultPort(e.target.value) }));
+                  setConnectionStatus('idle');
+                }}>
                   {SOURCE_DATABASES.map(db => (
                     <option key={db.id} value={db.id}>{db.name}</option>
                   ))}
@@ -427,24 +569,119 @@ export default function MigrationAssistantPanel({ onClose }: Props) {
               </div>
             </div>
 
-            <div className="schema-input-section">
-              <div className="schema-input-header">
-                <label>Enter your database schema (DDL, CREATE TABLE statements, or description):</label>
-                <label className="file-upload-btn">
-                  Upload SQL File
-                  <input 
-                    type="file" 
-                    accept=".sql,.txt,.ddl"
-                    onChange={handleFileUpload}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+            <div className="input-mode-toggle">
+              <button 
+                className={`mode-btn ${inputMode === 'connect' ? 'active' : ''}`}
+                onClick={() => setInputMode('connect')}
+              >
+                🔌 Connect to Database
+              </button>
+              <button 
+                className={`mode-btn ${inputMode === 'text' ? 'active' : ''}`}
+                onClick={() => setInputMode('text')}
+              >
+                📝 Paste Schema / DDL
+              </button>
+            </div>
+
+            {inputMode === 'connect' && (
+              <div className="connection-section">
+                <h4>Source Database Connection</h4>
+                <div className="connection-grid">
+                  <div className="conn-field">
+                    <label>Host / Server:</label>
+                    <input
+                      type="text"
+                      value={sourceConnection.host}
+                      onChange={(e) => setSourceConnection(prev => ({ ...prev, host: e.target.value }))}
+                      placeholder="e.g., db.example.com or 192.168.1.100"
+                    />
+                  </div>
+                  <div className="conn-field">
+                    <label>Port:</label>
+                    <input
+                      type="text"
+                      value={sourceConnection.port || getDefaultPort(sourceDatabase)}
+                      onChange={(e) => setSourceConnection(prev => ({ ...prev, port: e.target.value }))}
+                      placeholder={getDefaultPort(sourceDatabase)}
+                    />
+                  </div>
+                  <div className="conn-field">
+                    <label>Database Name:</label>
+                    <input
+                      type="text"
+                      value={sourceConnection.database}
+                      onChange={(e) => setSourceConnection(prev => ({ ...prev, database: e.target.value }))}
+                      placeholder="e.g., production_db"
+                    />
+                  </div>
+                  <div className="conn-field">
+                    <label>Username:</label>
+                    <input
+                      type="text"
+                      value={sourceConnection.username}
+                      onChange={(e) => setSourceConnection(prev => ({ ...prev, username: e.target.value }))}
+                      placeholder="e.g., admin"
+                    />
+                  </div>
+                  <div className="conn-field full-width">
+                    <label>Password:</label>
+                    <input
+                      type="password"
+                      value={sourceConnection.password}
+                      onChange={(e) => setSourceConnection(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+
+                <div className="connection-actions">
+                  <button 
+                    className="test-btn"
+                    onClick={testConnection}
+                    disabled={!sourceConnection.host || !sourceConnection.database || connectionStatus === 'testing'}
+                  >
+                    {connectionStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+                  </button>
+                  {connectionStatus === 'connected' && (
+                    <span className="connection-status success">✓ Connected</span>
+                  )}
+                  {connectionStatus === 'failed' && (
+                    <span className="connection-status error">✗ Failed</span>
+                  )}
+                </div>
+
+                <div className="action-buttons">
+                  <button 
+                    className="primary-btn"
+                    onClick={discoverSchema}
+                    disabled={isLoading || connectionStatus !== 'connected'}
+                  >
+                    {isLoading ? 'Discovering Schema...' : 'Discover Schema & Analyze'}
+                  </button>
+                </div>
               </div>
-              <textarea
-                className="schema-textarea"
-                value={schemaInput}
-                onChange={(e) => setSchemaInput(e.target.value)}
-                placeholder={`Example:
+            )}
+
+            {inputMode === 'text' && (
+              <div className="schema-input-section">
+                <div className="schema-input-header">
+                  <label>Enter your database schema (DDL, CREATE TABLE statements, or description):</label>
+                  <label className="file-upload-btn">
+                    Upload SQL File
+                    <input 
+                      type="file" 
+                      accept=".sql,.txt,.ddl"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+                <textarea
+                  className="schema-textarea"
+                  value={schemaInput}
+                  onChange={(e) => setSchemaInput(e.target.value)}
+                  placeholder={`Example:
 CREATE TABLE customers (
   id INT IDENTITY(1,1) PRIMARY KEY,
   name NVARCHAR(100) NOT NULL,
@@ -463,19 +700,20 @@ CREATE TABLE orders (
 -- Tables: users (10M rows), orders (50M rows), products (100K rows)
 -- Indexes: clustered on primary keys, nonclustered on foreign keys
 -- Partitioned: orders by created_date (monthly)`}
-                rows={15}
-              />
-            </div>
+                  rows={15}
+                />
 
-            <div className="action-buttons">
-              <button 
-                className="primary-btn"
-                onClick={analyzeWithAI}
-                disabled={isLoading || !schemaInput.trim()}
-              >
-                {isLoading ? 'Analyzing...' : 'Analyze Schema with AI'}
-              </button>
-            </div>
+                <div className="action-buttons">
+                  <button 
+                    className="primary-btn"
+                    onClick={analyzeWithAI}
+                    disabled={isLoading || !schemaInput.trim()}
+                  >
+                    {isLoading ? 'Analyzing...' : 'Analyze Schema with AI'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -530,6 +768,7 @@ CREATE TABLE orders (
                       <div className="table-details">
                         <span>{table.columns.length} columns</span>
                         {table.rowCount > 0 && <span>{table.rowCount.toLocaleString()} rows</span>}
+                        {table.sizeBytes > 0 && <span>{(table.sizeBytes / 1024 / 1024 / 1024).toFixed(2)} GB</span>}
                       </div>
                     </div>
                   ))}
@@ -550,7 +789,7 @@ CREATE TABLE orders (
 
             <div className="action-buttons">
               <button className="primary-btn" onClick={generatePlan} disabled={isLoading}>
-                {isLoading ? 'Generating...' : 'Generate Migration Plan'}
+                {isLoading ? 'Generating...' : 'Generate Migration Plan (incl. Data)'}
               </button>
               <button className="secondary-btn" onClick={generateDDL} disabled={isLoading}>
                 {isLoading ? 'Generating...' : 'Generate Target DDL'}
@@ -571,8 +810,49 @@ CREATE TABLE orders (
                 <span className="plan-stat">Work Hours: <strong>{migrationPlan.totalHours}h</strong></span>
                 <span className="plan-stat">Phases: <strong>{migrationPlan.phases.length}</strong></span>
               </div>
-              <button className="download-btn" onClick={downloadPlan}>Download Plan (JSON)</button>
+              <div className="download-buttons">
+                <button className="download-btn excel-btn" onClick={downloadPlanAsExcel} disabled={isLoading}>
+                  {isLoading ? 'Generating...' : '📊 Download Excel'}
+                </button>
+                <button className="download-btn" onClick={downloadPlanAsJSON}>
+                  📄 Download JSON
+                </button>
+              </div>
             </div>
+
+            {migrationPlan.dataMigrationTasks && migrationPlan.dataMigrationTasks.length > 0 && (
+              <div className="data-migration-section">
+                <h4>Data Migration Tasks</h4>
+                <table className="data-migration-table">
+                  <thead>
+                    <tr>
+                      <th>Priority</th>
+                      <th>Table</th>
+                      <th>Rows</th>
+                      <th>Size</th>
+                      <th>Est. Duration</th>
+                      <th>Strategy</th>
+                      <th>Dependencies</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {migrationPlan.dataMigrationTasks
+                      .sort((a, b) => a.priority - b.priority)
+                      .map((task, idx) => (
+                      <tr key={idx}>
+                        <td><span className="priority-badge">{task.priority}</span></td>
+                        <td className="table-name-cell">{task.tableName}</td>
+                        <td>{task.rowCount.toLocaleString()}</td>
+                        <td>{task.sizeGB.toFixed(2)} GB</td>
+                        <td>{task.estimatedDuration}</td>
+                        <td><span className="strategy-badge">{task.strategy}</span></td>
+                        <td>{task.dependencies.length > 0 ? task.dependencies.join(', ') : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <div className="phases-timeline">
               {migrationPlan.phases.map((phase, idx) => (
@@ -669,25 +949,29 @@ CREATE TABLE orders (
               </div>
             )}
 
-            <pre className="ddl-code">{generatedDDL}</pre>
+            <pre className="ddl-output">
+              <code>{generatedDDL}</code>
+            </pre>
           </div>
         )}
 
         {activeTab === 'performance' && performanceSuggestions.length > 0 && (
           <div className="performance-section">
-            <h3>Performance Optimization Suggestions for {targetDatabase.toUpperCase()}</h3>
+            <h3>Performance Optimization Suggestions</h3>
             <div className="suggestions-grid">
               {performanceSuggestions.map((suggestion, idx) => (
-                <div key={idx} className={`suggestion-card impact-${suggestion.impact}`}>
+                <div key={idx} className="suggestion-card">
                   <div className="suggestion-header">
-                    <span className={`category-badge ${suggestion.category}`}>{suggestion.category}</span>
-                    <span className={`impact-badge ${suggestion.impact}`}>{suggestion.impact} impact</span>
+                    <span className="suggestion-category">{suggestion.category}</span>
+                    <span className={`impact-badge impact-${suggestion.impact.toLowerCase()}`}>
+                      {suggestion.impact} Impact
+                    </span>
                   </div>
                   <h4>{suggestion.title}</h4>
-                  <p>{suggestion.description}</p>
-                  <div className="implementation">
+                  <p className="suggestion-description">{suggestion.description}</p>
+                  <div className="suggestion-implementation">
                     <strong>Implementation:</strong>
-                    <code>{suggestion.implementation}</code>
+                    <p>{suggestion.implementation}</p>
                   </div>
                 </div>
               ))}

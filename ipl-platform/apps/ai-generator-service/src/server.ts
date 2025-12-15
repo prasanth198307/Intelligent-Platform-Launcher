@@ -942,6 +942,396 @@ If you cannot parse the schema fully, provide your best effort with what you can
   }
 });
 
+app.post("/api/migration/test-connection", async (req, res) => {
+  try {
+    const { dbType, host, port, database, username, password } = req.body;
+    
+    if (!dbType || !host || !database) {
+      return res.status(400).json({ error: "dbType, host, and database are required" });
+    }
+
+    let connected = false;
+    let message = "";
+
+    try {
+      switch (dbType.toLowerCase()) {
+        case 'postgresql': {
+          const { Pool } = await import('pg');
+          const pool = new Pool({
+            host,
+            port: port || 5432,
+            database,
+            user: username,
+            password,
+            connectionTimeoutMillis: 5000,
+          });
+          const client = await pool.connect();
+          await client.query('SELECT 1');
+          client.release();
+          await pool.end();
+          connected = true;
+          message = "Successfully connected to PostgreSQL";
+          break;
+        }
+        case 'mysql': {
+          const mysql = await import('mysql2/promise');
+          const conn = await mysql.createConnection({
+            host,
+            port: port || 3306,
+            database,
+            user: username,
+            password,
+            connectTimeout: 5000,
+          });
+          await conn.query('SELECT 1');
+          await conn.end();
+          connected = true;
+          message = "Successfully connected to MySQL";
+          break;
+        }
+        case 'mssql': {
+          const sql = await import('mssql');
+          const config = {
+            server: host,
+            port: port || 1433,
+            database,
+            user: username,
+            password,
+            options: { encrypt: false, trustServerCertificate: true },
+            connectionTimeout: 5000,
+          };
+          const pool = await sql.default.connect(config);
+          await pool.query`SELECT 1`;
+          await pool.close();
+          connected = true;
+          message = "Successfully connected to SQL Server";
+          break;
+        }
+        case 'oracle': {
+          const oracledb = await import('oracledb');
+          const conn = await oracledb.default.getConnection({
+            user: username,
+            password,
+            connectString: `${host}:${port || 1521}/${database}`,
+          });
+          await conn.execute('SELECT 1 FROM DUAL');
+          await conn.close();
+          connected = true;
+          message = "Successfully connected to Oracle";
+          break;
+        }
+        default:
+          return res.status(400).json({ error: `Unsupported database type: ${dbType}` });
+      }
+    } catch (connError: any) {
+      message = connError.message || "Connection failed";
+    }
+
+    res.json({ ok: true, connected, message });
+  } catch (e: any) {
+    console.error("Connection test failed:", e);
+    res.status(500).json({ error: "Connection test failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/discover-schema", async (req, res) => {
+  try {
+    const { dbType, host, port, database, username, password, schema } = req.body;
+    
+    if (!dbType || !host || !database) {
+      return res.status(400).json({ error: "dbType, host, and database are required" });
+    }
+
+    const discoveredSchema: SourceSchema = {
+      tables: [],
+      indexes: [],
+      constraints: [],
+      partitions: [],
+      views: [],
+      procedures: [],
+      triggers: [],
+    };
+
+    switch (dbType.toLowerCase()) {
+      case 'postgresql': {
+        const { Pool } = await import('pg');
+        const pool = new Pool({
+          host,
+          port: port || 5432,
+          database,
+          user: username,
+          password,
+        });
+        const client = await pool.connect();
+        
+        const schemaName = schema || 'public';
+        const tablesResult = await client.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = $1 AND table_type = 'BASE TABLE'
+        `, [schemaName]);
+        
+        for (const row of tablesResult.rows) {
+          const tableName = row.table_name;
+          const columnsResult = await client.query(`
+            SELECT column_name, data_type, is_nullable, column_default, 
+                   character_maximum_length, numeric_precision, numeric_scale
+            FROM information_schema.columns 
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+          `, [schemaName, tableName]);
+          
+          const pkResult = await client.query(`
+            SELECT a.attname
+            FROM pg_index i
+            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+            WHERE i.indrelid = $1::regclass AND i.indisprimary
+          `, [`${schemaName}.${tableName}`]);
+          const pkColumns = pkResult.rows.map((r: any) => r.attname);
+          
+          const countResult = await client.query(`SELECT COUNT(*) as cnt FROM "${schemaName}"."${tableName}"`);
+          const rowCount = parseInt(countResult.rows[0].cnt) || 0;
+          
+          discoveredSchema.tables.push({
+            name: tableName,
+            schema: schemaName,
+            columns: columnsResult.rows.map((col: any) => ({
+              name: col.column_name,
+              dataType: col.data_type.toUpperCase(),
+              nullable: col.is_nullable === 'YES',
+              defaultValue: col.column_default,
+              isPrimaryKey: pkColumns.includes(col.column_name),
+              isAutoIncrement: col.column_default?.includes('nextval') || false,
+              length: col.character_maximum_length,
+              precision: col.numeric_precision,
+              scale: col.numeric_scale,
+            })),
+            rowCount,
+            sizeBytes: 0,
+          });
+        }
+        
+        client.release();
+        await pool.end();
+        break;
+      }
+      case 'mysql': {
+        const mysql = await import('mysql2/promise');
+        const conn = await mysql.createConnection({
+          host,
+          port: port || 3306,
+          database,
+          user: username,
+          password,
+        });
+        
+        const [tables] = await conn.query(`SHOW TABLES`);
+        for (const row of tables as any[]) {
+          const tableName = Object.values(row)[0] as string;
+          const [columns] = await conn.query(`DESCRIBE \`${tableName}\``);
+          const [countResult] = await conn.query(`SELECT COUNT(*) as cnt FROM \`${tableName}\``);
+          const rowCount = (countResult as any[])[0]?.cnt || 0;
+          
+          discoveredSchema.tables.push({
+            name: tableName,
+            schema: database,
+            columns: (columns as any[]).map((col: any) => ({
+              name: col.Field,
+              dataType: col.Type.toUpperCase(),
+              nullable: col.Null === 'YES',
+              defaultValue: col.Default,
+              isPrimaryKey: col.Key === 'PRI',
+              isAutoIncrement: col.Extra?.includes('auto_increment') || false,
+            })),
+            rowCount,
+            sizeBytes: 0,
+          });
+        }
+        
+        await conn.end();
+        break;
+      }
+      case 'mssql': {
+        const sql = await import('mssql');
+        const config = {
+          server: host,
+          port: port || 1433,
+          database,
+          user: username,
+          password,
+          options: { encrypt: false, trustServerCertificate: true },
+        };
+        const pool = await sql.default.connect(config);
+        const schemaName = schema || 'dbo';
+        
+        const tablesResult = await pool.query`
+          SELECT TABLE_NAME 
+          FROM INFORMATION_SCHEMA.TABLES 
+          WHERE TABLE_SCHEMA = ${schemaName} AND TABLE_TYPE = 'BASE TABLE'
+        `;
+        
+        for (const row of tablesResult.recordset) {
+          const tableName = row.TABLE_NAME;
+          const columnsResult = await pool.query`
+            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT,
+                   CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = ${schemaName} AND TABLE_NAME = ${tableName}
+            ORDER BY ORDINAL_POSITION
+          `;
+          
+          const pkResult = await pool.query`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = ${schemaName} AND TABLE_NAME = ${tableName}
+              AND CONSTRAINT_NAME LIKE 'PK%'
+          `;
+          const pkColumns = pkResult.recordset.map((r: any) => r.COLUMN_NAME);
+          
+          const countResult = await pool.query(`SELECT COUNT(*) as cnt FROM [${schemaName}].[${tableName}]`);
+          const rowCount = countResult.recordset[0]?.cnt || 0;
+          
+          discoveredSchema.tables.push({
+            name: tableName,
+            schema: schemaName,
+            columns: columnsResult.recordset.map((col: any) => ({
+              name: col.COLUMN_NAME,
+              dataType: col.DATA_TYPE.toUpperCase(),
+              nullable: col.IS_NULLABLE === 'YES',
+              defaultValue: col.COLUMN_DEFAULT,
+              isPrimaryKey: pkColumns.includes(col.COLUMN_NAME),
+              isAutoIncrement: false,
+              length: col.CHARACTER_MAXIMUM_LENGTH,
+              precision: col.NUMERIC_PRECISION,
+              scale: col.NUMERIC_SCALE,
+            })),
+            rowCount,
+            sizeBytes: 0,
+          });
+        }
+        
+        await pool.close();
+        break;
+      }
+      default:
+        return res.status(400).json({ error: `Schema discovery not supported for: ${dbType}` });
+    }
+
+    res.json({ ok: true, schema: discoveredSchema });
+  } catch (e: any) {
+    console.error("Schema discovery failed:", e);
+    res.status(500).json({ error: "Schema discovery failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/migration/export-excel", async (req, res) => {
+  try {
+    const { plan, sourceDatabase, targetDatabase, schema } = req.body;
+    
+    if (!plan) {
+      return res.status(400).json({ error: "Migration plan is required" });
+    }
+
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.utils.book_new();
+
+    const summaryData = [
+      ['Database Migration Plan'],
+      [''],
+      ['Source Database', sourceDatabase || 'Unknown'],
+      ['Target Database', targetDatabase || 'Unknown'],
+      ['Total Duration (Days)', plan.totalDays || 0],
+      ['Total Duration (Hours)', plan.totalHours || 0],
+      [''],
+      ['Phases Summary'],
+    ];
+    
+    if (plan.phases) {
+      for (const phase of plan.phases) {
+        summaryData.push([phase.name, `${phase.durationDays} days`]);
+      }
+    }
+    
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+    if (plan.phases) {
+      const tasksData = [['Phase', 'Task', 'Type', 'Description', 'Estimated Hours', 'Tables']];
+      for (const phase of plan.phases) {
+        for (const task of phase.tasks || []) {
+          tasksData.push([
+            phase.name,
+            task.name,
+            task.type,
+            task.description,
+            task.estimatedHours,
+            task.tables?.join(', ') || '',
+          ]);
+        }
+      }
+      const tasksSheet = XLSX.utils.aoa_to_sheet(tasksData);
+      XLSX.utils.book_append_sheet(workbook, tasksSheet, 'Tasks');
+    }
+
+    if (plan.dataTypeConversions) {
+      const dtData = [['Source Type', 'Target Type', 'Notes', 'Potential Issues']];
+      for (const conv of plan.dataTypeConversions) {
+        dtData.push([conv.sourceType, conv.targetType, conv.notes, conv.potentialIssues || '']);
+      }
+      const dtSheet = XLSX.utils.aoa_to_sheet(dtData);
+      XLSX.utils.book_append_sheet(workbook, dtSheet, 'Data Types');
+    }
+
+    if (plan.risks) {
+      const risksData = [['Severity', 'Category', 'Description', 'Mitigation']];
+      for (const risk of plan.risks) {
+        risksData.push([risk.severity, risk.category, risk.description, risk.mitigation]);
+      }
+      const risksSheet = XLSX.utils.aoa_to_sheet(risksData);
+      XLSX.utils.book_append_sheet(workbook, risksSheet, 'Risks');
+    }
+
+    if (schema?.tables) {
+      const tablesData = [['Table', 'Schema', 'Row Count', 'Size (MB)', 'Columns']];
+      for (const table of schema.tables) {
+        tablesData.push([
+          table.name,
+          table.schema || '',
+          table.rowCount || 0,
+          ((table.sizeBytes || 0) / 1024 / 1024).toFixed(2),
+          table.columns?.length || 0,
+        ]);
+      }
+      const tablesSheet = XLSX.utils.aoa_to_sheet(tablesData);
+      XLSX.utils.book_append_sheet(workbook, tablesSheet, 'Tables');
+    }
+
+    if (plan.dataMigrationTasks) {
+      const dmData = [['Table', 'Estimated Rows', 'Size Estimate', 'Priority', 'ETL Notes']];
+      for (const task of plan.dataMigrationTasks) {
+        dmData.push([
+          task.tableName,
+          task.estimatedRows || 0,
+          task.sizeEstimate || '',
+          task.priority || 'Medium',
+          task.etlNotes || '',
+        ]);
+      }
+      const dmSheet = XLSX.utils.aoa_to_sheet(dmData);
+      XLSX.utils.book_append_sheet(workbook, dmSheet, 'Data Migration');
+    }
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=migration-plan.xlsx');
+    res.send(buffer);
+  } catch (e: any) {
+    console.error("Excel export failed:", e);
+    res.status(500).json({ error: "Excel export failed", details: e?.message || String(e) });
+  }
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`AI Generator on :${PORT}`);
   console.log(`LLM Provider: ${process.env.LLM_PROVIDER || "mock"}`);
