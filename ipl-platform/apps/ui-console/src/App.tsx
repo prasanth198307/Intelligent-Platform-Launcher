@@ -2374,7 +2374,7 @@ export default function App() {
         <div className="results-panel">
           {!result && !loading && (
             <div className="result-card" style={{ textAlign: 'center', padding: '50px 40px' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '16px' }}>🚀</div>
+              <img src="/logo.png" alt="IPL Logo" style={{ width: '80px', height: '80px', marginBottom: '16px' }} />
               <h3 style={{ border: 'none', justifyContent: 'center', marginBottom: '12px' }}>Intelligent Platform Launcher</h3>
               <p style={{ color: '#a0a0c0', maxWidth: '600px', margin: '0 auto 24px', lineHeight: '1.6' }}>
                 Build production-ready applications in minutes. Configure your requirements on the left panel and click "Analyze" to unlock powerful capabilities.
