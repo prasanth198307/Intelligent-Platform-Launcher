@@ -25,6 +25,86 @@ export interface DocumentationContext {
   compliance?: string[];
 }
 
+function analyzeRequirements(requirements: string = '', domain: string, tier: string = 'Medium'): {
+  suggestedDb: string;
+  suggestedBackend: string;
+  suggestedFeatures: string[];
+  suggestedIntegrations: string[];
+} {
+  const reqLower = requirements.toLowerCase();
+  
+  let suggestedDb = 'PostgreSQL';
+  let suggestedBackend = 'Node.js with Express';
+  const suggestedFeatures: string[] = [];
+  const suggestedIntegrations: string[] = [];
+
+  if (reqLower.includes('time-series') || reqLower.includes('sensor') || reqLower.includes('iot') || reqLower.includes('meter')) {
+    suggestedDb = 'TimescaleDB';
+    suggestedFeatures.push('Time-series data compression', 'Continuous aggregates');
+  } else if (reqLower.includes('document') || reqLower.includes('flexible schema') || reqLower.includes('unstructured')) {
+    suggestedDb = 'MongoDB';
+    suggestedFeatures.push('Flexible document schemas', 'Horizontal scaling');
+  } else if (reqLower.includes('graph') || reqLower.includes('relationship') || reqLower.includes('connected')) {
+    suggestedDb = 'Neo4j or PostgreSQL with GraphQL';
+    suggestedFeatures.push('Graph traversal queries', 'Relationship-first data model');
+  } else if (tier === 'Massive' || reqLower.includes('distributed') || reqLower.includes('global')) {
+    suggestedDb = 'CockroachDB or Cassandra';
+    suggestedFeatures.push('Geo-distributed data', 'Multi-region replication');
+  }
+
+  if (reqLower.includes('machine learning') || reqLower.includes('ml') || reqLower.includes('ai')) {
+    suggestedBackend = 'Python with FastAPI';
+    suggestedFeatures.push('ML model serving', 'Data science workflows');
+  } else if (reqLower.includes('high performance') || reqLower.includes('low latency') || reqLower.includes('real-time')) {
+    suggestedBackend = 'Go with Gin';
+    suggestedFeatures.push('Ultra-low latency APIs', 'High concurrency handling');
+  } else if (tier === 'Large' || tier === 'Massive') {
+    suggestedBackend = 'Node.js with NestJS or Java with Spring Boot';
+    suggestedFeatures.push('Enterprise patterns', 'Microservices architecture');
+  }
+
+  if (reqLower.includes('payment') || reqLower.includes('billing') || reqLower.includes('transaction')) {
+    suggestedIntegrations.push('Stripe or PayPal for payments');
+    suggestedFeatures.push('PCI-DSS compliance', 'Transaction audit logging');
+  }
+  if (reqLower.includes('email') || reqLower.includes('notification') || reqLower.includes('alert')) {
+    suggestedIntegrations.push('SendGrid or SES for emails');
+    suggestedFeatures.push('Multi-channel notifications');
+  }
+  if (reqLower.includes('sms') || reqLower.includes('phone') || reqLower.includes('otp')) {
+    suggestedIntegrations.push('Twilio for SMS/Voice');
+  }
+  if (reqLower.includes('pdf') || reqLower.includes('document') || reqLower.includes('ocr') || reqLower.includes('scan')) {
+    suggestedIntegrations.push('Document processing with OCR');
+    suggestedFeatures.push('PDF generation and parsing', 'Intelligent data extraction');
+  }
+  if (reqLower.includes('search') || reqLower.includes('full-text') || reqLower.includes('elasticsearch')) {
+    suggestedIntegrations.push('Elasticsearch or Meilisearch');
+    suggestedFeatures.push('Full-text search', 'Fuzzy matching');
+  }
+  if (reqLower.includes('cache') || reqLower.includes('fast') || reqLower.includes('session')) {
+    suggestedIntegrations.push('Redis for caching');
+  }
+  if (reqLower.includes('queue') || reqLower.includes('async') || reqLower.includes('background')) {
+    suggestedIntegrations.push('RabbitMQ or Redis for job queues');
+    suggestedFeatures.push('Async task processing', 'Retry mechanisms');
+  }
+  if (reqLower.includes('file') || reqLower.includes('upload') || reqLower.includes('storage') || reqLower.includes('media')) {
+    suggestedIntegrations.push('S3 or cloud object storage');
+    suggestedFeatures.push('File upload handling', 'CDN integration');
+  }
+
+  if (domain === 'healthcare') {
+    suggestedFeatures.push('HIPAA-compliant data handling', 'HL7/FHIR integration');
+  } else if (domain === 'banking' || domain === 'insurance') {
+    suggestedFeatures.push('Financial-grade security', 'Audit trail logging');
+  } else if (domain === 'ami') {
+    suggestedFeatures.push('DLMS/COSEM protocol support', 'High-frequency data ingestion');
+  }
+
+  return { suggestedDb, suggestedBackend, suggestedFeatures, suggestedIntegrations };
+}
+
 export interface GeneratedDocumentation {
   files: Array<{
     name: string;
