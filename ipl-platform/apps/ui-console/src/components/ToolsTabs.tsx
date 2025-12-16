@@ -1,7 +1,160 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, JSX } from 'react';
 import './ToolsTabs.css';
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8080' : '';
+
+// =========================================
+// PROFESSIONAL AGENT ACTIVITY COMPONENTS
+// =========================================
+
+interface AgentTask {
+  id: string;
+  title: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  timestamp?: string;
+}
+
+interface ThinkingLine {
+  id: string;
+  type: 'thinking' | 'tool' | 'result';
+  content: string;
+  timestamp: string;
+  toolName?: string;
+  status?: 'running' | 'success' | 'error';
+}
+
+interface AgentActivityPanelProps {
+  isActive: boolean;
+  iteration: number;
+  tasks: AgentTask[];
+  thinkingLines: ThinkingLine[];
+  isStreaming: boolean;
+}
+
+const AgentActivityPanel: React.FC<AgentActivityPanelProps> = ({
+  isActive,
+  iteration,
+  tasks,
+  thinkingLines,
+  isStreaming
+}) => {
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  
+  return (
+    <div className="agent-activity-panel">
+      {/* Header with status */}
+      <div className="agent-activity-header">
+        <div className="agent-status-indicator">
+          <div className={`agent-status-dot ${isActive ? 'active' : ''}`} />
+          <span className="agent-status-text">
+            {isActive ? 'Agent Working' : 'Agent Ready'}
+          </span>
+        </div>
+        {iteration > 0 && (
+          <span className="agent-iteration-badge">
+            Iteration {iteration}
+          </span>
+        )}
+      </div>
+      
+      {/* Thinking Stream */}
+      <div className="agent-thinking-container">
+        <div className="thinking-stream">
+          {thinkingLines.map(line => (
+            <div key={line.id} className="thinking-line">
+              <div className="thinking-icon">
+                {line.type === 'thinking' ? '💭' : line.type === 'tool' ? '🔧' : '✓'}
+              </div>
+              <div className={`thinking-content ${line.type === 'thinking' ? 'muted' : ''}`}>
+                {line.type === 'tool' && (
+                  <div className="tool-execution-card">
+                    <div className="tool-execution-header">
+                      <div className="tool-icon-wrapper">🔧</div>
+                      <span className="tool-name">{line.toolName}</span>
+                      <span className={`tool-status-badge ${line.status}`}>
+                        {line.status}
+                      </span>
+                    </div>
+                    <div className="tool-execution-body">
+                      <div className="tool-result">{line.content}</div>
+                    </div>
+                  </div>
+                )}
+                {line.type !== 'tool' && line.content}
+              </div>
+            </div>
+          ))}
+          
+          {isStreaming && (
+            <div className="typing-indicator">
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Task Timeline */}
+      {tasks.length > 0 && (
+        <div className="task-timeline">
+          <div className="task-timeline-header">
+            <span className="task-timeline-title">Tasks</span>
+            <span className="task-count-badge">{completedTasks}/{tasks.length}</span>
+          </div>
+          <div className="task-list">
+            {tasks.map(task => (
+              <div key={task.id} className={`task-item ${task.status === 'in_progress' ? 'active' : ''} ${task.status === 'completed' ? 'completed' : ''}`}>
+                <div className={`task-status-icon ${task.status === 'pending' ? 'pending' : task.status === 'in_progress' ? 'in-progress' : 'completed'}`}>
+                  {task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '⟳' : '○'}
+                </div>
+                <div className="task-content">
+                  <div className="task-title">{task.title}</div>
+                  {task.timestamp && (
+                    <div className="task-meta">{task.timestamp}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Progress bar */}
+      {tasks.length > 0 && (
+        <div style={{ padding: '0 16px 16px' }}>
+          <div className="progress-bar-container">
+            <div 
+              className={`progress-bar-fill ${isActive ? 'indeterminate' : ''}`}
+              style={{ width: isActive ? undefined : `${(completedTasks / tasks.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Skeleton Loader Component
+const SkeletonLoader: React.FC<{ lines?: number }> = ({ lines = 3 }) => (
+  <div className="skeleton-container">
+    {Array.from({ length: lines }).map((_, i) => (
+      <div 
+        key={i} 
+        className={`skeleton skeleton-text ${i === 0 ? 'medium' : i === lines - 1 ? 'short' : 'full'}`} 
+      />
+    ))}
+  </div>
+);
+
+// Empty State Component  
+const EmptyState: React.FC<{ icon: string; title: string; description: string }> = ({ icon, title, description }) => (
+  <div className="empty-state">
+    <div className="empty-state-icon">{icon}</div>
+    <h4 className="empty-state-title">{title}</h4>
+    <p className="empty-state-description">{description}</p>
+  </div>
+);
 
 interface Module {
   name: string;
@@ -267,6 +420,39 @@ export function ToolsTabs({
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubError, setGithubError] = useState('');
+
+  // Agent Activity State
+  const [agentActive, setAgentActive] = useState(false);
+  const [agentIteration, setAgentIteration] = useState(0);
+  const [agentTasks, setAgentTasks] = useState<AgentTask[]>([]);
+  const [agentThinking, setAgentThinking] = useState<ThinkingLine[]>([]);
+  const [agentStreaming, setAgentStreaming] = useState(false);
+
+  // Demo: Simulate agent activity for demonstration
+  const simulateAgentActivity = useCallback(() => {
+    setAgentActive(true);
+    setAgentIteration(1);
+    setAgentStreaming(true);
+    
+    const demoTasks: AgentTask[] = [
+      { id: '1', title: 'Analyzing project structure', status: 'completed', timestamp: '2s ago' },
+      { id: '2', title: 'Creating database schema', status: 'in_progress', timestamp: 'now' },
+      { id: '3', title: 'Generating API endpoints', status: 'pending' },
+    ];
+    setAgentTasks(demoTasks);
+    
+    const demoThinking: ThinkingLine[] = [
+      { id: '1', type: 'thinking', content: 'Let me analyze the project requirements...', timestamp: new Date().toISOString() },
+      { id: '2', type: 'tool', toolName: 'read_file', content: 'Reading schema.ts...', timestamp: new Date().toISOString(), status: 'success' },
+      { id: '3', type: 'result', content: 'Schema file loaded successfully', timestamp: new Date().toISOString() },
+    ];
+    setAgentThinking(demoThinking);
+    
+    setTimeout(() => {
+      setAgentStreaming(false);
+      setAgentActive(false);
+    }, 5000);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -850,25 +1036,72 @@ export function ToolsTabs({
 
         {activeTab === 'console' && (
           <div className="tab-content console-content">
-            <div className="console-toolbar">
-              <button onClick={onClearConsole}>Clear</button>
-            </div>
-            <div className="console-output">
-              {consoleLogs.length === 0 ? (
-                <div className="console-empty">No output yet...</div>
-              ) : (
-                consoleLogs.map((log, i) => (
-                  <div 
-                    key={i} 
-                    className={`log-line ${
-                      log.includes('ERROR') ? 'error' : 
-                      log.includes('SUCCESS') ? 'success' : ''
-                    }`}
-                  >
-                    {log}
-                  </div>
-                ))
-              )}
+            {/* Agent Activity Panel */}
+            <AgentActivityPanel
+              isActive={agentActive}
+              iteration={agentIteration}
+              tasks={agentTasks}
+              thinkingLines={agentThinking}
+              isStreaming={agentStreaming}
+            />
+            
+            {/* Demo button for testing */}
+            {!agentActive && agentTasks.length === 0 && (
+              <button 
+                className="pro-button primary" 
+                onClick={simulateAgentActivity}
+                style={{ marginBottom: 16 }}
+              >
+                ✨ Demo Agent Activity
+              </button>
+            )}
+            
+            {/* Professional Console */}
+            <div className="pro-console">
+              <div className="pro-console-header">
+                <div className="pro-console-dot red" />
+                <div className="pro-console-dot yellow" />
+                <div className="pro-console-dot green" />
+                <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6c6c8a' }}>Console Output</span>
+                <button 
+                  onClick={onClearConsole}
+                  style={{ 
+                    marginLeft: 12, 
+                    padding: '4px 12px', 
+                    background: 'transparent', 
+                    border: '1px solid #3a3a4e',
+                    borderRadius: 4,
+                    color: '#888',
+                    cursor: 'pointer',
+                    fontSize: 11
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="pro-console-body">
+                {consoleLogs.length === 0 ? (
+                  <EmptyState 
+                    icon="⌨️"
+                    title="No output yet"
+                    description="Console output will appear here when the app runs"
+                  />
+                ) : (
+                  consoleLogs.map((log, i) => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const isError = log.includes('ERROR') || log.includes('error');
+                    const isSuccess = log.includes('SUCCESS') || log.includes('success');
+                    return (
+                      <div key={i} className="pro-console-line">
+                        <span className="pro-console-timestamp">{timestamp}</span>
+                        <span className={`pro-console-content ${isError ? 'error' : isSuccess ? 'success' : ''}`}>
+                          {log}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         )}
