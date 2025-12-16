@@ -42,7 +42,7 @@ const sessions = new Map<string, AgentSession>();
 export class AgentOrchestrator extends EventEmitter {
   private session: AgentSession;
   private context: ToolContext;
-  private maxIterations = 15;
+  private maxIterations = 100; // Essentially unlimited - like Claude
   private currentIteration = 0;
 
   constructor(projectId: string, sessionId?: string) {
@@ -396,43 +396,99 @@ Keep working until ALL tasks are complete, then use final_response.`;
   private async runReview(summary: string, filesChanged: string[]): Promise<any> {
     const client = getGroqClient();
     
-    const reviewPrompt = `You are a code reviewer. Review the following work:
+    this.emit_event("thinking", { message: "Architect agent is reviewing your work..." });
+    
+    // Read actual file contents for the architect to review
+    let fileContents = "";
+    for (const filePath of filesChanged.slice(0, 5)) { // Limit to 5 files
+      try {
+        const result = await executeTool("read_file", { file_path: filePath }, this.context);
+        if (result.success && result.data?.content) {
+          fileContents += `\n\n=== FILE: ${filePath} ===\n${result.data.content.slice(0, 5000)}`;
+        }
+      } catch (e) {
+        // Skip files that can't be read
+      }
+    }
+    
+    // Get project context
+    let projectContext = "";
+    try {
+      const projectInfo = await executeTool("get_project_info", {}, this.context);
+      if (projectInfo.success) {
+        projectContext = JSON.stringify(projectInfo.data, null, 2);
+      }
+    } catch (e) {
+      // Skip if can't get project info
+    }
+    
+    const architectPrompt = `You are the ARCHITECT AGENT - a senior software engineer reviewing code. Your job is to:
+1. Verify the work is correct and complete
+2. Find bugs, security issues, and problems
+3. Check that the code follows best practices
+4. Ensure all requirements were met
 
-SUMMARY: ${summary}
+PROJECT CONTEXT:
+${projectContext}
+
+WORK SUMMARY:
+${summary}
 
 FILES CHANGED: ${filesChanged.join(', ') || 'None specified'}
 
-Check for:
-1. Code correctness and completeness
-2. Proper error handling
-3. Security issues
-4. Missing functionality
-5. Best practices
+${fileContents ? `ACTUAL FILE CONTENTS:${fileContents}` : ''}
+
+REVIEW CHECKLIST:
+- [ ] Code compiles without errors
+- [ ] All functions have proper error handling
+- [ ] No security vulnerabilities (SQL injection, XSS, etc)
+- [ ] Database queries are correct
+- [ ] API endpoints return proper responses
+- [ ] No hardcoded credentials or secrets
+- [ ] Proper foreign key relationships
 
 Respond with JSON:
 {
   "approved": true/false,
-  "feedback": "Your feedback",
-  "issues": ["List of issues found"],
-  "suggestions": ["Improvement suggestions"]
+  "grade": "A/B/C/D/F",
+  "feedback": "Overall assessment",
+  "issues": [
+    { "severity": "critical/major/minor", "file": "filename", "description": "Issue description" }
+  ],
+  "suggestions": ["Improvement suggestions"],
+  "mustFix": ["Critical issues that MUST be fixed before approval"]
 }`;
 
     try {
       const response = await client.chat.completions.create({
         model: GROQ_MODEL,
-        messages: [{ role: "user", content: reviewPrompt }],
+        messages: [{ role: "user", content: architectPrompt }],
         temperature: 0.1,
-        max_tokens: 2000
+        max_tokens: 4000
       });
 
       const content = response.choices[0].message.content || "";
+      this.emit_event("review", { type: "architect_response", content });
+      
       try {
-        return JSON.parse(content.replace(/```json\s*/gi, '').replace(/```\s*/g, ''));
+        const review = JSON.parse(content.replace(/```json\s*/gi, '').replace(/```\s*/g, ''));
+        
+        // If there are critical issues, the agent should continue working
+        if (review.mustFix && review.mustFix.length > 0) {
+          this.emit_event("thinking", { message: `Architect found ${review.mustFix.length} issues to fix` });
+          return {
+            ...review,
+            requiresMoreWork: true,
+            message: `Fix these issues: ${review.mustFix.join('; ')}`
+          };
+        }
+        
+        return review;
       } catch {
-        return { approved: true, feedback: content };
+        return { approved: true, feedback: content, grade: "B" };
       }
     } catch (e: any) {
-      return { approved: true, feedback: "Review skipped due to error: " + e?.message };
+      return { approved: true, feedback: "Review skipped due to error: " + e?.message, grade: "?" };
     }
   }
 

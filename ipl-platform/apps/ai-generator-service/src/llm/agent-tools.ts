@@ -605,6 +605,441 @@ export const agentTools: AgentTool[] = [
         return { success: false, error: e?.message || String(e) };
       }
     }
+  },
+
+  // ========== CLAUDE-LEVEL TOOLS ==========
+
+  {
+    name: "install_package",
+    description: "Install npm packages in the project. Runs npm install with the specified packages.",
+    parameters: {
+      type: "object",
+      properties: {
+        packages: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of package names to install (e.g., ['express', 'lodash'])"
+        },
+        dev: {
+          type: "boolean",
+          description: "Install as dev dependency (--save-dev)"
+        }
+      },
+      required: ["packages"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        if (!projectDir) {
+          return { success: false, error: "Project directory not found" };
+        }
+        
+        const devFlag = params.dev ? '--save-dev' : '';
+        const packages = params.packages.join(' ');
+        const cmd = `npm install ${packages} ${devFlag}`.trim();
+        
+        const { stdout, stderr } = await execAsync(cmd, { 
+          cwd: projectDir, 
+          timeout: 120000 
+        });
+        
+        return {
+          success: true,
+          data: {
+            installed: params.packages,
+            output: (stdout + stderr).slice(0, 5000),
+            message: `Installed ${params.packages.length} package(s)`
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "git_status",
+    description: "Get git status showing changed files, branch, and commit info",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const cwd = projectDir || process.cwd();
+        
+        const [status, branch, log] = await Promise.all([
+          execAsync('git status --porcelain', { cwd }).catch(() => ({ stdout: '' })),
+          execAsync('git branch --show-current', { cwd }).catch(() => ({ stdout: 'unknown' })),
+          execAsync('git log -3 --oneline', { cwd }).catch(() => ({ stdout: '' }))
+        ]);
+        
+        const changedFiles = (status as any).stdout.split('\n').filter(Boolean);
+        
+        return {
+          success: true,
+          data: {
+            branch: (branch as any).stdout.trim(),
+            changedFiles: changedFiles.slice(0, 50),
+            changedCount: changedFiles.length,
+            recentCommits: (log as any).stdout.split('\n').filter(Boolean)
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "git_commit",
+    description: "Stage all changes and create a git commit with a message",
+    parameters: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description: "The commit message"
+        }
+      },
+      required: ["message"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const cwd = projectDir || process.cwd();
+        
+        await execAsync('git add -A', { cwd });
+        const { stdout } = await execAsync(`git commit -m "${params.message.replace(/"/g, '\\"')}"`, { cwd });
+        
+        return {
+          success: true,
+          data: {
+            message: params.message,
+            output: stdout.slice(0, 2000)
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "glob_files",
+    description: "Find files matching a glob pattern (e.g., **/*.ts, src/**/*.tsx)",
+    parameters: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          description: "Glob pattern to match (e.g., **/*.ts)"
+        },
+        directory: {
+          type: "string",
+          description: "Starting directory (defaults to project root)"
+        }
+      },
+      required: ["pattern"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const baseDir = params.directory || projectDir || process.cwd();
+        
+        // Use find with pattern matching
+        const { stdout } = await execAsync(
+          `find ${baseDir} -type f -name "${params.pattern.replace(/\*\*/g, '*')}" 2>/dev/null | head -100`,
+          { timeout: 10000 }
+        );
+        
+        const files = stdout.split('\n').filter(Boolean).map(f => 
+          f.replace(baseDir + '/', '')
+        );
+        
+        return {
+          success: true,
+          data: {
+            pattern: params.pattern,
+            files: files.slice(0, 100),
+            count: files.length
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "grep_search",
+    description: "Search for a pattern in files using grep. Returns matching lines with file paths.",
+    parameters: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          description: "The regex pattern to search for"
+        },
+        file_pattern: {
+          type: "string",
+          description: "File pattern to search in (e.g., *.ts, *.tsx)"
+        },
+        directory: {
+          type: "string",
+          description: "Directory to search in"
+        }
+      },
+      required: ["pattern"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const dir = params.directory || projectDir || process.cwd();
+        const includeFlag = params.file_pattern ? `--include="${params.file_pattern}"` : '';
+        
+        const { stdout } = await execAsync(
+          `grep -rn ${includeFlag} "${params.pattern}" ${dir} 2>/dev/null | head -50`,
+          { timeout: 15000 }
+        );
+        
+        const matches = stdout.split('\n').filter(Boolean).map(line => {
+          const [filePath, ...rest] = line.split(':');
+          return { 
+            file: filePath.replace(dir + '/', ''), 
+            match: rest.join(':').slice(0, 200) 
+          };
+        });
+        
+        return {
+          success: true,
+          data: {
+            pattern: params.pattern,
+            matches: matches.slice(0, 50),
+            count: matches.length
+          }
+        };
+      } catch (e: any) {
+        // grep returns exit code 1 when no matches
+        if (e.code === 1) {
+          return { success: true, data: { pattern: params.pattern, matches: [], count: 0 } };
+        }
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "create_directory",
+    description: "Create a new directory (with parent directories if needed)",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "The directory path to create"
+        }
+      },
+      required: ["path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const fullPath = path.isAbsolute(params.path) ? params.path : path.join(projectDir || process.cwd(), params.path);
+        
+        fs.mkdirSync(fullPath, { recursive: true });
+        
+        return {
+          success: true,
+          data: { created: fullPath }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "delete_file",
+    description: "Delete a file or empty directory",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "The file path to delete"
+        }
+      },
+      required: ["path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const fullPath = path.isAbsolute(params.path) ? params.path : path.join(projectDir || process.cwd(), params.path);
+        
+        // Safety: prevent deleting outside project
+        if (projectDir && !fullPath.startsWith(projectDir)) {
+          return { success: false, error: "Cannot delete files outside project directory" };
+        }
+        
+        const stats = fs.statSync(fullPath);
+        if (stats.isDirectory()) {
+          fs.rmdirSync(fullPath);
+        } else {
+          fs.unlinkSync(fullPath);
+        }
+        
+        return {
+          success: true,
+          data: { deleted: params.path }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "read_any_file",
+    description: "Read any file from anywhere in the system (not just project files). Use for reading configs, logs, etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute or relative file path"
+        },
+        offset: {
+          type: "number",
+          description: "Line number to start reading from (1-indexed)"
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of lines to read"
+        }
+      },
+      required: ["path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const fullPath = path.isAbsolute(params.path) ? params.path : path.join(projectDir || process.cwd(), params.path);
+        
+        if (!fs.existsSync(fullPath)) {
+          return { success: false, error: `File not found: ${params.path}` };
+        }
+        
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        const lines = content.split('\n');
+        const offset = (params.offset || 1) - 1;
+        const limit = params.limit || 500;
+        const selectedLines = lines.slice(offset, offset + limit);
+        
+        return {
+          success: true,
+          data: {
+            path: params.path,
+            content: selectedLines.join('\n'),
+            totalLines: lines.length,
+            startLine: offset + 1,
+            endLine: Math.min(offset + limit, lines.length)
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "write_any_file",
+    description: "Write content to any file location. Creates parent directories if needed.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "The file path to write to"
+        },
+        content: {
+          type: "string",
+          description: "The content to write"
+        }
+      },
+      required: ["path", "content"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const fullPath = path.isAbsolute(params.path) ? params.path : path.join(projectDir || process.cwd(), params.path);
+        
+        // Create parent directories
+        const dir = path.dirname(fullPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        fs.writeFileSync(fullPath, params.content, 'utf-8');
+        
+        return {
+          success: true,
+          data: {
+            path: params.path,
+            bytesWritten: Buffer.byteLength(params.content),
+            message: "File written successfully"
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "list_directory",
+    description: "List contents of any directory with file sizes and types",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Directory path to list"
+        },
+        recursive: {
+          type: "boolean",
+          description: "List recursively (default: false)"
+        }
+      },
+      required: ["path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const dirPath = path.isAbsolute(params.path) ? params.path : path.join(projectDir || process.cwd(), params.path);
+        
+        if (!fs.existsSync(dirPath)) {
+          return { success: false, error: `Directory not found: ${params.path}` };
+        }
+        
+        const cmd = params.recursive 
+          ? `find ${dirPath} -maxdepth 3 -type f | head -100`
+          : `ls -la ${dirPath}`;
+        
+        const { stdout } = await execAsync(cmd, { timeout: 10000 });
+        
+        return {
+          success: true,
+          data: {
+            path: params.path,
+            contents: stdout.split('\n').filter(Boolean).slice(0, 100)
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
   }
 ];
 
