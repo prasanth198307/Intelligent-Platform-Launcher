@@ -259,27 +259,34 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
           </div>
         ))}
 
-        {events.filter(e => e.type === 'tool_call' || e.type === 'thinking').slice(-5).map((event, i) => (
-          <div key={`event-${i}`} className={`activity-item activity-event activity-event-${event.type}`}>
-            <div className="activity-icon">{getEventIcon(event.type)}</div>
-            <div className="activity-content">
-              <span className="activity-text">
-                {event.type === 'tool_call' && `Using ${event.data.tool}...`}
-                {event.type === 'thinking' && event.data.message}
-              </span>
+        {/* Professional Tool Call Cards */}
+        {events.filter(e => e.type === 'tool_call').slice(-3).map((event, i) => (
+          <div key={`tool-${i}`} className="tool-call-card">
+            <div className="tool-call-header">
+              <div className="tool-call-icon">🔧</div>
+              <span className="tool-call-name">{event.data.tool}</span>
+              <span className="tool-call-status running">Running</span>
             </div>
+            {event.data.params && (
+              <div className="tool-call-body">
+                {JSON.stringify(event.data.params, null, 2)}
+              </div>
+            )}
           </div>
         ))}
 
+        {/* Professional Thinking Stream */}
         {currentThinking && (
-          <div className="activity-item activity-thinking">
-            <div className="activity-icon">
-              <div className="thinking-dots">
-                <span></span><span></span><span></span>
+          <div className="agent-thinking-stream">
+            <div className="thinking-avatar">🤖</div>
+            <div className="thinking-content">
+              <div className="thinking-label">
+                Thinking
+                <div className="thinking-dots">
+                  <span></span><span></span><span></span>
+                </div>
               </div>
-            </div>
-            <div className="activity-content">
-              <span className="activity-text">{currentThinking}</span>
+              <div className="thinking-text">{currentThinking}</div>
             </div>
           </div>
         )}
