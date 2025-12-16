@@ -582,10 +582,16 @@ export function ToolsTabs({
         {activeTab === 'git' && (
           <div className="tab-content git-content">
             <div className="git-header">
-              <h3>⎇ Version Control</h3>
-              <button className="refresh-btn" onClick={loadGitStatus} disabled={gitLoading}>
-                {gitLoading ? '...' : '↻'}
-              </button>
+              <div className="git-branch-selector">
+                <span className="branch-icon">⎇</span>
+                <span className="branch-name">{gitStatus?.branch || 'main'}</span>
+                <span className="branch-dropdown">▾</span>
+              </div>
+              <div className="git-header-actions">
+                <button className="refresh-btn" onClick={loadGitStatus} disabled={gitLoading}>
+                  {gitLoading ? '...' : '↻'}
+                </button>
+              </div>
             </div>
             
             {gitError && <div className="git-error">{gitError}</div>}
@@ -602,73 +608,108 @@ export function ToolsTabs({
             
             {gitStatus && gitStatus.initialized && (
               <>
-                <div className="git-branch">
-                  <span className="branch-icon">⎇</span>
-                  <span>{gitStatus.branch}</span>
-                  {!gitStatus.isProjectDir && <span className="workspace-badge">Workspace</span>}
-                </div>
-                
-                {gitStatus.remotes && gitStatus.remotes.length > 0 && (
-                  <div className="git-remotes">
-                    {gitStatus.remotes.map((remote, i) => (
-                      <div key={i} className="remote-item">
-                        <span className="remote-name">{remote.name}</span>
-                        <span className="remote-url">{remote.url}</span>
-                      </div>
-                    ))}
+                {/* Remote Updates Section */}
+                <div className="git-remote-section">
+                  <div className="remote-header">
+                    <span className="remote-title">Remote Updates</span>
+                    {gitStatus.remotes && gitStatus.remotes.find(r => r.name === 'origin') && (
+                      <a 
+                        href={gitStatus.remotes.find(r => r.name === 'origin')?.url.replace('.git', '')} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="remote-link"
+                      >
+                        🔗 {gitStatus.remotes.find(r => r.name === 'origin')?.url.split('/').pop()?.replace('.git', '')}
+                      </a>
+                    )}
                   </div>
-                )}
-                
-                <div className="git-section">
-                  <h4>Changes ({gitStatus.changedCount})</h4>
-                  {gitStatus.changedFiles.length === 0 ? (
-                    <p className="no-changes">No uncommitted changes</p>
+                  
+                  {gitStatus.remotes && gitStatus.remotes.length > 0 ? (
+                    <>
+                      <div className="remote-info">
+                        <span className="remote-branch">origin/{gitStatus.branch}</span>
+                        <span className="remote-upstream">• upstream</span>
+                      </div>
+                      <div className="sync-actions">
+                        <button className="sync-btn" onClick={handleGitPull} disabled={gitLoading}>
+                          ↓↑ Sync with Remote
+                        </button>
+                        <button className="git-btn" onClick={handleGitPull} disabled={gitLoading}>↓ Pull</button>
+                        <button className="git-btn" onClick={handleGitPush} disabled={gitLoading}>↑ Push</button>
+                      </div>
+                    </>
                   ) : (
-                    <div className="changed-files">
-                      {gitStatus.changedFiles.slice(0, 20).map((f, i) => (
-                        <div key={i} className={`file-change ${f.status}`}>
-                          <span className="change-status">{f.statusLabel}</span>
-                          <span className="change-file">{f.file}</span>
-                        </div>
-                      ))}
-                      {gitStatus.changedFiles.length > 20 && (
-                        <p className="more-files">... and {gitStatus.changedFiles.length - 20} more files</p>
-                      )}
+                    <div className="connect-repo-section">
+                      <p className="no-remote-text">No remote repository connected</p>
+                      <button className="connect-repo-btn" onClick={() => {
+                        const repoUrl = prompt('Enter GitHub repository URL (e.g., https://github.com/user/repo.git):');
+                        if (repoUrl) {
+                          fetch(`${API_BASE}/api/git/add-remote`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId, remoteUrl: repoUrl, remoteName: 'origin' })
+                          }).then(() => loadGitStatus()).catch(console.error);
+                        }
+                      }}>
+                        + Connect to GitHub
+                      </button>
                     </div>
                   )}
                 </div>
-
-                {gitStatus.changedFiles.length > 0 && (
-                  <div className="commit-form">
-                    <input
-                      type="text"
-                      value={commitMessage}
-                      onChange={e => setCommitMessage(e.target.value)}
-                      placeholder="Commit message..."
-                      className="commit-input"
-                    />
-                    <button className="git-btn primary" onClick={handleCommit} disabled={gitLoading || !commitMessage.trim()}>
-                      Commit
-                    </button>
-                  </div>
-                )}
                 
-                <div className="git-actions">
-                  <button className="git-btn" onClick={handleGitPush} disabled={gitLoading}>Push</button>
-                  <button className="git-btn" onClick={handleGitPull} disabled={gitLoading}>Pull</button>
+                {/* Commit Section */}
+                <div className="git-section">
+                  <h4>Commit</h4>
+                  {gitStatus.changedFiles.length === 0 ? (
+                    <p className="no-changes">There are no changes to commit.</p>
+                  ) : (
+                    <>
+                      <div className="commit-form">
+                        <input
+                          type="text"
+                          value={commitMessage}
+                          onChange={e => setCommitMessage(e.target.value)}
+                          placeholder="Enter commit message..."
+                          className="commit-input"
+                        />
+                        <button className="git-btn primary" onClick={handleCommit} disabled={gitLoading || !commitMessage.trim()}>
+                          Commit
+                        </button>
+                      </div>
+                      <div className="changed-files">
+                        {gitStatus.changedFiles.slice(0, 15).map((f, i) => (
+                          <div key={i} className={`file-change ${f.status}`}>
+                            <span className="change-status">{f.statusLabel}</span>
+                            <span className="change-file">{f.file}</span>
+                          </div>
+                        ))}
+                        {gitStatus.changedFiles.length > 15 && (
+                          <p className="more-files">... and {gitStatus.changedFiles.length - 15} more files</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
                 
+                {/* Commit History Section */}
                 <div className="git-section">
-                  <h4>Recent Commits</h4>
+                  <div className="commits-header">
+                    <span className="not-pushed-indicator">↓ Not pushed to remote</span>
+                  </div>
                   {gitStatus.commits.length === 0 ? (
                     <p className="no-commits">No commits yet</p>
                   ) : (
                     <div className="commit-list">
                       {gitStatus.commits.map((commit, i) => (
                         <div key={i} className="commit-item">
-                          <span className="commit-hash">{commit.hash}</span>
-                          <span className="commit-message">{commit.message}</span>
-                          <span className="commit-time">{commit.time}</span>
+                          <div className="commit-bullet">•</div>
+                          <div className="commit-details">
+                            <span className="commit-message-text">{commit.message}</span>
+                            <span className="commit-meta">
+                              <span className="commit-author">👤 {commit.author}</span>
+                              <span className="commit-time">{commit.time}</span>
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>

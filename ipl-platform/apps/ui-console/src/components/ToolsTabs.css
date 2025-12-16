@@ -703,6 +703,177 @@
   font-size: 12px;
 }
 
+.git-branch-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.git-branch-selector:hover {
+  background: var(--bg-secondary);
+}
+
+.branch-icon {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.branch-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.branch-dropdown {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.git-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.git-remote-section {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.remote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.remote-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.remote-link {
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.remote-link:hover {
+  text-decoration: underline;
+}
+
+.remote-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.remote-branch {
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+.remote-upstream {
+  color: var(--text-muted);
+}
+
+.sync-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sync-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sync-btn:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+.connect-repo-section {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.no-remote-text {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.connect-repo-btn {
+  padding: 10px 20px;
+  background: var(--accent-primary);
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.connect-repo-btn:hover {
+  opacity: 0.9;
+}
+
+.commits-header {
+  margin-bottom: 12px;
+}
+
+.not-pushed-indicator {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.commit-bullet {
+  color: var(--accent-primary);
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+.commit-details {
+  flex: 1;
+}
+
+.commit-message-text {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.commit-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.commit-author {
+  font-size: 11px;
+}
+
 .git-branch {
   display: flex;
   align-items: center;
@@ -713,10 +884,6 @@
   margin-bottom: 16px;
   font-size: 13px;
   color: #a78bfa;
-}
-
-.branch-icon {
-  font-size: 16px;
 }
 
 .changed-files {

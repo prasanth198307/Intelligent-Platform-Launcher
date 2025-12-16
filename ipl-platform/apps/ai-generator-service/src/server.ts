@@ -3770,6 +3770,54 @@ app.post("/api/git/pull", async (req, res) => {
   }
 });
 
+// Add remote repository
+app.post("/api/git/add-remote", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, remoteUrl, remoteName = 'origin' } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    // Determine working directory
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
+    }
+    
+    // Validate URL format
+    if (!remoteUrl || typeof remoteUrl !== 'string') {
+      return res.status(400).json({ ok: false, error: "Invalid remote URL" });
+    }
+    
+    // Sanitize remote name
+    const safeName = remoteName.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!safeName) {
+      return res.status(400).json({ ok: false, error: "Invalid remote name" });
+    }
+    
+    // Check if remote already exists
+    const { stdout: existingRemotes } = await execFileAsync('git', ['remote'], { cwd: workDir });
+    if (existingRemotes.split('\n').includes(safeName)) {
+      // Update existing remote
+      await execFileAsync('git', ['remote', 'set-url', safeName, remoteUrl], { cwd: workDir });
+    } else {
+      // Add new remote
+      await execFileAsync('git', ['remote', 'add', safeName, remoteUrl], { cwd: workDir });
+    }
+    
+    res.json({
+      ok: true,
+      data: {
+        remoteName: safeName,
+        remoteUrl
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
 // ====================
 // GitHub Integration API
 // ====================
