@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import './ToolsTabs.css';
+
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8080' : '';
 
 interface ToolsTabsProps {
   projectId: string;
@@ -14,6 +16,25 @@ interface Tab {
   name: string;
   icon: string;
   closable: boolean;
+}
+
+interface GitStatus {
+  branch: string;
+  changedFiles: Array<{ status: string; file: string; statusLabel: string }>;
+  changedCount: number;
+  commits: Array<{ hash: string; message: string; time: string; author: string }>;
+}
+
+interface Secret {
+  key: string;
+  masked: string;
+  hasValue: boolean;
+}
+
+interface DbTable {
+  name: string;
+  columns: string[];
+  rowCount: number;
 }
 
 const AVAILABLE_TOOLS = [
@@ -31,13 +52,12 @@ const AVAILABLE_TOOLS = [
 ];
 
 export function ToolsTabs({ 
-  projectId: _projectId, 
+  projectId, 
   files,
   consoleLogs,
   appStatus,
   onClearConsole
 }: ToolsTabsProps) {
-  void _projectId;
   const [tabs, setTabs] = useState<Tab[]>([
     { id: 'preview', name: 'Preview', icon: '🖥️', closable: false },
     { id: 'console', name: 'Console', icon: '⌨️', closable: false },
@@ -47,6 +67,28 @@ export function ToolsTabs({
   const [showToolPicker, setShowToolPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Git state
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [gitLoading, setGitLoading] = useState(false);
+  const [commitMessage, setCommitMessage] = useState('');
+  const [gitError, setGitError] = useState('');
+
+  // Database state
+  const [dbTables, setDbTables] = useState<DbTable[]>([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [sqlQuery, setSqlQuery] = useState('SELECT * FROM ');
+  const [queryResult, setQueryResult] = useState<any>(null);
+
+  // Secrets state
+  const [secrets, setSecrets] = useState<Secret[]>([]);
+  const [newSecretKey, setNewSecretKey] = useState('');
+  const [newSecretValue, setNewSecretValue] = useState('');
+  const [secretsLoading, setSecretsLoading] = useState(false);
+
+  // Code search state
+  const [codeSearchQuery, setCodeSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ file: string; line: number; content: string }>>([]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -58,9 +100,97 @@ export function ToolsTabs({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Load tab preferences
+  useEffect(() => {
+    if (projectId) {
+      fetch(`${API_BASE}/api/project/${projectId}/tabs`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok && data.data) {
+            const savedTabs = data.data.map((id: string) => {
+              const tool = AVAILABLE_TOOLS.find(t => t.id === id);
+              return tool ? { ...tool, closable: id !== 'preview' && id !== 'console' } : null;
+            }).filter(Boolean);
+            if (savedTabs.length > 0) {
+              setTabs(savedTabs);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [projectId]);
+
+  // Save tab preferences when tabs change
+  const saveTabs = useCallback((newTabs: Tab[]) => {
+    if (projectId) {
+      fetch(`${API_BASE}/api/project/${projectId}/tabs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tabs: newTabs.map(t => t.id) })
+      }).catch(() => {});
+    }
+  }, [projectId]);
+
+  // Load git status
+  const loadGitStatus = useCallback(async () => {
+    setGitLoading(true);
+    setGitError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/git/status?projectId=${projectId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setGitStatus(data.data);
+      } else {
+        setGitError(data.error || 'Failed to load git status');
+      }
+    } catch (e: any) {
+      setGitError(e?.message || 'Failed to load git status');
+    }
+    setGitLoading(false);
+  }, [projectId]);
+
+  // Load database tables
+  const loadDbTables = useCallback(async () => {
+    setDbLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/database/tables?projectId=${projectId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setDbTables(data.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to load tables:', e);
+    }
+    setDbLoading(false);
+  }, [projectId]);
+
+  // Load secrets
+  const loadSecrets = useCallback(async () => {
+    setSecretsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/secrets?projectId=${projectId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setSecrets(data.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to load secrets:', e);
+    }
+    setSecretsLoading(false);
+  }, [projectId]);
+
+  // Load data when tab becomes active
+  useEffect(() => {
+    if (activeTab === 'git') loadGitStatus();
+    if (activeTab === 'database') loadDbTables();
+    if (activeTab === 'secrets') loadSecrets();
+  }, [activeTab, loadGitStatus, loadDbTables, loadSecrets]);
+
   const addTab = (tool: typeof AVAILABLE_TOOLS[0]) => {
     if (!tabs.find(t => t.id === tool.id)) {
-      setTabs([...tabs, { ...tool, closable: true }]);
+      const newTabs = [...tabs, { ...tool, closable: true }];
+      setTabs(newTabs);
+      saveTabs(newTabs);
     }
     setActiveTab(tool.id);
     setShowToolPicker(false);
@@ -70,9 +200,148 @@ export function ToolsTabs({
   const closeTab = (tabId: string) => {
     const newTabs = tabs.filter(t => t.id !== tabId);
     setTabs(newTabs);
+    saveTabs(newTabs);
     if (activeTab === tabId && newTabs.length > 0) {
       setActiveTab(newTabs[newTabs.length - 1].id);
     }
+  };
+
+  // Git operations
+  const handleCommit = async () => {
+    if (!commitMessage.trim()) return;
+    setGitLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/git/commit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, message: commitMessage })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCommitMessage('');
+        await loadGitStatus();
+      } else {
+        setGitError(data.error || 'Commit failed');
+      }
+    } catch (e: any) {
+      setGitError(e?.message || 'Commit failed');
+    }
+    setGitLoading(false);
+  };
+
+  const handleGitPush = async () => {
+    setGitLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/git/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setGitError(data.error || 'Push failed');
+      }
+    } catch (e: any) {
+      setGitError(e?.message || 'Push failed');
+    }
+    setGitLoading(false);
+  };
+
+  const handleGitPull = async () => {
+    setGitLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/git/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await loadGitStatus();
+      } else {
+        setGitError(data.error || 'Pull failed');
+      }
+    } catch (e: any) {
+      setGitError(e?.message || 'Pull failed');
+    }
+    setGitLoading(false);
+  };
+
+  // Database operations
+  const handleRunQuery = async () => {
+    if (!sqlQuery.trim()) return;
+    setDbLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/database/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, query: sqlQuery })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setQueryResult(data.data);
+      } else {
+        setQueryResult({ error: data.error });
+      }
+    } catch (e: any) {
+      setQueryResult({ error: e?.message });
+    }
+    setDbLoading(false);
+  };
+
+  // Secrets operations
+  const handleAddSecret = async () => {
+    if (!newSecretKey.trim() || !newSecretValue.trim()) return;
+    setSecretsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/secrets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, key: newSecretKey, value: newSecretValue })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNewSecretKey('');
+        setNewSecretValue('');
+        await loadSecrets();
+      }
+    } catch (e) {
+      console.error('Failed to add secret:', e);
+    }
+    setSecretsLoading(false);
+  };
+
+  const handleDeleteSecret = async (key: string) => {
+    setSecretsLoading(true);
+    try {
+      await fetch(`${API_BASE}/api/secrets/${key}?projectId=${projectId}`, {
+        method: 'DELETE'
+      });
+      await loadSecrets();
+    } catch (e) {
+      console.error('Failed to delete secret:', e);
+    }
+    setSecretsLoading(false);
+  };
+
+  // Code search
+  const handleCodeSearch = () => {
+    if (!codeSearchQuery.trim()) return;
+    
+    const results: Array<{ file: string; line: number; content: string }> = [];
+    files.forEach(file => {
+      const lines = file.content.split('\n');
+      lines.forEach((line, index) => {
+        if (line.toLowerCase().includes(codeSearchQuery.toLowerCase())) {
+          results.push({
+            file: file.path,
+            line: index + 1,
+            content: line.trim().slice(0, 100)
+          });
+        }
+      });
+    });
+    setSearchResults(results.slice(0, 50));
   };
 
   const filteredTools = AVAILABLE_TOOLS.filter(tool => 
@@ -214,22 +483,74 @@ export function ToolsTabs({
           <div className="tab-content git-content">
             <div className="git-header">
               <h3>Version Control</h3>
+              <button className="refresh-btn" onClick={loadGitStatus} disabled={gitLoading}>
+                {gitLoading ? '...' : '↻'}
+              </button>
             </div>
-            <div className="git-section">
-              <h4>Changes</h4>
-              <p className="no-changes">No uncommitted changes</p>
-            </div>
-            <div className="git-actions">
-              <button className="git-btn primary">Commit</button>
-              <button className="git-btn">Push</button>
-              <button className="git-btn">Pull</button>
-            </div>
-            <div className="git-section">
-              <h4>Recent Commits</h4>
-              <div className="commit-list">
-                <p className="no-commits">No commits yet</p>
-              </div>
-            </div>
+            
+            {gitError && <div className="git-error">{gitError}</div>}
+            
+            {gitStatus && (
+              <>
+                <div className="git-branch">
+                  <span className="branch-icon">⎇</span>
+                  <span>{gitStatus.branch}</span>
+                </div>
+                
+                <div className="git-section">
+                  <h4>Changes ({gitStatus.changedCount})</h4>
+                  {gitStatus.changedFiles.length === 0 ? (
+                    <p className="no-changes">No uncommitted changes</p>
+                  ) : (
+                    <div className="changed-files">
+                      {gitStatus.changedFiles.map((f, i) => (
+                        <div key={i} className={`file-change ${f.status}`}>
+                          <span className="change-status">{f.statusLabel}</span>
+                          <span className="change-file">{f.file}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {gitStatus.changedFiles.length > 0 && (
+                  <div className="commit-form">
+                    <input
+                      type="text"
+                      value={commitMessage}
+                      onChange={e => setCommitMessage(e.target.value)}
+                      placeholder="Commit message..."
+                      className="commit-input"
+                    />
+                    <button className="git-btn primary" onClick={handleCommit} disabled={gitLoading || !commitMessage.trim()}>
+                      Commit
+                    </button>
+                  </div>
+                )}
+                
+                <div className="git-actions">
+                  <button className="git-btn" onClick={handleGitPush} disabled={gitLoading}>Push</button>
+                  <button className="git-btn" onClick={handleGitPull} disabled={gitLoading}>Pull</button>
+                </div>
+                
+                <div className="git-section">
+                  <h4>Recent Commits</h4>
+                  {gitStatus.commits.length === 0 ? (
+                    <p className="no-commits">No commits yet</p>
+                  ) : (
+                    <div className="commit-list">
+                      {gitStatus.commits.map((commit, i) => (
+                        <div key={i} className="commit-item">
+                          <span className="commit-hash">{commit.hash}</span>
+                          <span className="commit-message">{commit.message}</span>
+                          <span className="commit-time">{commit.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -239,13 +560,47 @@ export function ToolsTabs({
               <h3>Database</h3>
               <span className="db-status connected">PostgreSQL Connected</span>
             </div>
-            <div className="database-actions">
-              <button className="db-btn">View Tables</button>
-              <button className="db-btn">Run Query</button>
-              <button className="db-btn">Import Data</button>
+            
+            <div className="database-tables">
+              <h4>Tables ({dbTables.length})</h4>
+              {dbLoading ? (
+                <p>Loading...</p>
+              ) : dbTables.length === 0 ? (
+                <p className="no-tables">No tables found</p>
+              ) : (
+                <div className="tables-list">
+                  {dbTables.map((table, i) => (
+                    <div key={i} className="table-item">
+                      <span className="table-icon">📋</span>
+                      <span className="table-name">{table.name}</span>
+                      <span className="row-count">{table.rowCount} rows</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="database-info">
-              <p>Stores structured data such as user profiles, records, and product catalogs.</p>
+
+            <div className="query-section">
+              <h4>Run Query</h4>
+              <textarea
+                value={sqlQuery}
+                onChange={e => setSqlQuery(e.target.value)}
+                placeholder="SELECT * FROM ..."
+                className="query-input"
+              />
+              <button className="db-btn" onClick={handleRunQuery} disabled={dbLoading}>
+                Run Query
+              </button>
+              
+              {queryResult && (
+                <div className="query-result">
+                  {queryResult.error ? (
+                    <div className="query-error">{queryResult.error}</div>
+                  ) : (
+                    <pre>{JSON.stringify(queryResult, null, 2)}</pre>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -283,10 +638,23 @@ export function ToolsTabs({
                 type="text" 
                 placeholder="Search in files..."
                 className="code-search-input"
+                value={codeSearchQuery}
+                onChange={e => setCodeSearchQuery(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && handleCodeSearch()}
               />
+              <button className="search-btn" onClick={handleCodeSearch}>Search</button>
             </div>
             <div className="search-results">
-              <p className="search-hint">Enter a search term to find matches in your code</p>
+              {searchResults.length === 0 ? (
+                <p className="search-hint">Enter a search term to find matches in your code</p>
+              ) : (
+                searchResults.map((result, i) => (
+                  <div key={i} className="search-result">
+                    <div className="result-file">{result.file}:{result.line}</div>
+                    <div className="result-content">{result.content}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -295,18 +663,42 @@ export function ToolsTabs({
           <div className="tab-content secrets-content">
             <div className="secrets-header">
               <h3>Secrets</h3>
+              <button className="refresh-btn" onClick={loadSecrets} disabled={secretsLoading}>
+                {secretsLoading ? '...' : '↻'}
+              </button>
             </div>
             <p className="secrets-desc">Store sensitive information (like API keys) securely in your App</p>
+            
             <div className="secrets-list">
-              <div className="secret-item">
-                <span className="secret-key">DATABASE_URL</span>
-                <span className="secret-value">••••••••</span>
-              </div>
+              {secrets.length === 0 ? (
+                <p className="no-secrets">No secrets configured</p>
+              ) : (
+                secrets.map((secret, i) => (
+                  <div key={i} className="secret-item">
+                    <span className="secret-key">{secret.key}</span>
+                    <span className="secret-value">{secret.masked}</span>
+                    <button className="secret-delete" onClick={() => handleDeleteSecret(secret.key)}>×</button>
+                  </div>
+                ))
+              )}
             </div>
+            
             <div className="add-secret-form">
-              <input type="text" placeholder="KEY" />
-              <input type="password" placeholder="Value" />
-              <button>Add</button>
+              <input
+                type="text"
+                value={newSecretKey}
+                onChange={e => setNewSecretKey(e.target.value)}
+                placeholder="KEY"
+              />
+              <input
+                type="password"
+                value={newSecretValue}
+                onChange={e => setNewSecretValue(e.target.value)}
+                placeholder="Value"
+              />
+              <button onClick={handleAddSecret} disabled={secretsLoading || !newSecretKey || !newSecretValue}>
+                Add
+              </button>
             </div>
           </div>
         )}

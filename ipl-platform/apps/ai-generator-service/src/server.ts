@@ -3561,6 +3561,326 @@ app.post("/api/ai/generate-all-devops", async (req, res) => {
   }
 });
 
+// ====================
+// Git Operations API
+// ====================
+import { execSync, exec, execFile } from "child_process";
+import { promisify } from "util";
+import { getProjectDir } from "./generators/code-materializer.js";
+import * as fs from "fs";
+const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// Sanitize projectId to prevent directory traversal attacks
+function sanitizeProjectId(projectId: string | undefined): string | null {
+  if (!projectId) return null;
+  // Only allow alphanumeric, hyphens, and underscores
+  const sanitized = projectId.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (sanitized !== projectId || sanitized.length === 0 || sanitized.length > 100) {
+    return null;
+  }
+  return sanitized;
+}
+
+app.get("/api/git/status", async (req, res) => {
+  try {
+    const rawProjectId = req.query.projectId as string;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    }
+    
+    const projectDir = await getProjectDir(projectId);
+    if (!projectDir || !fs.existsSync(projectDir)) {
+      return res.status(404).json({ ok: false, error: "Project directory not found" });
+    }
+    
+    const [status, branch, log] = await Promise.all([
+      execFileAsync('git', ['status', '--porcelain'], { cwd: projectDir }).catch(() => ({ stdout: '' })),
+      execFileAsync('git', ['branch', '--show-current'], { cwd: projectDir }).catch(() => ({ stdout: 'main' })),
+      execFileAsync('git', ['log', '-10', '--format=%h|%s|%cr|%an'], { cwd: projectDir }).catch(() => ({ stdout: '' }))
+    ]);
+    
+    const changedFiles = (status as any).stdout.split('\n').filter(Boolean).map((line: string) => {
+      const status = line.substring(0, 2).trim();
+      const file = line.substring(3);
+      return { status, file, statusLabel: status === 'M' ? 'Modified' : status === 'A' ? 'Added' : status === 'D' ? 'Deleted' : status === '??' ? 'Untracked' : status };
+    });
+    
+    const commits = (log as any).stdout.split('\n').filter(Boolean).map((line: string) => {
+      const [hash, message, time, author] = line.split('|');
+      return { hash, message, time, author };
+    });
+    
+    res.json({
+      ok: true,
+      data: {
+        branch: (branch as any).stdout.trim(),
+        changedFiles,
+        changedCount: changedFiles.length,
+        commits
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/git/commit", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, message } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    }
+    
+    const projectDir = await getProjectDir(projectId);
+    if (!projectDir || !fs.existsSync(projectDir)) {
+      return res.status(404).json({ ok: false, error: "Project directory not found" });
+    }
+    
+    await execFileAsync('git', ['add', '-A'], { cwd: projectDir });
+    const { stdout } = await execFileAsync('git', ['commit', '-m', message], { cwd: projectDir });
+    
+    res.json({
+      ok: true,
+      data: {
+        message,
+        output: stdout.slice(0, 2000)
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/git/push", async (req, res) => {
+  try {
+    const { projectId: rawProjectId } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    }
+    
+    const projectDir = await getProjectDir(projectId);
+    if (!projectDir || !fs.existsSync(projectDir)) {
+      return res.status(404).json({ ok: false, error: "Project directory not found" });
+    }
+    
+    const { stdout, stderr } = await execFileAsync('git', ['push'], { cwd: projectDir, timeout: 60000 });
+    
+    res.json({
+      ok: true,
+      data: {
+        output: ((stdout || '') + (stderr || '')).slice(0, 2000)
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/git/pull", async (req, res) => {
+  try {
+    const { projectId: rawProjectId } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    }
+    
+    const projectDir = await getProjectDir(projectId);
+    if (!projectDir || !fs.existsSync(projectDir)) {
+      return res.status(404).json({ ok: false, error: "Project directory not found" });
+    }
+    
+    const { stdout, stderr } = await execFileAsync('git', ['pull'], { cwd: projectDir, timeout: 60000 });
+    
+    res.json({
+      ok: true,
+      data: {
+        output: ((stdout || '') + (stderr || '')).slice(0, 2000)
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ====================
+// Database Operations API
+// ====================
+app.get("/api/database/tables", async (req, res) => {
+  try {
+    const projectId = req.query.projectId as string;
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: "projectId required" });
+    }
+    
+    const tables = await getProjectTables(projectId);
+    res.json({ ok: true, data: tables });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.get("/api/database/table/:tableName", async (req, res) => {
+  try {
+    const projectId = req.query.projectId as string;
+    const { tableName } = req.params;
+    const limit = parseInt(req.query.limit as string) || 100;
+    
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: "projectId required" });
+    }
+    
+    const data = await getTableData(projectId, tableName, limit);
+    res.json({ ok: true, data });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/database/query", async (req, res) => {
+  try {
+    const { projectId, query } = req.body;
+    if (!projectId || !query) {
+      return res.status(400).json({ ok: false, error: "projectId and query required" });
+    }
+    
+    // Only allow SELECT queries for safety
+    const upperQuery = query.trim().toUpperCase();
+    if (!upperQuery.startsWith('SELECT')) {
+      return res.status(400).json({ ok: false, error: "Only SELECT queries allowed for safety" });
+    }
+    
+    const result = await db.execute(query);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ====================
+// Secrets Management API (in-memory for demo, would use env in production)
+// ====================
+const projectSecrets = new Map<string, Map<string, string>>();
+
+app.get("/api/secrets", (req, res) => {
+  const projectId = req.query.projectId as string;
+  if (!projectId) {
+    return res.status(400).json({ ok: false, error: "projectId required" });
+  }
+  
+  const secrets = projectSecrets.get(projectId) || new Map();
+  const maskedSecrets = Array.from(secrets.entries()).map(([key]) => ({
+    key,
+    masked: '••••••••',
+    hasValue: true
+  }));
+  
+  res.json({ ok: true, data: maskedSecrets });
+});
+
+app.post("/api/secrets", (req, res) => {
+  const { projectId, key, value } = req.body;
+  if (!projectId || !key || !value) {
+    return res.status(400).json({ ok: false, error: "projectId, key, and value required" });
+  }
+  
+  if (!projectSecrets.has(projectId)) {
+    projectSecrets.set(projectId, new Map());
+  }
+  projectSecrets.get(projectId)!.set(key, value);
+  
+  res.json({ ok: true, message: `Secret ${key} saved` });
+});
+
+app.delete("/api/secrets/:key", (req, res) => {
+  const projectId = req.query.projectId as string;
+  const { key } = req.params;
+  
+  if (!projectId) {
+    return res.status(400).json({ ok: false, error: "projectId required" });
+  }
+  
+  const secrets = projectSecrets.get(projectId);
+  if (secrets) {
+    secrets.delete(key);
+  }
+  
+  res.json({ ok: true, message: `Secret ${key} deleted` });
+});
+
+// ====================
+// Project Settings API
+// ====================
+app.get("/api/project/:projectId/settings", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await db.select().from(projects).where(eq(projects.projectId, projectId)).limit(1);
+    
+    if (!project.length) {
+      return res.status(404).json({ ok: false, error: "Project not found" });
+    }
+    
+    res.json({
+      ok: true,
+      data: {
+        name: project[0].name,
+        domain: project[0].domain,
+        database: project[0].database,
+        status: project[0].status,
+        nodeVersion: '20',
+        packageManager: 'npm'
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.put("/api/project/:projectId/settings", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { name, nodeVersion, packageManager } = req.body;
+    
+    if (name) {
+      await db.update(projects).set({ name }).where(eq(projects.projectId, projectId));
+    }
+    
+    res.json({ ok: true, message: "Settings updated" });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ====================
+// Tab Preferences API
+// ====================
+const projectTabPrefs = new Map<string, string[]>();
+
+app.get("/api/project/:projectId/tabs", (req, res) => {
+  const { projectId } = req.params;
+  const tabs = projectTabPrefs.get(projectId) || ['preview', 'console', 'git'];
+  res.json({ ok: true, data: tabs });
+});
+
+app.put("/api/project/:projectId/tabs", (req, res) => {
+  const { projectId } = req.params;
+  const { tabs } = req.body;
+  
+  if (!Array.isArray(tabs)) {
+    return res.status(400).json({ ok: false, error: "tabs must be an array" });
+  }
+  
+  projectTabPrefs.set(projectId, tabs);
+  res.json({ ok: true, message: "Tab preferences saved" });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`AI Generator on :${PORT}`);
   const llmProvider = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ? "Claude (Anthropic)" : 

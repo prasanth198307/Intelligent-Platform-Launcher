@@ -601,3 +601,312 @@
   color: #555;
   padding: 40px;
 }
+
+/* Additional Git Styles */
+.git-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.refresh-btn {
+  padding: 4px 10px;
+  border: 1px solid #3a3a5e;
+  background: transparent;
+  color: #888;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.refresh-btn:hover {
+  background: #2a2a3e;
+  color: #fff;
+}
+
+.git-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.git-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #12121f;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #a78bfa;
+}
+
+.branch-icon {
+  font-size: 16px;
+}
+
+.changed-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.file-change {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #12121f;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.change-status {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.file-change.M .change-status {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.file-change.A .change-status,
+.file-change.\?\? .change-status {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.file-change.D .change-status {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.change-file {
+  color: #c0c0d0;
+  font-family: monospace;
+}
+
+.commit-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.commit-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #3a3a5e;
+  background: #12121f;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.commit-input:focus {
+  outline: none;
+  border-color: #a78bfa;
+}
+
+.commit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.commit-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #12121f;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.commit-hash {
+  font-family: monospace;
+  color: #a78bfa;
+  min-width: 60px;
+}
+
+.commit-message {
+  flex: 1;
+  color: #c0c0d0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-time {
+  color: #666;
+  font-size: 11px;
+}
+
+/* Database Additional Styles */
+.database-tables {
+  margin-bottom: 20px;
+}
+
+.database-tables h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.tables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.table-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #12121f;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.table-item:hover {
+  background: #1f1f35;
+}
+
+.table-icon {
+  font-size: 14px;
+}
+
+.table-name {
+  flex: 1;
+  color: #c0c0d0;
+  font-size: 13px;
+}
+
+.row-count {
+  color: #666;
+  font-size: 11px;
+}
+
+.no-tables {
+  color: #555;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.query-section {
+  margin-top: 16px;
+}
+
+.query-section h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.query-input {
+  width: 100%;
+  height: 80px;
+  padding: 10px 12px;
+  border: 1px solid #3a3a5e;
+  background: #12121f;
+  color: #fff;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.query-input:focus {
+  outline: none;
+  border-color: #a78bfa;
+}
+
+.query-result {
+  margin-top: 12px;
+  background: #12121f;
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.query-result pre {
+  margin: 0;
+  font-size: 11px;
+  color: #c0c0d0;
+}
+
+.query-error {
+  color: #ef4444;
+  font-size: 12px;
+}
+
+/* Secrets Additional Styles */
+.secrets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.no-secrets {
+  color: #555;
+  font-style: italic;
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+/* Search Additional Styles */
+.search-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-btn {
+  padding: 10px 20px;
+  border: none;
+  background: #a78bfa;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.search-btn:hover {
+  background: #8b5cf6;
+}
+
+.search-result {
+  background: #12121f;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.result-file {
+  font-size: 11px;
+  color: #a78bfa;
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.result-content {
+  font-size: 12px;
+  color: #c0c0d0;
+  font-family: monospace;
+}
