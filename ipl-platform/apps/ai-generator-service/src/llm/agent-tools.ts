@@ -8,6 +8,8 @@ import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import Groq from "groq-sdk";
+import puppeteer from "puppeteer";
+import Anthropic from "@anthropic-ai/sdk";
 
 const execAsync = promisify(exec);
 
@@ -1547,11 +1549,11 @@ Respond with JSON:
   },
 
   // ===============================
-  // COMPUTER USE TOOLS (Claude-like)
+  // COMPUTER USE TOOLS (Claude-like with real Puppeteer)
   // ===============================
   {
     name: "computer_screenshot",
-    description: "Take an actual screenshot of a URL using headless browser. Returns base64 image data and can detect elements on the page.",
+    description: "Take an actual screenshot of a URL using Puppeteer headless browser. Returns base64 image data and detected elements with pixel coordinates.",
     parameters: {
       type: "object",
       properties: {
@@ -1566,73 +1568,99 @@ Respond with JSON:
         full_page: {
           type: "boolean",
           description: "Capture full page or just viewport (default: false)"
+        },
+        viewport_width: {
+          type: "number",
+          description: "Viewport width in pixels (default: 1280)"
+        },
+        viewport_height: {
+          type: "number",
+          description: "Viewport height in pixels (default: 720)"
         }
       },
       required: ["url"]
     },
     execute: async (params, context) => {
+      let browser = null;
       try {
         const waitMs = params.wait_ms || 2000;
         const url = params.url;
+        const viewportWidth = params.viewport_width || 1280;
+        const viewportHeight = params.viewport_height || 720;
         
-        // Try to get page content and structure using curl
-        const { stdout: htmlContent } = await execAsync(
-          `curl -s -L --max-time 10 "${url}"`,
-          { timeout: 15000 }
-        );
-        
-        // Extract key elements from HTML
-        const elements: any[] = [];
-        
-        // Find buttons
-        const buttonMatches = htmlContent.match(/<button[^>]*>(.*?)<\/button>/gi) || [];
-        buttonMatches.slice(0, 10).forEach((btn: string, i: number) => {
-          const text = btn.replace(/<[^>]*>/g, '').trim();
-          elements.push({ type: 'button', text: text.slice(0, 50), index: i });
+        // Launch Puppeteer with headless browser
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
         });
         
-        // Find links
-        const linkMatches = htmlContent.match(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi) || [];
-        linkMatches.slice(0, 10).forEach((link: string, i: number) => {
-          const hrefMatch = link.match(/href="([^"]*)"/);
-          const text = link.replace(/<[^>]*>/g, '').trim();
-          elements.push({ type: 'link', href: hrefMatch?.[1], text: text.slice(0, 50), index: i });
+        const page = await browser.newPage();
+        await page.setViewport({ width: viewportWidth, height: viewportHeight });
+        
+        // Navigate to URL
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+        await page.waitForTimeout(waitMs);
+        
+        // Take screenshot as base64
+        const screenshotBuffer = await page.screenshot({ 
+          encoding: 'base64',
+          fullPage: params.full_page || false
         });
         
-        // Find inputs
-        const inputMatches = htmlContent.match(/<input[^>]*>/gi) || [];
-        inputMatches.slice(0, 10).forEach((input: string, i: number) => {
-          const typeMatch = input.match(/type="([^"]*)"/);
-          const nameMatch = input.match(/name="([^"]*)"/);
-          const placeholderMatch = input.match(/placeholder="([^"]*)"/);
-          elements.push({ 
-            type: 'input', 
-            inputType: typeMatch?.[1] || 'text',
-            name: nameMatch?.[1],
-            placeholder: placeholderMatch?.[1],
-            index: i 
+        // Extract interactive elements with their bounding boxes
+        const elements = await page.evaluate(() => {
+          const result: any[] = [];
+          
+          // Get all clickable elements with their coordinates
+          const clickables = document.querySelectorAll('button, a, input, select, textarea, [role="button"], [onclick]');
+          clickables.forEach((el, i) => {
+            const rect = el.getBoundingClientRect();
+            const styles = window.getComputedStyle(el);
+            if (styles.display !== 'none' && styles.visibility !== 'hidden' && rect.width > 0 && rect.height > 0) {
+              result.push({
+                type: el.tagName.toLowerCase(),
+                text: (el.textContent || '').trim().slice(0, 50),
+                id: el.id || null,
+                class: el.className || null,
+                name: (el as HTMLInputElement).name || null,
+                href: (el as HTMLAnchorElement).href || null,
+                placeholder: (el as HTMLInputElement).placeholder || null,
+                bounds: {
+                  x: Math.round(rect.x),
+                  y: Math.round(rect.y),
+                  width: Math.round(rect.width),
+                  height: Math.round(rect.height),
+                  centerX: Math.round(rect.x + rect.width / 2),
+                  centerY: Math.round(rect.y + rect.height / 2)
+                },
+                index: i
+              });
+            }
           });
+          
+          return result.slice(0, 50); // Limit to 50 elements
         });
         
-        // Find headings
-        const headingMatches = htmlContent.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi) || [];
-        headingMatches.slice(0, 5).forEach((h: string, i: number) => {
-          const text = h.replace(/<[^>]*>/g, '').trim();
-          elements.push({ type: 'heading', text: text.slice(0, 100), index: i });
-        });
+        // Get page title
+        const pageTitle = await page.title();
+        
+        await browser.close();
+        browser = null;
         
         return {
           success: true,
           data: {
             url,
-            pageTitle: htmlContent.match(/<title>(.*?)<\/title>/i)?.[1] || 'Unknown',
+            pageTitle,
+            viewport: { width: viewportWidth, height: viewportHeight },
+            screenshot_base64: screenshotBuffer,
             elements,
-            hasContent: htmlContent.length > 100,
-            contentSize: htmlContent.length,
-            hint: "Use computer_click or computer_type to interact with elements"
+            elementCount: elements.length,
+            hint: "Use computer_click with x,y coordinates or selector to interact. Use analyze_screenshot to understand the image."
           }
         };
       } catch (e: any) {
+        if (browser) await browser.close();
         return { success: false, error: e?.message || String(e) };
       }
     }
@@ -1640,61 +1668,264 @@ Respond with JSON:
 
   {
     name: "computer_click",
-    description: "Simulate clicking on an element in the web application. Use after computer_screenshot to interact with buttons/links.",
+    description: "Click on an element using Puppeteer. Supports pixel coordinates (x,y) or CSS selectors.",
     parameters: {
       type: "object",
       properties: {
         url: {
           type: "string",
-          description: "Base URL of the application"
+          description: "URL of the page to interact with"
         },
-        element_selector: {
+        x: {
+          type: "number",
+          description: "X coordinate in pixels (use with y for precise clicking)"
+        },
+        y: {
+          type: "number",
+          description: "Y coordinate in pixels (use with x for precise clicking)"
+        },
+        selector: {
           type: "string",
-          description: "CSS selector or element description (e.g., 'button.submit', 'a[href=/login]')"
+          description: "CSS selector (alternative to x,y coordinates)"
         },
         action: {
           type: "string",
-          enum: ["click", "hover", "focus"],
-          description: "Action to perform"
+          enum: ["click", "dblclick", "hover", "rightclick"],
+          description: "Action to perform (default: click)"
+        },
+        wait_after_ms: {
+          type: "number",
+          description: "Milliseconds to wait after action (default: 1000)"
         }
       },
-      required: ["url", "element_selector"]
+      required: ["url"]
     },
     execute: async (params, context) => {
+      let browser = null;
       try {
-        // For now, simulate the click by making an HTTP request if it's a link
-        const selector = params.element_selector;
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
         
-        // If it looks like a link, try to follow it
-        if (selector.includes('href=') || selector.includes('/')) {
-          const pathMatch = selector.match(/href=['"](\/[^'"]*)['"]/);
-          const path = pathMatch?.[1] || selector.replace(/.*href=['"]([^'"]*)['"]/,'$1');
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(params.url, { waitUntil: 'networkidle2', timeout: 30000 });
+        
+        const action = params.action || 'click';
+        let targetDesc = '';
+        
+        if (params.x !== undefined && params.y !== undefined) {
+          // Pixel-precise clicking
+          const x = params.x;
+          const y = params.y;
+          targetDesc = `coordinates (${x}, ${y})`;
           
-          if (path && path.startsWith('/')) {
-            const fullUrl = params.url + path;
-            const { stdout } = await execAsync(
-              `curl -s -o /dev/null -w "%{http_code}" "${fullUrl}"`,
-              { timeout: 10000 }
-            );
-            
-            return {
-              success: true,
-              data: {
-                action: "click",
-                navigatedTo: fullUrl,
-                statusCode: parseInt(stdout.trim()),
-                message: `Simulated click on link, navigated to ${path}`
-              }
-            };
+          if (action === 'click') {
+            await page.mouse.click(x, y);
+          } else if (action === 'dblclick') {
+            await page.mouse.click(x, y, { clickCount: 2 });
+          } else if (action === 'hover') {
+            await page.mouse.move(x, y);
+          } else if (action === 'rightclick') {
+            await page.mouse.click(x, y, { button: 'right' });
           }
+        } else if (params.selector) {
+          // CSS selector clicking
+          targetDesc = `selector "${params.selector}"`;
+          await page.waitForSelector(params.selector, { timeout: 5000 });
+          
+          if (action === 'click') {
+            await page.click(params.selector);
+          } else if (action === 'dblclick') {
+            await page.click(params.selector, { clickCount: 2 });
+          } else if (action === 'hover') {
+            await page.hover(params.selector);
+          } else if (action === 'rightclick') {
+            await page.click(params.selector, { button: 'right' });
+          }
+        } else {
+          await browser.close();
+          return { success: false, error: "Must provide either x,y coordinates or a selector" };
         }
+        
+        // Wait after action
+        await page.waitForTimeout(params.wait_after_ms || 1000);
+        
+        // Get current URL (may have navigated)
+        const currentUrl = page.url();
+        
+        // Take screenshot after action
+        const screenshotBuffer = await page.screenshot({ encoding: 'base64' });
+        
+        await browser.close();
+        browser = null;
         
         return {
           success: true,
           data: {
-            action: params.action || "click",
-            element: selector,
-            message: `Click action simulated on ${selector}. For full interaction, integrate with Puppeteer.`
+            action,
+            target: targetDesc,
+            currentUrl,
+            navigated: currentUrl !== params.url,
+            screenshot_base64: screenshotBuffer,
+            message: `${action} performed on ${targetDesc}`
+          }
+        };
+      } catch (e: any) {
+        if (browser) await browser.close();
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "computer_type",
+    description: "Type text into an input field using Puppeteer. Supports real keyboard simulation.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "URL of the page"
+        },
+        selector: {
+          type: "string",
+          description: "CSS selector for the input field"
+        },
+        text: {
+          type: "string",
+          description: "Text to type"
+        },
+        clear_first: {
+          type: "boolean",
+          description: "Clear the input before typing (default: true)"
+        },
+        press_enter: {
+          type: "boolean",
+          description: "Press Enter after typing (useful for forms)"
+        },
+        delay_ms: {
+          type: "number",
+          description: "Delay between keystrokes in ms (default: 50, simulates human typing)"
+        }
+      },
+      required: ["url", "selector", "text"]
+    },
+    execute: async (params, context) => {
+      let browser = null;
+      try {
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(params.url, { waitUntil: 'networkidle2', timeout: 30000 });
+        
+        // Wait for and focus the input
+        await page.waitForSelector(params.selector, { timeout: 5000 });
+        await page.click(params.selector);
+        
+        // Clear if requested (default: true)
+        if (params.clear_first !== false) {
+          await page.evaluate((sel) => {
+            const el = document.querySelector(sel) as HTMLInputElement;
+            if (el) el.value = '';
+          }, params.selector);
+        }
+        
+        // Type with realistic delay
+        const delay = params.delay_ms || 50;
+        await page.type(params.selector, params.text, { delay });
+        
+        // Press enter if requested
+        if (params.press_enter) {
+          await page.keyboard.press('Enter');
+          await page.waitForTimeout(1000);
+        }
+        
+        // Get current URL and take screenshot
+        const currentUrl = page.url();
+        const screenshotBuffer = await page.screenshot({ encoding: 'base64' });
+        
+        await browser.close();
+        browser = null;
+        
+        return {
+          success: true,
+          data: {
+            action: "type",
+            selector: params.selector,
+            textLength: params.text.length,
+            pressedEnter: params.press_enter || false,
+            currentUrl,
+            screenshot_base64: screenshotBuffer,
+            message: `Typed ${params.text.length} characters into ${params.selector}`
+          }
+        };
+      } catch (e: any) {
+        if (browser) await browser.close();
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "analyze_screenshot",
+    description: "Use Claude's vision API to analyze a screenshot and understand what's on the page. Essential for visual verification.",
+    parameters: {
+      type: "object",
+      properties: {
+        screenshot_base64: {
+          type: "string",
+          description: "Base64-encoded screenshot from computer_screenshot or computer_click"
+        },
+        question: {
+          type: "string",
+          description: "What to look for or analyze (e.g., 'Is the login form visible?', 'What error message is shown?')"
+        }
+      },
+      required: ["screenshot_base64", "question"]
+    },
+    execute: async (params, context) => {
+      try {
+        const client = new Anthropic();
+        
+        const response = await client.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/png",
+                    data: params.screenshot_base64
+                  }
+                },
+                {
+                  type: "text",
+                  text: params.question
+                }
+              ]
+            }
+          ]
+        });
+        
+        const textContent = response.content.find(c => c.type === 'text');
+        const analysis = textContent ? (textContent as any).text : 'No analysis available';
+        
+        return {
+          success: true,
+          data: {
+            question: params.question,
+            analysis,
+            model: "claude-sonnet-4-20250514"
           }
         };
       } catch (e: any) {
@@ -1704,41 +1935,80 @@ Respond with JSON:
   },
 
   {
-    name: "computer_type",
-    description: "Simulate typing text into an input field in the web application.",
+    name: "batch_file_operations",
+    description: "Perform multiple file operations in parallel. Supports read, write, and delete operations on multiple files at once.",
     parameters: {
       type: "object",
       properties: {
-        url: {
-          type: "string",
-          description: "Base URL of the application"
-        },
-        input_selector: {
-          type: "string",
-          description: "CSS selector for the input field (e.g., 'input[name=email]', '#password')"
-        },
-        text: {
-          type: "string",
-          description: "Text to type into the input"
-        },
-        submit: {
-          type: "boolean",
-          description: "Whether to submit the form after typing"
+        operations: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              action: { type: "string", enum: ["read", "write", "delete", "copy"] },
+              path: { type: "string" },
+              content: { type: "string", description: "Content for write operations" },
+              dest_path: { type: "string", description: "Destination path for copy operations" }
+            },
+            required: ["action", "path"]
+          },
+          description: "Array of file operations to perform in parallel"
         }
       },
-      required: ["input_selector", "text"]
+      required: ["operations"]
     },
     execute: async (params, context) => {
       try {
+        const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+        if (!project) {
+          return { success: false, error: "Project not found" };
+        }
+        
+        const projectDir = getProjectDir(context.projectId);
+        const results: any[] = [];
+        
+        // Execute all operations in parallel
+        const operations = params.operations.map(async (op: any) => {
+          const fullPath = path.join(projectDir, op.path);
+          
+          try {
+            switch (op.action) {
+              case 'read': {
+                const content = await fs.promises.readFile(fullPath, 'utf-8');
+                return { path: op.path, action: 'read', success: true, content: content.slice(0, 10000) };
+              }
+              case 'write': {
+                await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+                await fs.promises.writeFile(fullPath, op.content, 'utf-8');
+                return { path: op.path, action: 'write', success: true };
+              }
+              case 'delete': {
+                await fs.promises.unlink(fullPath);
+                return { path: op.path, action: 'delete', success: true };
+              }
+              case 'copy': {
+                const destPath = path.join(projectDir, op.dest_path);
+                await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
+                await fs.promises.copyFile(fullPath, destPath);
+                return { path: op.path, action: 'copy', dest: op.dest_path, success: true };
+              }
+              default:
+                return { path: op.path, action: op.action, success: false, error: 'Unknown action' };
+            }
+          } catch (e: any) {
+            return { path: op.path, action: op.action, success: false, error: e?.message };
+          }
+        });
+        
+        const allResults = await Promise.all(operations);
+        
         return {
           success: true,
           data: {
-            action: "type",
-            input: params.input_selector,
-            text: params.text.slice(0, 20) + (params.text.length > 20 ? "..." : ""),
-            submit: params.submit || false,
-            message: `Type action simulated for ${params.input_selector}. For full interaction, use Puppeteer.`,
-            hint: "After typing, use computer_screenshot to verify the result"
+            totalOperations: params.operations.length,
+            successful: allResults.filter(r => r.success).length,
+            failed: allResults.filter(r => !r.success).length,
+            results: allResults
           }
         };
       } catch (e: any) {
