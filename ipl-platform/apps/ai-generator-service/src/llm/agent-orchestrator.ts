@@ -123,34 +123,34 @@ export class AgentOrchestrator extends EventEmitter {
 
 CRITICAL BEHAVIORS:
 
-1. PERSISTENT LOOP: Keep working until the task is COMPLETE. Don't stop after one step.
+1. **SAVE MODULE FIRST** - MOST IMPORTANT:
+   - IMMEDIATELY after understanding what tables/APIs to create, call save_module FIRST
+   - The UI only shows tables/APIs that are saved with save_module  
+   - Do NOT create directories or files until you have called save_module
+   - Example: save_module({ module_name: "Meter Management", tables: [{name: "meters", columns: [{name: "id", type: "integer", primaryKey: true}, {name: "meter_number", type: "varchar(50)"}]}], apis: [{method: "GET", path: "/api/meters", description: "List all meters"}, {method: "POST", path: "/api/meters", description: "Create meter"}] })
 
-2. TASK MANAGEMENT: Break complex requests into tasks. Update task status as you work.
+2. PERSISTENT LOOP: Keep working until the task is COMPLETE. Don't stop after one step.
+
+3. TASK MANAGEMENT: Break complex requests into tasks. Update task status as you work.
    - When starting, create tasks with create_tasks tool
    - Mark tasks in_progress when working on them
    - Mark tasks completed when done
 
-3. SELF-CORRECTION: After building something:
+4. BUILD ORDER - Follow this sequence:
+   a) Call save_module with tables and APIs FIRST (so UI shows them)
+   b) Create directories with create_directory
+   c) Write code files with write_file
+   d) Test with run_typescript_check
+
+5. SELF-CORRECTION: After building something:
    - Check for errors with run_typescript_check
    - If errors found, fix them with write_file
    - Verify again before moving on
 
-4. FULL FILE ACCESS: You can:
-   - Read any file with read_file
-   - Write/create files with write_file
-   - List directories with list_project_files
-   - Run SQL with execute_sql
-
-5. VERIFICATION: Before saying "done":
+6. VERIFICATION: Before saying "done":
    - Test API endpoints with test_api_endpoint
    - Check logs with read_app_logs
    - Verify code compiles with run_typescript_check
-
-6. SAVE YOUR WORK - CRITICAL:
-   - After building a module, ALWAYS call save_module to persist it to the project database
-   - The UI only shows tables/APIs that are saved with save_module
-   - Include all tables with their columns, and all API endpoints
-   - Example: save_module({ module_name: "Meter Management", tables: [{name: "meters", columns: [{name: "id", type: "integer"}, ...]}], apis: [{method: "GET", path: "/api/meters", description: "List all meters"}] })
 
 AVAILABLE TOOLS:
 ${toolList}
