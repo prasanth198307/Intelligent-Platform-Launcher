@@ -47,6 +47,10 @@ args = "cd ipl-platform/apps/ai-generator-service && npm run dev"
 waitForPort = 8080
 
 [[ports]]
+localPort = 3000
+externalPort = 3002
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 

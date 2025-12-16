@@ -461,12 +461,141 @@ export const agentTools: AgentTool[] = [
     execute: async (params, context) => {
       try {
         await writeProjectFile(context.projectId, params.file_path, params.content);
+        
+        // Also track this file in the project's generatedFiles
+        try {
+          const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+          if (project) {
+            const existingFiles = ((project as any).generatedFiles as any[]) || [];
+            const fileEntry = {
+              name: params.file_path.split('/').pop(),
+              path: params.file_path,
+              type: params.file_path.endsWith('.ts') || params.file_path.endsWith('.js') ? 'code' : 'config',
+              size: params.content.length
+            };
+            
+            // Update or add the file
+            const fileIndex = existingFiles.findIndex((f: any) => f.path === params.file_path);
+            if (fileIndex >= 0) {
+              existingFiles[fileIndex] = fileEntry;
+            } else {
+              existingFiles.push(fileEntry);
+            }
+            
+            await db.update(projects).set({
+              generatedFiles: existingFiles
+            } as any).where(eq(projects.projectId, context.projectId));
+          }
+        } catch (e) {
+          // Don't fail if tracking fails
+          console.log('[Agent] File tracking failed:', e);
+        }
+        
         return {
           success: true,
           data: {
             path: params.file_path,
             bytesWritten: params.content.length,
             message: `File written successfully: ${params.file_path}`
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "save_module",
+    description: "IMPORTANT: After building a module, use this to save it to the project so the UI shows the tables and APIs. Call this after writing all files for a module.",
+    parameters: {
+      type: "object",
+      properties: {
+        module_name: {
+          type: "string",
+          description: "Name of the module (e.g., 'Meter Management')"
+        },
+        tables: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              columns: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    type: { type: "string" },
+                    references: { type: "string" }
+                  }
+                }
+              }
+            }
+          },
+          description: "Tables created for this module"
+        },
+        apis: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              method: { type: "string" },
+              path: { type: "string" },
+              description: { type: "string" }
+            }
+          },
+          description: "API endpoints created for this module"
+        },
+        files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Files created for this module"
+        }
+      },
+      required: ["module_name", "tables", "apis"]
+    },
+    execute: async (params, context) => {
+      try {
+        const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+        if (!project) {
+          return { success: false, error: "Project not found" };
+        }
+        
+        const existingModules = ((project as any).modules as any[]) || [];
+        
+        // Create the module
+        const newModule = {
+          name: params.module_name,
+          status: 'completed',
+          tables: params.tables || [],
+          apis: params.apis || [],
+          files: params.files || [],
+          createdAt: new Date().toISOString()
+        };
+        
+        // Check if module already exists
+        const moduleIndex = existingModules.findIndex((m: any) => m.name === params.module_name);
+        if (moduleIndex >= 0) {
+          existingModules[moduleIndex] = newModule;
+        } else {
+          existingModules.push(newModule);
+        }
+        
+        // Update the project
+        await db.update(projects).set({
+          modules: existingModules,
+          status: 'building'
+        } as any).where(eq(projects.projectId, context.projectId));
+        
+        return {
+          success: true,
+          data: {
+            module: params.module_name,
+            tableCount: (params.tables || []).length,
+            apiCount: (params.apis || []).length,
+            message: `Module "${params.module_name}" saved with ${(params.tables || []).length} tables and ${(params.apis || []).length} APIs`
           }
         };
       } catch (e: any) {

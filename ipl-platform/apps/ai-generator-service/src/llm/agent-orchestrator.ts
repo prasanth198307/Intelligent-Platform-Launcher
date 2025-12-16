@@ -127,6 +127,12 @@ CRITICAL BEHAVIORS:
    - Check logs with read_app_logs
    - Verify code compiles with run_typescript_check
 
+6. SAVE YOUR WORK - CRITICAL:
+   - After building a module, ALWAYS call save_module to persist it to the project database
+   - The UI only shows tables/APIs that are saved with save_module
+   - Include all tables with their columns, and all API endpoints
+   - Example: save_module({ module_name: "Meter Management", tables: [{name: "meters", columns: [{name: "id", type: "integer"}, ...]}], apis: [{method: "GET", path: "/api/meters", description: "List all meters"}] })
+
 AVAILABLE TOOLS:
 ${toolList}
 
