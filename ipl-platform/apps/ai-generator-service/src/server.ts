@@ -20,6 +20,7 @@ import {
   groqGenerateDocumentation,
   groqRecommendDomainModules,
   groqGenerateSingleModule,
+  groqNLPAssistant,
 } from "./llm/providers/groq-devops.js";
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
@@ -802,6 +803,29 @@ app.post("/api/generate-documentation", async (req, res) => {
   } catch (e: any) {
     console.error("Documentation generation failed:", e);
     res.status(500).json({ error: "Documentation generation failed", details: e?.message || String(e) });
+  }
+});
+
+// AI-powered NLP Assistant - Natural Language Interface
+app.post("/api/assistant", async (req, res) => {
+  try {
+    const { prompt, context } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: "prompt is required" });
+    }
+    
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: "AI assistant requires GROQ_API_KEY" });
+    }
+    
+    console.log(`Processing NLP request: "${prompt.substring(0, 50)}..."`);
+    const result = await groqNLPAssistant({ prompt, context });
+    
+    res.json({ ok: true, aiGenerated: true, ...result });
+  } catch (e: any) {
+    console.error("AI assistant failed:", e);
+    res.status(500).json({ error: "AI assistant failed", details: e?.message || String(e) });
   }
 });
 

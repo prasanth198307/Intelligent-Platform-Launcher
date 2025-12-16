@@ -1272,3 +1272,98 @@ Return ONLY valid JSON with all code.`;
     clearTimeout(timeout);
   }
 }
+
+export interface NLPRequest {
+  prompt: string;
+  context?: {
+    domain?: string;
+    database?: string;
+    cloudProvider?: string;
+    existingModules?: string[];
+    existingTables?: Array<{ name: string; columns: Array<{ name: string; type: string }> }>;
+  };
+}
+
+export interface NLPResponse {
+  intent: string;
+  response: any;
+  followUp?: string;
+}
+
+export async function groqNLPAssistant(request: NLPRequest): Promise<NLPResponse> {
+  const client = getClient();
+
+  const contextInfo = request.context ? `
+Current Project Context:
+- Domain: ${request.context.domain || 'not specified'}
+- Database: ${request.context.database || 'postgresql'}
+- Cloud Provider: ${request.context.cloudProvider || 'aws'}
+- Existing Modules: ${request.context.existingModules?.join(', ') || 'none'}
+- Existing Tables: ${request.context.existingTables?.map(t => t.name).join(', ') || 'none'}
+` : '';
+
+  const prompt = `You are an intelligent assistant for an application development platform. 
+Understand the user's request and respond appropriately.
+
+${contextInfo}
+
+USER REQUEST: "${request.prompt}"
+
+Based on the request, determine the intent and provide the appropriate response:
+
+POSSIBLE INTENTS:
+1. "recommend_modules" - User wants to know what modules they need for their domain
+2. "generate_module" - User wants to generate a specific module
+3. "explain_domain" - User wants to understand what a domain involves
+4. "generate_infrastructure" - User wants infrastructure code (Terraform, Docker, K8s)
+5. "generate_api" - User wants API code
+6. "generate_database" - User wants database schema/migrations
+7. "security_analysis" - User wants security recommendations
+8. "cost_optimization" - User wants cost reduction suggestions
+9. "general_question" - General question about development
+10. "clarification_needed" - Need more information from user
+
+For each intent, provide the appropriate detailed response.
+
+Examples:
+- "What modules do I need for a hospital app?" → recommend_modules with healthcare modules
+- "Build me the patient module" → generate_module with Patient Management code
+- "I'm building a banking system" → explain_domain with banking overview + recommend starting modules
+- "How should I structure my healthcare database?" → generate_database with schema recommendations
+
+Return ONLY valid JSON:
+{
+  "intent": "the_intent",
+  "response": { ...detailed response based on intent... },
+  "followUp": "Optional question to ask user for more details"
+}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    console.log("Processing NLP request with Groq AI...");
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { 
+            role: "system", 
+            content: `You are a helpful AI assistant for enterprise software development. You understand natural language and help users build applications by recommending modules, generating code, and providing guidance. Be conversational but precise. Return ONLY valid JSON.` 
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 12000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
