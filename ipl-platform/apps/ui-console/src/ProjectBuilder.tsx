@@ -685,6 +685,7 @@ export default function ProjectBuilder() {
                   consoleLogs={consoleLogs}
                   appStatus={appStatus}
                   onClearConsole={() => setConsoleLogs([])}
+                  modules={project.modules || []}
                 />
               </div>
             </div>

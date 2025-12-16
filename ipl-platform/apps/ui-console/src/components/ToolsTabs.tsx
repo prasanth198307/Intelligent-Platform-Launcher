@@ -3,12 +3,21 @@ import './ToolsTabs.css';
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8080' : '';
 
+interface Module {
+  name: string;
+  description?: string;
+  tables?: string[];
+  apis?: string[];
+  status: string;
+}
+
 interface ToolsTabsProps {
   projectId: string;
   files: Array<{ path: string; content: string; type: string }>;
   consoleLogs: string[];
   appStatus: { status: string; port: number | null; logs: string[] };
   onClearConsole: () => void;
+  modules?: Module[];
 }
 
 interface Tab {
@@ -40,6 +49,7 @@ interface DbTable {
 const AVAILABLE_TOOLS = [
   { id: 'preview', name: 'Preview', icon: '🖥️', description: 'Preview your App' },
   { id: 'console', name: 'Console', icon: '⌨️', description: 'View terminal output after running your code' },
+  { id: 'modules', name: 'Modules', icon: '📦', description: 'View modules created by the AI agent' },
   { id: 'shell', name: 'Shell', icon: '💻', description: 'Directly access your App through a command line interface (CLI)' },
   { id: 'git', name: 'Git', icon: '⎇', description: 'Version control for your App' },
   { id: 'database', name: 'Database', icon: '🗄️', description: 'Stores structured data such as user profiles, game scores, and product catalogs' },
@@ -63,7 +73,8 @@ export function ToolsTabs({
   files,
   consoleLogs,
   appStatus,
-  onClearConsole
+  onClearConsole,
+  modules = []
 }: ToolsTabsProps) {
   const [tabs, setTabs] = useState<Tab[]>([
     { id: 'preview', name: 'Preview', icon: '🖥️', closable: false },
@@ -483,6 +494,55 @@ export function ToolsTabs({
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'modules' && (
+          <div className="tab-content modules-content">
+            <div className="modules-header">
+              <h3>Built Modules</h3>
+              <span className="module-count">{modules.length} module{modules.length !== 1 ? 's' : ''}</span>
+            </div>
+            {modules.length === 0 ? (
+              <div className="modules-empty">
+                <div className="empty-icon">📦</div>
+                <p>No modules built yet</p>
+                <p className="empty-hint">Ask the AI to create modules like "Build user management" or "Create products module"</p>
+              </div>
+            ) : (
+              <div className="modules-list">
+                {modules.map((mod, i) => (
+                  <div key={i} className={`module-card module-${mod.status}`}>
+                    <div className="module-header">
+                      <span className="module-icon">📦</span>
+                      <span className="module-name">{mod.name}</span>
+                      <span className={`module-status status-${mod.status}`}>{mod.status}</span>
+                    </div>
+                    {mod.description && (
+                      <p className="module-description">{mod.description}</p>
+                    )}
+                    <div className="module-details">
+                      {mod.tables && mod.tables.length > 0 && (
+                        <div className="module-tables">
+                          <span className="detail-label">Tables:</span>
+                          {mod.tables.map((t, ti) => (
+                            <span key={ti} className="table-tag">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                      {mod.apis && mod.apis.length > 0 && (
+                        <div className="module-apis">
+                          <span className="detail-label">APIs:</span>
+                          {mod.apis.map((a, ai) => (
+                            <span key={ai} className="api-tag">{a}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
