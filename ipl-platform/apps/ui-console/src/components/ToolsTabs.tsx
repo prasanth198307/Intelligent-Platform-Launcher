@@ -104,6 +104,10 @@ export function ToolsTabs({
   const [queryResult, setQueryResult] = useState<any>(null);
   const [dbActiveTab, setDbActiveTab] = useState<'data' | 'settings'>('data');
   const [selectedTable, setSelectedTable] = useState<string>('');
+  
+  // GitHub connection modal
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
+  const [gitHubUrlInput, setGitHubUrlInput] = useState('');
 
   // Secrets state
   const [secrets, setSecrets] = useState<Secret[]>([]);
@@ -316,6 +320,25 @@ export function ToolsTabs({
       }
     } catch (e: any) {
       setGitError(e?.message || 'Pull failed');
+    }
+    setGitLoading(false);
+  };
+
+  // GitHub connection
+  const handleConnectGitHub = async () => {
+    if (!gitHubUrlInput.trim()) return;
+    setGitLoading(true);
+    try {
+      await fetch(`${API_BASE}/api/git/add-remote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, remoteUrl: gitHubUrlInput.trim(), remoteName: 'origin' })
+      });
+      setShowGitHubModal(false);
+      setGitHubUrlInput('');
+      await loadGitStatus();
+    } catch (e) {
+      console.error('Failed to connect GitHub:', e);
     }
     setGitLoading(false);
   };
@@ -634,14 +657,8 @@ export function ToolsTabs({
                         <button 
                           className="change-repo-btn"
                           onClick={() => {
-                            const repoUrl = prompt('Enter new GitHub repository URL:', gitStatus.remotes?.find(r => r.name === 'origin')?.url || '');
-                            if (repoUrl) {
-                              fetch(`${API_BASE}/api/git/add-remote`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ projectId, remoteUrl: repoUrl, remoteName: 'origin' })
-                              }).then(() => loadGitStatus()).catch(console.error);
-                            }
+                            setGitHubUrlInput(gitStatus.remotes?.find(r => r.name === 'origin')?.url || '');
+                            setShowGitHubModal(true);
                           }}
                         >
                           Change
@@ -659,14 +676,8 @@ export function ToolsTabs({
                     <div className="connect-repo-section">
                       <p className="no-remote-text">No remote repository connected</p>
                       <button className="connect-repo-btn" onClick={() => {
-                        const repoUrl = prompt('Enter GitHub repository URL (e.g., https://github.com/user/repo.git):');
-                        if (repoUrl) {
-                          fetch(`${API_BASE}/api/git/add-remote`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ projectId, remoteUrl: repoUrl, remoteName: 'origin' })
-                          }).then(() => loadGitStatus()).catch(console.error);
-                        }
+                        setGitHubUrlInput('');
+                        setShowGitHubModal(true);
                       }}>
                         + Connect to GitHub
                       </button>
@@ -1273,6 +1284,49 @@ export function ToolsTabs({
           </div>
         )}
       </div>
+      
+      {/* GitHub Connection Modal */}
+      {showGitHubModal && (
+        <div className="modal-overlay" onClick={() => setShowGitHubModal(false)}>
+          <div className="modal-content github-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🐙 Connect to GitHub</h3>
+              <button className="modal-close" onClick={() => setShowGitHubModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="modal-description">
+                Enter the URL of your GitHub repository to connect it to this project.
+              </p>
+              <div className="form-group">
+                <label>Repository URL</label>
+                <input
+                  type="text"
+                  value={gitHubUrlInput}
+                  onChange={e => setGitHubUrlInput(e.target.value)}
+                  placeholder="https://github.com/username/repository"
+                  className="modal-input"
+                  autoFocus
+                />
+              </div>
+              <p className="input-hint">
+                Example: https://github.com/user/my-project.git
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn secondary" onClick={() => setShowGitHubModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="modal-btn primary" 
+                onClick={handleConnectGitHub}
+                disabled={!gitHubUrlInput.trim() || gitLoading}
+              >
+                {gitLoading ? 'Connecting...' : 'Connect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
