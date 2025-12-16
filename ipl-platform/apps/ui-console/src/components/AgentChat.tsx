@@ -256,9 +256,44 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
           </div>
         ))}
 
-        {/* Simple thinking indicator like Replit */}
+        {/* Activity log like Replit - shows what agent is doing */}
+        {events.length > 0 && (
+          <div className="agent-activity-log">
+            {events.slice(-10).map((event, i) => (
+              <div key={`event-${i}`} className="activity-log-item">
+                {event.type === 'tool_call' && (
+                  <>
+                    <span className="activity-icon-small">↻</span>
+                    <span className="activity-log-text">{event.data.tool}</span>
+                  </>
+                )}
+                {event.type === 'tool_result' && (
+                  <>
+                    <span className="activity-icon-small">✓</span>
+                    <span className="activity-log-text">Completed {event.data.tool || 'task'}</span>
+                  </>
+                )}
+                {event.type === 'thinking' && (
+                  <>
+                    <span className="activity-icon-small">◐</span>
+                    <span className="activity-log-text">{event.data.message}</span>
+                  </>
+                )}
+                {event.type === 'task_update' && (
+                  <>
+                    <span className="activity-icon-small">◉</span>
+                    <span className="activity-log-text">{event.data.task?.content || 'Task updated'}</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Current thinking indicator */}
         {currentThinking && (
           <div className="agent-thinking-simple">
+            <span className="activity-icon-small">◐</span>
             <span className="thinking-text">{currentThinking}</span>
             <span className="thinking-dots-inline">
               <span></span><span></span><span></span>
