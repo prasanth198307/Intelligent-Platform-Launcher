@@ -17,7 +17,6 @@ import EnvironmentPanel from "./EnvironmentPanel";
 import GuidedWizard from "./GuidedWizard";
 import MigrationAssistantPanel from "./MigrationAssistantPanel";
 import DocumentationPanel from "./DocumentationPanel";
-import ProjectBuilder from "./ProjectBuilder";
 
 const API_BASE_URL = '';
 
@@ -1486,7 +1485,10 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'dashboard' | 'wizard'>('dashboard');
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showMigrationAssistant, setShowMigrationAssistant] = useState(false);
-  const [showProjectBuilder, setShowProjectBuilder] = useState(false);
+  const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
+  const [applicationVerified, setApplicationVerified] = useState(false);
+  const [infrastructureRec, setInfrastructureRec] = useState<any>(null);
+  const [verifying, setVerifying] = useState(false);
 
   // Category navigation state for reorganized UI
   const [activeCategory, setActiveCategory] = useState<string>('overview');
@@ -2057,16 +2059,9 @@ export default function App() {
             <button className="workspace-btn migration-btn" onClick={() => setShowMigrationAssistant(true)} title="Database Migration Assistant">
               Migration
             </button>
-            <button className="workspace-btn ai-builder-btn" onClick={() => setShowProjectBuilder(true)} title="AI Project Builder">
-              AI Builder
-            </button>
           </div>
         </div>
       </header>
-
-      {showProjectBuilder && (
-        <ProjectBuilder onClose={() => setShowProjectBuilder(false)} />
-      )}
 
       {showMigrationAssistant && (
         <div className="modal-overlay" onClick={() => setShowMigrationAssistant(false)}>
