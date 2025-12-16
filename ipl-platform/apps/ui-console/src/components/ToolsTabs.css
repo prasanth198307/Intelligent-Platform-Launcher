@@ -249,20 +249,29 @@
 .tab-content h3 {
   margin: 0 0 8px;
   font-size: 16px;
-  color: #fff;
+  color: var(--pro-text-primary, #1a1a2e);
+  font-family: var(--pro-font-sans);
 }
 
 .tab-content h4 {
   margin: 16px 0 8px;
   font-size: 12px;
-  color: #888;
+  color: var(--pro-text-muted, #868e96);
   text-transform: uppercase;
+  font-family: var(--pro-font-sans);
 }
 
 .tab-content p {
-  color: #a0a0b0;
+  color: var(--pro-text-secondary, #495057);
   font-size: 13px;
   margin: 0 0 12px;
+  font-family: var(--pro-font-sans);
+}
+
+/* Professional Console Tab Content */
+.console-content {
+  background: var(--pro-bg-primary, #ffffff);
+  padding: 20px !important;
 }
 
 /* Preview */
