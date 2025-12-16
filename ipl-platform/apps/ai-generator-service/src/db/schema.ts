@@ -1,5 +1,31 @@
 import { pgTable, serial, text, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
 
+// Chat sessions for incremental development
+export const chatSessions = pgTable("chat_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 100 }).notNull().unique(),
+  domain: varchar("domain", { length: 100 }),
+  database: varchar("database", { length: 50 }).default("postgresql"),
+  cloudProvider: varchar("cloud_provider", { length: 50 }).default("aws"),
+  modules: jsonb("modules").$type<Array<{
+    name: string;
+    status: 'planned' | 'in_progress' | 'completed';
+    tables: Array<{ name: string; columns: Array<{ name: string; type: string; references?: string }> }>;
+    apis: string[];
+    screens: string[];
+  }>>().default([]),
+  conversationHistory: jsonb("conversation_history").$type<Array<{
+    role: 'user' | 'assistant';
+    message: string;
+    timestamp: string;
+  }>>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type InsertChatSession = typeof chatSessions.$inferInsert;
+
 export const workspaces = pgTable("workspaces", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),

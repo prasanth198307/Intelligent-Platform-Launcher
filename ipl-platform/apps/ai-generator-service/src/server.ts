@@ -28,7 +28,7 @@ import {
 // In-memory session storage (would use DB in production)
 const projectSessions = new Map<string, ProjectSession>();
 import { db } from "./db/index.js";
-import { workspaces } from "./db/schema.js";
+import { workspaces, chatSessions } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import {
   generateTerraform,
@@ -834,7 +834,7 @@ app.post("/api/assistant", async (req, res) => {
   }
 });
 
-// Conversational AI with Session Context - Incremental Development
+// Conversational AI with Session Context - Incremental Development (Database Persisted)
 app.post("/api/chat", async (req, res) => {
   try {
     const { sessionId, message, domain, database, cloudProvider } = req.body;
@@ -847,21 +847,44 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "AI chat requires GROQ_API_KEY" });
     }
     
-    // Get or create session
-    const sid = sessionId || `session-${Date.now()}`;
-    let session = projectSessions.get(sid);
+    // Get or create session from database
+    const sid = sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    let dbSession = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, sid)).limit(1);
     
-    if (!session) {
-      session = {
+    let session: ProjectSession;
+    
+    if (dbSession.length === 0) {
+      // Create new session in database
+      const [newSession] = await db.insert(chatSessions).values({
         sessionId: sid,
         domain: domain || '',
         database: database || 'postgresql',
         cloudProvider: cloudProvider || 'aws',
         modules: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        conversationHistory: [],
+      }).returning();
+      
+      session = {
+        sessionId: sid,
+        domain: newSession.domain || '',
+        database: newSession.database || 'postgresql',
+        cloudProvider: newSession.cloudProvider || 'aws',
+        modules: [],
+        createdAt: newSession.createdAt,
+        updatedAt: newSession.updatedAt,
       };
-      projectSessions.set(sid, session);
+    } else {
+      // Load existing session
+      const existingSession = dbSession[0];
+      session = {
+        sessionId: existingSession.sessionId,
+        domain: existingSession.domain || '',
+        database: existingSession.database || 'postgresql',
+        cloudProvider: existingSession.cloudProvider || 'aws',
+        modules: (existingSession.modules as any) || [],
+        createdAt: existingSession.createdAt,
+        updatedAt: existingSession.updatedAt,
+      };
     }
     
     // Update session with any new context
@@ -878,13 +901,27 @@ app.post("/api/chat", async (req, res) => {
     
     // Update session with any context changes from AI
     if (result.updatedContext?.modules) {
-      session.modules = result.updatedContext.modules;
+      session.modules = result.updatedContext.modules as any;
     }
     if (result.updatedContext?.domain) {
       session.domain = result.updatedContext.domain;
     }
-    session.updatedAt = new Date();
-    projectSessions.set(sid, session);
+    
+    // Save to database
+    await db.update(chatSessions)
+      .set({
+        domain: session.domain,
+        database: session.database,
+        cloudProvider: session.cloudProvider,
+        modules: session.modules as any,
+        conversationHistory: [
+          ...((dbSession[0]?.conversationHistory as any) || []),
+          { role: 'user', message, timestamp: new Date().toISOString() },
+          { role: 'assistant', message: result.message, timestamp: new Date().toISOString() },
+        ],
+        updatedAt: new Date(),
+      })
+      .where(eq(chatSessions.sessionId, sid));
     
     res.json({ 
       ok: true, 
@@ -893,8 +930,8 @@ app.post("/api/chat", async (req, res) => {
       projectState: {
         domain: session.domain,
         database: session.database,
-        completedModules: session.modules.filter(m => m.status === 'completed').map(m => m.name),
-        existingTables: session.modules.flatMap(m => m.tables?.map(t => t.name) || []),
+        completedModules: session.modules.filter((m: any) => m.status === 'completed').map((m: any) => m.name),
+        existingTables: session.modules.flatMap((m: any) => m.tables?.map((t: any) => t.name) || []),
       },
       ...result 
     });
@@ -904,13 +941,33 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// Get session state
+// Get session state from database
 app.get("/api/chat/:sessionId", async (req, res) => {
-  const session = projectSessions.get(req.params.sessionId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
+  try {
+    const [session] = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, req.params.sessionId)).limit(1);
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    res.json({ ok: true, session });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get session", details: e?.message || String(e) });
   }
-  res.json({ ok: true, session });
+});
+
+// List all sessions for a user (could filter by user in future)
+app.get("/api/chat-sessions", async (req, res) => {
+  try {
+    const sessions = await db.select({
+      sessionId: chatSessions.sessionId,
+      domain: chatSessions.domain,
+      modules: chatSessions.modules,
+      createdAt: chatSessions.createdAt,
+      updatedAt: chatSessions.updatedAt,
+    }).from(chatSessions).orderBy(desc(chatSessions.updatedAt)).limit(50);
+    res.json({ ok: true, sessions });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to list sessions", details: e?.message || String(e) });
+  }
 });
 
 // AI-powered domain module recommendations
