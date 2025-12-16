@@ -7,6 +7,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import Groq from "groq-sdk";
 
 const execAsync = promisify(exec);
 
@@ -1306,7 +1307,6 @@ export const agentTools: AgentTool[] = [
     },
     execute: async (params, context) => {
       try {
-        const Groq = require("groq-sdk").default;
         const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
         
         // Create a focused prompt for the sub-agent

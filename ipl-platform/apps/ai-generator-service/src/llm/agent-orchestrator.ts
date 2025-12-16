@@ -1,10 +1,10 @@
 import { EventEmitter } from "events";
 import { getToolDefinitions, executeTool, ToolContext, agentTools } from "./agent-tools.js";
+import Groq from "groq-sdk";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 function getGroqClient() {
-  const Groq = require("groq-sdk").default;
   return new Groq({ apiKey: process.env.GROQ_API_KEY });
 }
 
