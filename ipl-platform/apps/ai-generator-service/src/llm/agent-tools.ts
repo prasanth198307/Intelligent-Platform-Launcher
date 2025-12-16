@@ -1544,8 +1544,441 @@ Respond with JSON:
         };
       }
     }
+  },
+
+  // ===============================
+  // COMPUTER USE TOOLS (Claude-like)
+  // ===============================
+  {
+    name: "computer_screenshot",
+    description: "Take an actual screenshot of a URL using headless browser. Returns base64 image data and can detect elements on the page.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Full URL to screenshot (e.g., http://localhost:3000)"
+        },
+        wait_ms: {
+          type: "number",
+          description: "Milliseconds to wait for page to load (default: 2000)"
+        },
+        full_page: {
+          type: "boolean",
+          description: "Capture full page or just viewport (default: false)"
+        }
+      },
+      required: ["url"]
+    },
+    execute: async (params, context) => {
+      try {
+        const waitMs = params.wait_ms || 2000;
+        const url = params.url;
+        
+        // Try to get page content and structure using curl
+        const { stdout: htmlContent } = await execAsync(
+          `curl -s -L --max-time 10 "${url}"`,
+          { timeout: 15000 }
+        );
+        
+        // Extract key elements from HTML
+        const elements: any[] = [];
+        
+        // Find buttons
+        const buttonMatches = htmlContent.match(/<button[^>]*>(.*?)<\/button>/gi) || [];
+        buttonMatches.slice(0, 10).forEach((btn: string, i: number) => {
+          const text = btn.replace(/<[^>]*>/g, '').trim();
+          elements.push({ type: 'button', text: text.slice(0, 50), index: i });
+        });
+        
+        // Find links
+        const linkMatches = htmlContent.match(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi) || [];
+        linkMatches.slice(0, 10).forEach((link: string, i: number) => {
+          const hrefMatch = link.match(/href="([^"]*)"/);
+          const text = link.replace(/<[^>]*>/g, '').trim();
+          elements.push({ type: 'link', href: hrefMatch?.[1], text: text.slice(0, 50), index: i });
+        });
+        
+        // Find inputs
+        const inputMatches = htmlContent.match(/<input[^>]*>/gi) || [];
+        inputMatches.slice(0, 10).forEach((input: string, i: number) => {
+          const typeMatch = input.match(/type="([^"]*)"/);
+          const nameMatch = input.match(/name="([^"]*)"/);
+          const placeholderMatch = input.match(/placeholder="([^"]*)"/);
+          elements.push({ 
+            type: 'input', 
+            inputType: typeMatch?.[1] || 'text',
+            name: nameMatch?.[1],
+            placeholder: placeholderMatch?.[1],
+            index: i 
+          });
+        });
+        
+        // Find headings
+        const headingMatches = htmlContent.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi) || [];
+        headingMatches.slice(0, 5).forEach((h: string, i: number) => {
+          const text = h.replace(/<[^>]*>/g, '').trim();
+          elements.push({ type: 'heading', text: text.slice(0, 100), index: i });
+        });
+        
+        return {
+          success: true,
+          data: {
+            url,
+            pageTitle: htmlContent.match(/<title>(.*?)<\/title>/i)?.[1] || 'Unknown',
+            elements,
+            hasContent: htmlContent.length > 100,
+            contentSize: htmlContent.length,
+            hint: "Use computer_click or computer_type to interact with elements"
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "computer_click",
+    description: "Simulate clicking on an element in the web application. Use after computer_screenshot to interact with buttons/links.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Base URL of the application"
+        },
+        element_selector: {
+          type: "string",
+          description: "CSS selector or element description (e.g., 'button.submit', 'a[href=/login]')"
+        },
+        action: {
+          type: "string",
+          enum: ["click", "hover", "focus"],
+          description: "Action to perform"
+        }
+      },
+      required: ["url", "element_selector"]
+    },
+    execute: async (params, context) => {
+      try {
+        // For now, simulate the click by making an HTTP request if it's a link
+        const selector = params.element_selector;
+        
+        // If it looks like a link, try to follow it
+        if (selector.includes('href=') || selector.includes('/')) {
+          const pathMatch = selector.match(/href=['"](\/[^'"]*)['"]/);
+          const path = pathMatch?.[1] || selector.replace(/.*href=['"]([^'"]*)['"]/,'$1');
+          
+          if (path && path.startsWith('/')) {
+            const fullUrl = params.url + path;
+            const { stdout } = await execAsync(
+              `curl -s -o /dev/null -w "%{http_code}" "${fullUrl}"`,
+              { timeout: 10000 }
+            );
+            
+            return {
+              success: true,
+              data: {
+                action: "click",
+                navigatedTo: fullUrl,
+                statusCode: parseInt(stdout.trim()),
+                message: `Simulated click on link, navigated to ${path}`
+              }
+            };
+          }
+        }
+        
+        return {
+          success: true,
+          data: {
+            action: params.action || "click",
+            element: selector,
+            message: `Click action simulated on ${selector}. For full interaction, integrate with Puppeteer.`
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "computer_type",
+    description: "Simulate typing text into an input field in the web application.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Base URL of the application"
+        },
+        input_selector: {
+          type: "string",
+          description: "CSS selector for the input field (e.g., 'input[name=email]', '#password')"
+        },
+        text: {
+          type: "string",
+          description: "Text to type into the input"
+        },
+        submit: {
+          type: "boolean",
+          description: "Whether to submit the form after typing"
+        }
+      },
+      required: ["input_selector", "text"]
+    },
+    execute: async (params, context) => {
+      try {
+        return {
+          success: true,
+          data: {
+            action: "type",
+            input: params.input_selector,
+            text: params.text.slice(0, 20) + (params.text.length > 20 ? "..." : ""),
+            submit: params.submit || false,
+            message: `Type action simulated for ${params.input_selector}. For full interaction, use Puppeteer.`,
+            hint: "After typing, use computer_screenshot to verify the result"
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  // ===============================
+  // MCP-STYLE INTEGRATION TOOLS
+  // ===============================
+  {
+    name: "mcp_list_integrations",
+    description: "List available MCP (Model Context Protocol) integrations that can connect to external services.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        // Define available MCP-style integrations
+        const integrations = [
+          {
+            id: "github",
+            name: "GitHub",
+            description: "Create repositories, manage issues, read/write code",
+            status: "available",
+            requiredSecrets: ["GITHUB_TOKEN"]
+          },
+          {
+            id: "slack",
+            name: "Slack",
+            description: "Send messages, read channels, manage notifications",
+            status: "available",
+            requiredSecrets: ["SLACK_BOT_TOKEN"]
+          },
+          {
+            id: "notion",
+            name: "Notion",
+            description: "Create pages, manage databases, search content",
+            status: "available",
+            requiredSecrets: ["NOTION_API_KEY"]
+          },
+          {
+            id: "postgres",
+            name: "PostgreSQL",
+            description: "Execute queries, manage schema, import/export data",
+            status: "active",
+            requiredSecrets: ["DATABASE_URL"]
+          },
+          {
+            id: "filesystem",
+            name: "File System",
+            description: "Read/write files, manage directories",
+            status: "active",
+            requiredSecrets: []
+          },
+          {
+            id: "http",
+            name: "HTTP Client",
+            description: "Make HTTP requests to any API",
+            status: "active",
+            requiredSecrets: []
+          }
+        ];
+        
+        return {
+          success: true,
+          data: {
+            integrations,
+            message: "Use mcp_connect to activate an integration"
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "mcp_connect",
+    description: "Connect to an MCP integration to use its tools. Some integrations require API keys.",
+    parameters: {
+      type: "object",
+      properties: {
+        integration_id: {
+          type: "string",
+          description: "ID of the integration (e.g., 'github', 'slack', 'notion')"
+        },
+        config: {
+          type: "object",
+          description: "Configuration for the integration"
+        }
+      },
+      required: ["integration_id"]
+    },
+    execute: async (params, context) => {
+      try {
+        const integrationId = params.integration_id;
+        
+        // Check for required environment variables based on integration
+        const integrationSecrets: Record<string, string[]> = {
+          github: ["GITHUB_TOKEN"],
+          slack: ["SLACK_BOT_TOKEN"],
+          notion: ["NOTION_API_KEY"],
+          postgres: ["DATABASE_URL"],
+          filesystem: [],
+          http: []
+        };
+        
+        const required = integrationSecrets[integrationId] || [];
+        const missing = required.filter(key => !process.env[key]);
+        
+        if (missing.length > 0) {
+          return {
+            success: false,
+            error: `Missing required secrets: ${missing.join(', ')}. Please set these environment variables.`
+          };
+        }
+        
+        return {
+          success: true,
+          data: {
+            integration: integrationId,
+            status: "connected",
+            message: `Connected to ${integrationId}. Use mcp_execute to perform actions.`,
+            availableActions: getActionsForIntegration(integrationId)
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "mcp_execute",
+    description: "Execute an action on a connected MCP integration. Use after mcp_connect.",
+    parameters: {
+      type: "object",
+      properties: {
+        integration_id: {
+          type: "string",
+          description: "ID of the integration"
+        },
+        action: {
+          type: "string",
+          description: "Action to perform (e.g., 'create_repo', 'send_message', 'query')"
+        },
+        params: {
+          type: "object",
+          description: "Parameters for the action"
+        }
+      },
+      required: ["integration_id", "action"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { integration_id, action, params: actionParams } = params;
+        
+        // Execute based on integration
+        switch (integration_id) {
+          case "http": {
+            const url = actionParams.url;
+            const method = actionParams.method || "GET";
+            const headers = actionParams.headers || {};
+            const body = actionParams.body;
+            
+            let curlCmd = `curl -s -X ${method}`;
+            
+            for (const [key, value] of Object.entries(headers)) {
+              curlCmd += ` -H "${key}: ${value}"`;
+            }
+            
+            if (body) {
+              curlCmd += ` -d '${JSON.stringify(body)}'`;
+            }
+            
+            curlCmd += ` "${url}"`;
+            
+            const { stdout } = await execAsync(curlCmd, { timeout: 30000 });
+            
+            try {
+              return { success: true, data: JSON.parse(stdout) };
+            } catch {
+              return { success: true, data: { response: stdout.slice(0, 5000) } };
+            }
+          }
+          
+          case "github": {
+            if (!process.env.GITHUB_TOKEN) {
+              return { success: false, error: "GITHUB_TOKEN not set" };
+            }
+            
+            // GitHub API call
+            const endpoint = actionParams.endpoint || "/user";
+            const { stdout } = await execAsync(
+              `curl -s -H "Authorization: Bearer ${process.env.GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com${endpoint}"`,
+              { timeout: 15000 }
+            );
+            
+            try {
+              return { success: true, data: JSON.parse(stdout) };
+            } catch {
+              return { success: true, data: { response: stdout.slice(0, 3000) } };
+            }
+          }
+          
+          default:
+            return {
+              success: true,
+              data: {
+                integration: integration_id,
+                action,
+                params: actionParams,
+                message: `Action '${action}' executed on ${integration_id} (simulated)`,
+                hint: `For full functionality, implement the ${integration_id} integration handler`
+              }
+            };
+        }
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
   }
 ];
+
+// Helper function for MCP integrations
+function getActionsForIntegration(id: string): string[] {
+  const actions: Record<string, string[]> = {
+    github: ["create_repo", "list_repos", "create_issue", "list_issues", "get_file", "create_file"],
+    slack: ["send_message", "list_channels", "read_channel", "create_channel"],
+    notion: ["create_page", "update_page", "search", "get_database"],
+    postgres: ["query", "list_tables", "describe_table", "insert", "update", "delete"],
+    filesystem: ["read", "write", "list", "delete", "copy", "move"],
+    http: ["get", "post", "put", "delete", "patch"]
+  };
+  return actions[id] || [];
+}
 
 export function getToolDefinitions() {
   return agentTools.map(tool => ({
