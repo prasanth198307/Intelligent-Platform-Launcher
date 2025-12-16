@@ -1225,6 +1225,200 @@ app.get("/api/projects/:projectId/materialized-files", async (req, res) => {
 });
 
 // ============================================================
+// PROJECT RUNNER - Start/Stop Generated Applications
+// ============================================================
+import { spawn, ChildProcess } from "child_process";
+
+interface RunningProject {
+  process: ChildProcess;
+  port: number;
+  logs: string[];
+  status: "starting" | "running" | "stopped" | "error";
+  startedAt: Date;
+}
+
+const runningProjects = new Map<string, RunningProject>();
+const PROJECT_PORT_START = 3100;
+
+function getNextAvailablePort(): number {
+  const usedPorts = new Set([...runningProjects.values()].map(p => p.port));
+  for (let port = PROJECT_PORT_START; port < PROJECT_PORT_START + 100; port++) {
+    if (!usedPorts.has(port)) return port;
+  }
+  return PROJECT_PORT_START + 100;
+}
+
+app.post("/api/projects/:projectId/run", async (req, res) => {
+  const { projectId } = req.params;
+  const PROJECTS_DIR = "/tmp/ipl-projects";
+  const projectDir = `${PROJECTS_DIR}/${projectId}`;
+  
+  try {
+    const fs = await import("fs/promises");
+    await fs.access(projectDir);
+    
+    if (runningProjects.has(projectId)) {
+      const existing = runningProjects.get(projectId)!;
+      if (existing.status === "running" || existing.status === "starting") {
+        return res.json({ 
+          ok: true, 
+          status: existing.status, 
+          port: existing.port,
+          message: "Project already running",
+          logs: existing.logs.slice(-50)
+        });
+      }
+    }
+    
+    const port = getNextAvailablePort();
+    const logs: string[] = [];
+    const projectState: RunningProject = {
+      process: null as any,
+      port,
+      logs,
+      status: "starting",
+      startedAt: new Date()
+    };
+    
+    runningProjects.set(projectId, projectState);
+    
+    logs.push(`[${new Date().toISOString()}] Starting project on port ${port}...`);
+    logs.push(`[${new Date().toISOString()}] Installing dependencies...`);
+    
+    const npmInstall = spawn("npm", ["install"], { 
+      cwd: projectDir,
+      env: { ...process.env, PORT: String(port) }
+    });
+    
+    projectState.process = npmInstall;
+    
+    npmInstall.stdout.on("data", (data) => {
+      logs.push(data.toString().trim());
+      if (logs.length > 500) logs.shift();
+    });
+    
+    npmInstall.stderr.on("data", (data) => {
+      logs.push(data.toString().trim());
+      if (logs.length > 500) logs.shift();
+    });
+    
+    npmInstall.on("error", (err) => {
+      logs.push(`[${new Date().toISOString()}] Install error: ${err.message}`);
+      projectState.status = "error";
+    });
+    
+    npmInstall.on("close", (code) => {
+      if (code === 0) {
+        logs.push(`[${new Date().toISOString()}] Dependencies installed. Starting server...`);
+        
+        const serverProcess = spawn("npm", ["start"], {
+          cwd: projectDir,
+          env: { ...process.env, PORT: String(port), DATABASE_URL: process.env.DATABASE_URL }
+        });
+        
+        projectState.process = serverProcess;
+        projectState.status = "running";
+        
+        serverProcess.stdout.on("data", (data) => {
+          logs.push(data.toString().trim());
+          if (logs.length > 500) logs.shift();
+        });
+        
+        serverProcess.stderr.on("data", (data) => {
+          logs.push(data.toString().trim());
+          if (logs.length > 500) logs.shift();
+        });
+        
+        serverProcess.on("close", (exitCode) => {
+          logs.push(`[${new Date().toISOString()}] Server exited with code ${exitCode}`);
+          projectState.status = "stopped";
+        });
+        
+        serverProcess.on("error", (err) => {
+          logs.push(`[${new Date().toISOString()}] Server error: ${err.message}`);
+          projectState.status = "error";
+        });
+      } else {
+        logs.push(`[${new Date().toISOString()}] npm install failed with code ${code}`);
+        projectState.status = "error";
+      }
+    });
+    
+    res.json({ 
+      ok: true, 
+      status: "starting", 
+      port,
+      message: "Project starting...",
+      logs: logs.slice(-20)
+    });
+  } catch (e: any) {
+    res.status(400).json({ 
+      error: "Project not materialized yet. Generate code first.",
+      details: e?.message
+    });
+  }
+});
+
+app.post("/api/projects/:projectId/stop", async (req, res) => {
+  const { projectId } = req.params;
+  
+  const running = runningProjects.get(projectId);
+  if (!running) {
+    return res.json({ ok: true, message: "Project not running" });
+  }
+  
+  try {
+    if (running.process) {
+      running.process.kill("SIGTERM");
+    }
+    running.logs.push(`[${new Date().toISOString()}] Server stopped by user`);
+    running.status = "stopped";
+    runningProjects.delete(projectId);
+    
+    res.json({ ok: true, message: "Project stopped" });
+  } catch (e: any) {
+    runningProjects.delete(projectId);
+    res.status(500).json({ error: "Failed to stop project", details: e?.message });
+  }
+});
+
+app.get("/api/projects/:projectId/status", async (req, res) => {
+  const { projectId } = req.params;
+  
+  const running = runningProjects.get(projectId);
+  if (!running) {
+    return res.json({ 
+      ok: true, 
+      status: "not_running", 
+      port: null,
+      logs: []
+    });
+  }
+  
+  res.json({
+    ok: true,
+    status: running.status,
+    port: running.port,
+    startedAt: running.startedAt,
+    logs: running.logs.slice(-100)
+  });
+});
+
+app.get("/api/projects/:projectId/logs", async (req, res) => {
+  const { projectId } = req.params;
+  
+  const running = runningProjects.get(projectId);
+  if (!running) {
+    return res.json({ ok: true, logs: [] });
+  }
+  
+  res.json({
+    ok: true,
+    logs: running.logs.slice(-200)
+  });
+});
+
+// ============================================================
 // APPLICATION-FIRST WORKFLOW APIs
 // ============================================================
 

@@ -84,8 +84,9 @@ export default function ProjectBuilder() {
   const [chatHistory, setChatHistory] = useState<Array<{ role: string; message: string; timestamp?: string; suggestedModules?: string[] }>>([]);
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [infrastructureRec, setInfrastructureRec] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'console' | 'tables' | 'apis' | 'files'>('console');
+  const [activeTab, setActiveTab] = useState<'console' | 'tables' | 'apis' | 'files' | 'preview'>('console');
   const [issueInput, setIssueInput] = useState('');
+  const [appStatus, setAppStatus] = useState<{ status: string; port: number | null; logs: string[] }>({ status: 'not_running', port: null, logs: [] });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
@@ -424,6 +425,77 @@ export default function ProjectBuilder() {
     setLoading(false);
   };
 
+  const runApp = async () => {
+    if (!project) return;
+    setLoading(true);
+    addLog('Starting application...');
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${project.projectId}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        addLog(`Application starting on port ${data.port}...`);
+        setAppStatus({ status: data.status, port: data.port, logs: data.logs || [] });
+        setActiveTab('preview');
+        pollAppStatus();
+      } else {
+        setError(data.error);
+        addLog(`ERROR: ${data.error}`);
+      }
+    } catch (e: any) {
+      setError(e.message);
+      addLog(`ERROR: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
+  const stopApp = async () => {
+    if (!project) return;
+    setLoading(true);
+    addLog('Stopping application...');
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${project.projectId}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        addLog('Application stopped');
+        setAppStatus({ status: 'stopped', port: null, logs: [] });
+      } else {
+        setError(data.error);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  const pollAppStatus = async () => {
+    if (!project) return;
+    
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/projects/${project.projectId}/status`);
+        const data = await res.json();
+        if (data.ok) {
+          setAppStatus({ status: data.status, port: data.port, logs: data.logs || [] });
+          if (data.status === 'starting' || data.status === 'running') {
+            setTimeout(checkStatus, data.status === 'starting' ? 2000 : 5000);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to poll status:', e);
+      }
+    };
+    
+    checkStatus();
+  };
+
   const formatNumber = (num: number) => {
     if (num >= 1000000000) return `${(num / 1000000000).toFixed(1)}B`;
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -644,6 +716,7 @@ export default function ProjectBuilder() {
                   <button className={activeTab === 'tables' ? 'active' : ''} onClick={() => setActiveTab('tables')}>Tables ({allTables.length})</button>
                   <button className={activeTab === 'apis' ? 'active' : ''} onClick={() => setActiveTab('apis')}>APIs ({allApis.length})</button>
                   <button className={activeTab === 'files' ? 'active' : ''} onClick={() => setActiveTab('files')}>Files</button>
+                  <button className={activeTab === 'preview' ? 'active' : ''} onClick={() => setActiveTab('preview')}>Preview</button>
                 </div>
 
                 <div className="output-content">
@@ -717,6 +790,71 @@ export default function ProjectBuilder() {
                         </div>
                       ) : (
                         <FileExplorer files={project.generatedFiles} />
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'preview' && (
+                    <div className="preview-area">
+                      <div className="preview-header">
+                        <div className="preview-status">
+                          <span className={`status-dot ${appStatus.status}`}></span>
+                          <span>Status: {appStatus.status}</span>
+                          {appStatus.port && <span className="port-badge">Port {appStatus.port}</span>}
+                        </div>
+                        <div className="preview-actions">
+                          {appStatus.status === 'not_running' || appStatus.status === 'stopped' || appStatus.status === 'error' ? (
+                            <button className="run-btn" onClick={runApp} disabled={loading || !project.generatedFiles?.length}>
+                              Run App
+                            </button>
+                          ) : (
+                            <button className="stop-btn" onClick={stopApp} disabled={loading}>
+                              Stop App
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {!project.generatedFiles?.length ? (
+                        <div className="empty-state">
+                          <p>Generate code files first to run and preview the application.</p>
+                        </div>
+                      ) : appStatus.status === 'not_running' || appStatus.status === 'stopped' ? (
+                        <div className="empty-state">
+                          <p>Click "Run App" to start your application and see it live.</p>
+                        </div>
+                      ) : appStatus.status === 'starting' ? (
+                        <div className="starting-state">
+                          <div className="spinner"></div>
+                          <p>Starting application...</p>
+                          <div className="app-logs">
+                            {appStatus.logs.slice(-10).map((log, i) => (
+                              <div key={i} className="log-line">{log}</div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : appStatus.status === 'error' ? (
+                        <div className="error-state">
+                          <p>Application failed to start</p>
+                          <div className="app-logs error">
+                            {appStatus.logs.slice(-20).map((log, i) => (
+                              <div key={i} className="log-line">{log}</div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="preview-content">
+                          <div className="preview-info">
+                            <p>Application running on port {appStatus.port}</p>
+                            <p className="preview-note">Note: The app runs internally. Use the API endpoints to interact with it.</p>
+                          </div>
+                          <div className="app-logs running">
+                            <h4>Application Logs</h4>
+                            {appStatus.logs.slice(-30).map((log, i) => (
+                              <div key={i} className="log-line">{log}</div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

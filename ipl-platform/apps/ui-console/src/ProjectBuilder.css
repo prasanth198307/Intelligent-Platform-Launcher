@@ -367,6 +367,30 @@ h4 { color: #808090; margin: 0 0 8px; font-size: 0.9rem; }
 .files-list { display: flex; flex-direction: column; gap: 4px; }
 .file-item { padding: 8px 12px; background: #0f0f1a; border-radius: 4px; color: #e0e0e0; font-size: 0.85rem; font-family: monospace; }
 
+.preview-area { padding: 16px; overflow-y: auto; height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.preview-header { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #0f0f1a; border-radius: 8px; }
+.preview-status { display: flex; align-items: center; gap: 10px; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.not_running, .status-dot.stopped { background: #808090; }
+.status-dot.starting { background: #f59e0b; animation: pulse 1s infinite; }
+.status-dot.running { background: #22c55e; }
+.status-dot.error { background: #ef4444; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.port-badge { padding: 2px 8px; background: #667eea; border-radius: 4px; font-size: 0.75rem; color: white; }
+.run-btn { padding: 8px 16px; background: #22c55e; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 500; }
+.run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.stop-btn { padding: 8px 16px; background: #ef4444; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 500; }
+.starting-state, .error-state { text-align: center; padding: 20px; }
+.starting-state .spinner { width: 40px; height: 40px; border: 3px solid #2a2a4a; border-top-color: #667eea; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.app-logs { margin-top: 16px; padding: 12px; background: #0a0a14; border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace; font-size: 0.75rem; text-align: left; max-height: 200px; overflow-y: auto; }
+.app-logs.error { border: 1px solid #ef4444; }
+.app-logs.running { border: 1px solid #22c55e; }
+.app-logs h4 { margin-bottom: 8px; color: #808090; }
+.log-line { color: #a0a0c0; padding: 2px 0; white-space: pre-wrap; word-break: break-all; }
+.preview-content .preview-info { padding: 16px; background: #0f0f1a; border-radius: 8px; text-align: center; }
+.preview-note { color: #808090; font-size: 0.85rem; margin-top: 8px; }
+
 .building-sidebar {
   background: #1a1a2e;
   border-radius: 8px;
