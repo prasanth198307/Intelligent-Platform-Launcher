@@ -13,6 +13,7 @@
     "@types/multer": "^2.0.0",
     "@xyflow/react": "^12.10.0",
     "drizzle-orm": "^0.45.1",
+    "groq-sdk": "^0.37.0",
     "mammoth": "^1.11.0",
     "mssql": "^12.2.0",
     "multer": "^2.0.2",
