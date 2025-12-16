@@ -8,6 +8,14 @@ const require = createRequire(import.meta.url);
 const pdf = require("pdf-parse");
 import { runLLM, runLLMForType, runGenerateCode, runReviewCode, runFixCode, runExplainCode } from "./llm/index.js";
 import { groqGenerateMobileApp, groqGenerateBackendApi } from "./llm/providers/groq-mobile.js";
+import {
+  groqGenerateInfrastructure,
+  groqGenerateCICD,
+  groqGenerateMigrations,
+  groqGenerateAuth,
+  groqGenerateLoadTests,
+  groqGenerateAPIDocs,
+} from "./llm/providers/groq-devops.js";
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
@@ -766,7 +774,7 @@ app.delete("/api/workspaces/:id", async (req, res) => {
   }
 });
 
-app.post("/api/parse-document", upload.single("file"), async (req, res) => {
+app.post("/api/parse-document", upload.single("file") as any, async (req, res) => {
   try {
     const file = req.file;
     
@@ -1536,6 +1544,238 @@ app.post("/api/migration/generate-inserts", async (req, res) => {
   } catch (e: any) {
     console.error("INSERT generation failed:", e);
     res.status(500).json({ error: "INSERT generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-infrastructure", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.cloudProvider) {
+      return res.status(400).json({ error: "domain and cloudProvider are required" });
+    }
+
+    console.log("AI Infrastructure generation request:", config.projectName || config.domain);
+    const result = await groqGenerateInfrastructure(config);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    console.error("AI Infrastructure generation failed:", e);
+    res.status(500).json({ error: "AI Infrastructure generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-cicd", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.platform) {
+      return res.status(400).json({ error: "domain and platform are required" });
+    }
+
+    console.log("AI CI/CD generation request:", config.projectName || config.domain);
+    const result = await groqGenerateCICD(config);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    console.error("AI CI/CD generation failed:", e);
+    res.status(500).json({ error: "AI CI/CD generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-migrations", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.database || !config.tables) {
+      return res.status(400).json({ error: "domain, database, and tables are required" });
+    }
+
+    console.log("AI Migrations generation request:", config.projectName || config.domain);
+    const result = await groqGenerateMigrations(config);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    console.error("AI Migrations generation failed:", e);
+    res.status(500).json({ error: "AI Migrations generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-auth", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.framework || !config.authType) {
+      return res.status(400).json({ error: "domain, framework, and authType are required" });
+    }
+
+    console.log("AI Auth generation request:", config.projectName || config.domain);
+    const result = await groqGenerateAuth(config);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    console.error("AI Auth generation failed:", e);
+    res.status(500).json({ error: "AI Auth generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-load-tests", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.tool || !config.baseUrl) {
+      return res.status(400).json({ error: "domain, tool, and baseUrl are required" });
+    }
+
+    console.log("AI Load Tests generation request:", config.projectName || config.domain);
+    const result = await groqGenerateLoadTests(config);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    console.error("AI Load Tests generation failed:", e);
+    res.status(500).json({ error: "AI Load Tests generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-api-docs", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.tables) {
+      return res.status(400).json({ error: "domain and tables are required" });
+    }
+
+    console.log("AI API Docs generation request:", config.projectName || config.domain);
+    const result = await groqGenerateAPIDocs(config);
+    res.json({ ok: true, data: result });
+  } catch (e: any) {
+    console.error("AI API Docs generation failed:", e);
+    res.status(500).json({ error: "AI API Docs generation failed", details: e?.message || String(e) });
+  }
+});
+
+app.post("/api/ai/generate-all-devops", async (req, res) => {
+  try {
+    const config = req.body;
+    
+    if (!config.domain || !config.tables) {
+      return res.status(400).json({ error: "domain and tables are required" });
+    }
+
+    console.log("AI Full DevOps generation request:", config.projectName || config.domain);
+
+    const results: Record<string, any> = {};
+    const errors: Record<string, string> = {};
+
+    if (config.infrastructure) {
+      try {
+        results.infrastructure = await groqGenerateInfrastructure({
+          ...config,
+          cloudProvider: config.cloudProvider || 'aws',
+          region: config.region || 'us-east-1',
+          environment: config.environment || 'production',
+          services: config.services || ['web', 'api'],
+        });
+      } catch (e: any) {
+        errors.infrastructure = e?.message || String(e);
+      }
+    }
+
+    if (config.cicd) {
+      try {
+        results.cicd = await groqGenerateCICD({
+          ...config,
+          platform: config.cicdPlatform || 'github',
+          language: config.language || 'nodejs',
+          deploymentTarget: config.deploymentTarget || 'kubernetes',
+          environments: config.environments || ['development', 'staging', 'production'],
+          features: config.cicdFeatures || {
+            unitTests: true,
+            integrationTests: true,
+            e2eTests: false,
+            securityScan: true,
+            codeQuality: true,
+            containerBuild: true,
+            autoRelease: false,
+          },
+        });
+      } catch (e: any) {
+        errors.cicd = e?.message || String(e);
+      }
+    }
+
+    if (config.migrations) {
+      try {
+        results.migrations = await groqGenerateMigrations({
+          ...config,
+          orm: config.orm || 'drizzle',
+          auditColumns: config.auditColumns ?? true,
+          softDelete: config.softDelete ?? false,
+          seedData: config.seedData ?? true,
+        });
+      } catch (e: any) {
+        errors.migrations = e?.message || String(e);
+      }
+    }
+
+    if (config.auth) {
+      try {
+        results.auth = await groqGenerateAuth({
+          ...config,
+          framework: config.authFramework || 'express',
+          authType: config.authType || 'jwt',
+          mfa: config.mfa ?? false,
+          rbac: config.rbac ?? true,
+          roles: config.roles || ['user', 'admin'],
+        });
+      } catch (e: any) {
+        errors.auth = e?.message || String(e);
+      }
+    }
+
+    if (config.loadTests) {
+      try {
+        results.loadTests = await groqGenerateLoadTests({
+          ...config,
+          tool: config.loadTestTool || 'k6',
+          baseUrl: config.baseUrl || 'http://localhost:3000',
+          endpoints: config.endpoints || [
+            { method: 'GET', path: '/api/health' },
+            { method: 'GET', path: '/api/users' },
+          ],
+          scenarios: config.scenarios || {
+            smoke: { vus: 5, duration: '1m' },
+            load: { vus: 50, duration: '5m' },
+            stress: { vus: 100, duration: '10m' },
+          },
+          thresholds: config.thresholds || {
+            p95ResponseTime: 500,
+            p99ResponseTime: 1000,
+            errorRate: 1,
+          },
+        });
+      } catch (e: any) {
+        errors.loadTests = e?.message || String(e);
+      }
+    }
+
+    if (config.apiDocs) {
+      try {
+        results.apiDocs = await groqGenerateAPIDocs({
+          ...config,
+          version: config.apiVersion || '1.0.0',
+          baseUrl: config.apiBaseUrl || 'https://api.example.com',
+          description: config.apiDescription || `${config.domain} API`,
+          authentication: config.apiAuth || 'jwt',
+        });
+      } catch (e: any) {
+        errors.apiDocs = e?.message || String(e);
+      }
+    }
+
+    res.json({ 
+      ok: true, 
+      data: results,
+      errors: Object.keys(errors).length > 0 ? errors : undefined,
+    });
+  } catch (e: any) {
+    console.error("AI Full DevOps generation failed:", e);
+    res.status(500).json({ error: "AI Full DevOps generation failed", details: e?.message || String(e) });
   }
 });
 
