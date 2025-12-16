@@ -1494,6 +1494,19 @@
   border-color: #f97316;
 }
 
+.workspace-btn.ai-builder-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+}
+
+.workspace-btn.ai-builder-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
 .migration-modal {
   max-width: 95vw;
   width: 95vw;

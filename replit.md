@@ -48,6 +48,12 @@ ipl-platform/
   - **Integrations**: Integrations & APIs, Development Tools
 - Collapsible sections allow users to expand/collapse individual panels within each category.
 - A highlights summary card displays key metrics (Tier, Est. Cost, Cloud Provider, Deployment Type) at the top of the results.
+- **AI Project Builder**: Application-first development workflow accessible via "AI Builder" button in header. Features a 5-phase workflow:
+  1. **Setup**: Create project with name, description, and domain selection
+  2. **Benchmarking**: Configure domain-specific scale parameters (e.g., AMI: meters/devices, records/day, concurrent users)
+  3. **Building**: Chat with AI agent to build modules incrementally with proper foreign key relationships
+  4. **Preview**: Run and test the application, report issues for AI-powered debugging
+  5. **Infrastructure**: Get recommendations for compute, database, caching, and cloud costs after app verification
 
 **Technical Implementations & Feature Specifications:**
 - **Domain Agnostic**: Supports 26+ industry domains (e.g., AMI, Banking, Healthcare, Manufacturing) and industry-specific compliance standards.
