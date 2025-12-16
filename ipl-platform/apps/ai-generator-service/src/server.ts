@@ -7,6 +7,7 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const pdf = require("pdf-parse");
 import { runLLM, runLLMForType, runGenerateCode, runReviewCode, runFixCode, runExplainCode } from "./llm/index.js";
+import { groqGenerateMobileApp, groqGenerateBackendApi } from "./llm/providers/groq-mobile.js";
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
@@ -523,7 +524,16 @@ app.post("/api/generate-mobile-app", async (req, res) => {
       pushNotifications: pushNotifications !== false,
     };
     
-    const result = generateMobileApp(config as any);
+    const provider = process.env.LLM_PROVIDER || "mock";
+    let result;
+    
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      console.log("Generating mobile app with Groq AI...");
+      result = await groqGenerateMobileApp(config as any);
+    } else {
+      result = generateMobileApp(config as any);
+    }
+    
     res.json({ ok: true, ...result });
   } catch (e: any) {
     console.error("Mobile app generation failed:", e);
@@ -553,7 +563,16 @@ app.post("/api/generate-backend", async (req, res) => {
       port: port,
     };
     
-    const result = generateBackendApi(config);
+    const provider = process.env.LLM_PROVIDER || "mock";
+    let result;
+    
+    if (provider === "groq" && process.env.GROQ_API_KEY) {
+      console.log("Generating backend API with Groq AI...");
+      result = await groqGenerateBackendApi(config);
+    } else {
+      result = generateBackendApi(config);
+    }
+    
     res.json({ ok: true, ...result });
   } catch (e: any) {
     console.error("Backend API generation failed:", e);
