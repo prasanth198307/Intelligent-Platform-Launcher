@@ -3563,6 +3563,7 @@ app.post("/api/ai/generate-all-devops", async (req, res) => {
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`AI Generator on :${PORT}`);
-  console.log(`LLM Provider: ${process.env.LLM_PROVIDER || "mock"}`);
-  console.log(`OpenAI Key: ${process.env.OPENAI_API_KEY ? "configured" : "not set (using mock)"}`);
+  const llmProvider = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ? "Claude (Anthropic)" : 
+                      process.env.GROQ_API_KEY ? "Groq (Llama 3.3)" : "mock";
+  console.log(`LLM Provider: ${llmProvider}`);
 });

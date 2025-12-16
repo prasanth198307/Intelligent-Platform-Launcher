@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@types/multer": "^2.0.0",
     "@xyflow/react": "^12.10.0",
     "drizzle-orm": "^0.45.1",

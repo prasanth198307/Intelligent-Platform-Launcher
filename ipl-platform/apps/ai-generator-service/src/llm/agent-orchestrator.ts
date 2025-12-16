@@ -1,8 +1,26 @@
 import { EventEmitter } from "events";
 import { getToolDefinitions, executeTool, ToolContext, agentTools } from "./agent-tools.js";
+import Anthropic from "@anthropic-ai/sdk";
 import Groq from "groq-sdk";
 
+const CLAUDE_MODEL = "claude-sonnet-4-5";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
+
+type LLMProvider = "anthropic" | "groq";
+
+function getLLMProvider(): LLMProvider {
+  if (process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+    return "anthropic";
+  }
+  return "groq";
+}
+
+function getAnthropicClient() {
+  return new Anthropic({
+    apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL
+  });
+}
 
 function getGroqClient() {
   return new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -155,9 +173,103 @@ Always respond with JSON:
 Keep working until ALL tasks are complete, then use final_response.`;
   }
 
+  private async callLLM(messages: any[], tools: any[]): Promise<{ content: string; toolCalls: any[] }> {
+    const provider = getLLMProvider();
+    
+    if (provider === "anthropic") {
+      const client = getAnthropicClient();
+      
+      // Convert tools to Anthropic format
+      const anthropicTools = tools.map(t => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters
+      }));
+      
+      // Convert messages - Anthropic doesn't use system in messages array
+      const systemPrompt = messages.find(m => m.role === "system")?.content || "";
+      const conversationMessages = messages
+        .filter(m => m.role !== "system")
+        .map(m => {
+          if (m.tool_calls) {
+            // Convert assistant message with tool calls
+            return {
+              role: "assistant" as const,
+              content: m.tool_calls.map((tc: any) => ({
+                type: "tool_use" as const,
+                id: tc.id,
+                name: tc.function.name,
+                input: JSON.parse(tc.function.arguments || "{}")
+              }))
+            };
+          }
+          if (m.role === "tool") {
+            // Convert tool result
+            return {
+              role: "user" as const,
+              content: [{
+                type: "tool_result" as const,
+                tool_use_id: m.tool_call_id,
+                content: m.content
+              }]
+            };
+          }
+          return { role: m.role as "user" | "assistant", content: m.content };
+        });
+      
+      const response = await client.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 16000,
+        system: systemPrompt,
+        messages: conversationMessages,
+        tools: anthropicTools
+      });
+      
+      // Extract content and tool calls from Anthropic response
+      let textContent = "";
+      const toolCalls: any[] = [];
+      
+      for (const block of response.content) {
+        if (block.type === "text") {
+          textContent += block.text;
+        } else if (block.type === "tool_use") {
+          toolCalls.push({
+            id: block.id,
+            type: "function",
+            function: {
+              name: block.name,
+              arguments: JSON.stringify(block.input)
+            }
+          });
+        }
+      }
+      
+      return { content: textContent, toolCalls };
+    } else {
+      // Groq (OpenAI-compatible)
+      const client = getGroqClient();
+      
+      const response = await client.chat.completions.create({
+        model: GROQ_MODEL,
+        messages,
+        tools,
+        tool_choice: "auto",
+        temperature: 0.2,
+        max_tokens: 16000
+      });
+      
+      const msg = response.choices[0].message;
+      return {
+        content: msg.content || "",
+        toolCalls: msg.tool_calls || []
+      };
+    }
+  }
+
   async run(userMessage: string): Promise<void> {
     this.session.status = "running";
     this.currentIteration = 0;
+    this.rateLimitRetries = 0;
     
     this.session.conversationHistory.push({
       role: "user",
@@ -165,9 +277,9 @@ Keep working until ALL tasks are complete, then use final_response.`;
       timestamp: Date.now()
     });
 
-    this.emit_event("thinking", { message: "Understanding your request..." });
+    const provider = getLLMProvider();
+    this.emit_event("thinking", { message: `Understanding your request... (using ${provider === "anthropic" ? "Claude" : "Groq"})` });
 
-    const client = getGroqClient();
     const toolDefinitions = getToolDefinitions();
     
     // Add orchestration tools
@@ -264,25 +376,19 @@ Keep working until ALL tasks are complete, then use final_response.`;
       this.emit_event("thinking", { iteration: this.currentIteration, message: `Processing step ${this.currentIteration}...` });
 
       try {
-        const response = await client.chat.completions.create({
-          model: GROQ_MODEL,
-          messages,
-          tools: allTools,
-          tool_choice: "auto",
-          temperature: 0.2,
-          max_tokens: 16000
-        });
+        const { content, toolCalls } = await this.callLLM(messages, allTools);
+        
+        // Reset rate limit counter on success
+        this.rateLimitRetries = 0;
 
-        const assistantMessage = response.choices[0].message;
-
-        if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+        if (toolCalls && toolCalls.length > 0) {
           messages.push({
             role: "assistant",
-            content: assistantMessage.content || "",
-            tool_calls: assistantMessage.tool_calls
+            content: content || "",
+            tool_calls: toolCalls
           });
 
-          for (const toolCall of assistantMessage.tool_calls) {
+          for (const toolCall of toolCalls) {
             const toolName = toolCall.function.name;
             let toolArgs: any = {};
             
@@ -356,14 +462,14 @@ Keep working until ALL tasks are complete, then use final_response.`;
         }
 
         // No tool calls - check if this is a final response
-        const content = assistantMessage.content || "";
+        const responseText = content || "";
         
         // Try to parse as JSON
         try {
-          const parsed = JSON.parse(content.replace(/```json\s*/gi, '').replace(/```\s*/g, ''));
+          const parsed = JSON.parse(responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, ''));
           if (parsed.action === "final_response") {
             this.emit_event("complete", {
-              message: parsed.message || content,
+              message: parsed.message || responseText,
               tasks: this.session.tasks,
               iterations: this.currentIteration
             });
@@ -376,14 +482,14 @@ Keep working until ALL tasks are complete, then use final_response.`;
         // Regular response without tools
         this.session.conversationHistory.push({
           role: "assistant",
-          content,
+          content: responseText,
           timestamp: Date.now()
         });
 
-        this.emit_event("message", { message: content });
+        this.emit_event("message", { message: responseText });
         this.session.status = "complete";
         this.emit_event("complete", {
-          message: content,
+          message: responseText,
           tasks: this.session.tasks,
           iterations: this.currentIteration
         });
@@ -424,9 +530,9 @@ Keep working until ALL tasks are complete, then use final_response.`;
   }
 
   private async runReview(summary: string, filesChanged: string[]): Promise<any> {
-    const client = getGroqClient();
+    const provider = getLLMProvider();
     
-    this.emit_event("thinking", { message: "Architect agent is reviewing your work..." });
+    this.emit_event("thinking", { message: `Architect agent is reviewing your work... (using ${provider === "anthropic" ? "Claude" : "Groq"})` });
     
     // Read actual file contents for the architect to review
     let fileContents = "";
@@ -490,14 +596,32 @@ Respond with JSON:
 }`;
 
     try {
-      const response = await client.chat.completions.create({
-        model: GROQ_MODEL,
-        messages: [{ role: "user", content: architectPrompt }],
-        temperature: 0.1,
-        max_tokens: 4000
-      });
+      let content = "";
+      
+      if (provider === "anthropic") {
+        const client = getAnthropicClient();
+        const response = await client.messages.create({
+          model: CLAUDE_MODEL,
+          max_tokens: 4000,
+          messages: [{ role: "user", content: architectPrompt }]
+        });
+        
+        for (const block of response.content) {
+          if (block.type === "text") {
+            content += block.text;
+          }
+        }
+      } else {
+        const client = getGroqClient();
+        const response = await client.chat.completions.create({
+          model: GROQ_MODEL,
+          messages: [{ role: "user", content: architectPrompt }],
+          temperature: 0.1,
+          max_tokens: 4000
+        });
+        content = response.choices[0].message.content || "";
+      }
 
-      const content = response.choices[0].message.content || "";
       this.emit_event("review", { type: "architect_response", content });
       
       try {
