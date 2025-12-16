@@ -28,10 +28,14 @@ interface Tab {
 }
 
 interface GitStatus {
+  initialized: boolean;
   branch: string;
   changedFiles: Array<{ status: string; file: string; statusLabel: string }>;
   changedCount: number;
   commits: Array<{ hash: string; message: string; time: string; author: string }>;
+  remotes?: Array<{ name: string; url: string }>;
+  isProjectDir?: boolean;
+  hint?: string;
 }
 
 interface Secret {
@@ -578,7 +582,7 @@ export function ToolsTabs({
         {activeTab === 'git' && (
           <div className="tab-content git-content">
             <div className="git-header">
-              <h3>Version Control</h3>
+              <h3>⎇ Version Control</h3>
               <button className="refresh-btn" onClick={loadGitStatus} disabled={gitLoading}>
                 {gitLoading ? '...' : '↻'}
               </button>
@@ -586,12 +590,34 @@ export function ToolsTabs({
             
             {gitError && <div className="git-error">{gitError}</div>}
             
-            {gitStatus && (
+            {gitLoading && !gitStatus && (
+              <p className="loading-text">Loading git status...</p>
+            )}
+            
+            {gitStatus && !gitStatus.initialized && (
+              <div className="git-not-initialized">
+                <p className="git-hint">{gitStatus.hint || 'Git repository not initialized'}</p>
+              </div>
+            )}
+            
+            {gitStatus && gitStatus.initialized && (
               <>
                 <div className="git-branch">
                   <span className="branch-icon">⎇</span>
                   <span>{gitStatus.branch}</span>
+                  {!gitStatus.isProjectDir && <span className="workspace-badge">Workspace</span>}
                 </div>
+                
+                {gitStatus.remotes && gitStatus.remotes.length > 0 && (
+                  <div className="git-remotes">
+                    {gitStatus.remotes.map((remote, i) => (
+                      <div key={i} className="remote-item">
+                        <span className="remote-name">{remote.name}</span>
+                        <span className="remote-url">{remote.url}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 
                 <div className="git-section">
                   <h4>Changes ({gitStatus.changedCount})</h4>
@@ -599,12 +625,15 @@ export function ToolsTabs({
                     <p className="no-changes">No uncommitted changes</p>
                   ) : (
                     <div className="changed-files">
-                      {gitStatus.changedFiles.map((f, i) => (
+                      {gitStatus.changedFiles.slice(0, 20).map((f, i) => (
                         <div key={i} className={`file-change ${f.status}`}>
                           <span className="change-status">{f.statusLabel}</span>
                           <span className="change-file">{f.file}</span>
                         </div>
                       ))}
+                      {gitStatus.changedFiles.length > 20 && (
+                        <p className="more-files">... and {gitStatus.changedFiles.length - 20} more files</p>
+                      )}
                     </div>
                   )}
                 </div>

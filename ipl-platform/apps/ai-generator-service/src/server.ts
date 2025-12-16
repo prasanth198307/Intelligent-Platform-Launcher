@@ -3615,19 +3615,41 @@ app.get("/api/git/status", async (req, res) => {
     const rawProjectId = req.query.projectId as string;
     const projectId = sanitizeProjectId(rawProjectId);
     
-    if (!projectId) {
-      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    // Determine working directory - use project dir if exists, otherwise use main workspace
+    let workDir = process.cwd();
+    let isProjectDir = false;
+    
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+        isProjectDir = true;
+      }
     }
     
-    const projectDir = await getProjectDir(projectId);
-    if (!projectDir || !fs.existsSync(projectDir)) {
-      return res.status(404).json({ ok: false, error: "Project directory not found" });
+    // Check if it's a git repository
+    const isGitRepo = fs.existsSync(`${workDir}/.git`) || await execFileAsync('git', ['rev-parse', '--git-dir'], { cwd: workDir }).then(() => true).catch(() => false);
+    
+    if (!isGitRepo) {
+      return res.json({
+        ok: true,
+        data: {
+          initialized: false,
+          branch: 'Not initialized',
+          changedFiles: [],
+          changedCount: 0,
+          commits: [],
+          isProjectDir,
+          hint: 'Git repository not initialized. Run "git init" to start version control.'
+        }
+      });
     }
     
-    const [status, branch, log] = await Promise.all([
-      execFileAsync('git', ['status', '--porcelain'], { cwd: projectDir }).catch(() => ({ stdout: '' })),
-      execFileAsync('git', ['branch', '--show-current'], { cwd: projectDir }).catch(() => ({ stdout: 'main' })),
-      execFileAsync('git', ['log', '-10', '--format=%h|%s|%cr|%an'], { cwd: projectDir }).catch(() => ({ stdout: '' }))
+    const [status, branch, log, remote] = await Promise.all([
+      execFileAsync('git', ['status', '--porcelain'], { cwd: workDir }).catch(() => ({ stdout: '' })),
+      execFileAsync('git', ['branch', '--show-current'], { cwd: workDir }).catch(() => ({ stdout: 'main' })),
+      execFileAsync('git', ['log', '-10', '--format=%h|%s|%cr|%an'], { cwd: workDir }).catch(() => ({ stdout: '' })),
+      execFileAsync('git', ['remote', '-v'], { cwd: workDir }).catch(() => ({ stdout: '' }))
     ]);
     
     const changedFiles = (status as any).stdout.split('\n').filter(Boolean).map((line: string) => {
@@ -3641,13 +3663,23 @@ app.get("/api/git/status", async (req, res) => {
       return { hash, message, time, author };
     });
     
+    // Parse remote URLs
+    const remoteLines = (remote as any).stdout.split('\n').filter(Boolean);
+    const remotes = remoteLines.map((line: string) => {
+      const [name, url] = line.split(/\s+/);
+      return { name, url: url?.replace(/\s+\(.*\)$/, '') };
+    });
+    
     res.json({
       ok: true,
       data: {
-        branch: (branch as any).stdout.trim(),
+        initialized: true,
+        branch: (branch as any).stdout.trim() || 'main',
         changedFiles,
         changedCount: changedFiles.length,
-        commits
+        commits,
+        remotes: [...new Map(remotes.map((r: any) => [r.name, r])).values()],
+        isProjectDir
       }
     });
   } catch (e: any) {
@@ -3660,17 +3692,17 @@ app.post("/api/git/commit", async (req, res) => {
     const { projectId: rawProjectId, message } = req.body;
     const projectId = sanitizeProjectId(rawProjectId);
     
-    if (!projectId) {
-      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    // Determine working directory
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
     }
     
-    const projectDir = await getProjectDir(projectId);
-    if (!projectDir || !fs.existsSync(projectDir)) {
-      return res.status(404).json({ ok: false, error: "Project directory not found" });
-    }
-    
-    await execFileAsync('git', ['add', '-A'], { cwd: projectDir });
-    const { stdout } = await execFileAsync('git', ['commit', '-m', message], { cwd: projectDir });
+    await execFileAsync('git', ['add', '-A'], { cwd: workDir });
+    const { stdout } = await execFileAsync('git', ['commit', '-m', message], { cwd: workDir });
     
     res.json({
       ok: true,
@@ -3689,16 +3721,16 @@ app.post("/api/git/push", async (req, res) => {
     const { projectId: rawProjectId } = req.body;
     const projectId = sanitizeProjectId(rawProjectId);
     
-    if (!projectId) {
-      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    // Determine working directory
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
     }
     
-    const projectDir = await getProjectDir(projectId);
-    if (!projectDir || !fs.existsSync(projectDir)) {
-      return res.status(404).json({ ok: false, error: "Project directory not found" });
-    }
-    
-    const { stdout, stderr } = await execFileAsync('git', ['push'], { cwd: projectDir, timeout: 60000 });
+    const { stdout, stderr } = await execFileAsync('git', ['push'], { cwd: workDir, timeout: 60000 });
     
     res.json({
       ok: true,
@@ -3716,16 +3748,16 @@ app.post("/api/git/pull", async (req, res) => {
     const { projectId: rawProjectId } = req.body;
     const projectId = sanitizeProjectId(rawProjectId);
     
-    if (!projectId) {
-      return res.status(400).json({ ok: false, error: "Invalid or missing projectId" });
+    // Determine working directory
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
     }
     
-    const projectDir = await getProjectDir(projectId);
-    if (!projectDir || !fs.existsSync(projectDir)) {
-      return res.status(404).json({ ok: false, error: "Project directory not found" });
-    }
-    
-    const { stdout, stderr } = await execFileAsync('git', ['pull'], { cwd: projectDir, timeout: 60000 });
+    const { stdout, stderr } = await execFileAsync('git', ['pull'], { cwd: workDir, timeout: 60000 });
     
     res.json({
       ok: true,
