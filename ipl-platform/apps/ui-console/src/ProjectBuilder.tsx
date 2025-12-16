@@ -66,7 +66,7 @@ interface Project {
   generatedFiles: Array<{ path: string; content: string; type: string }>;
 }
 
-type Phase = 'setup' | 'benchmarking' | 'building' | 'preview' | 'infrastructure' | 'testing' | 'deployment';
+type Phase = 'setup' | 'benchmarking' | 'building' | 'infrastructure' | 'testing' | 'deployment';
 
 export default function ProjectBuilder() {
   const [phase, setPhase] = useState<Phase>('setup');
@@ -84,7 +84,7 @@ export default function ProjectBuilder() {
   const [chatHistory, setChatHistory] = useState<Array<{ role: string; message: string; timestamp?: string }>>([]);
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [infrastructureRec, setInfrastructureRec] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'console' | 'tables' | 'apis' | 'files'>('chat');
+  const [activeTab, setActiveTab] = useState<'console' | 'tables' | 'apis' | 'files'>('console');
   const [issueInput, setIssueInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -337,11 +337,10 @@ export default function ProjectBuilder() {
   const phases: { id: Phase; label: string; icon: string }[] = [
     { id: 'setup', label: 'Setup', icon: '1' },
     { id: 'benchmarking', label: 'Benchmarking', icon: '2' },
-    { id: 'building', label: 'Building', icon: '3' },
-    { id: 'preview', label: 'Preview', icon: '4' },
-    { id: 'infrastructure', label: 'Infrastructure', icon: '5' },
-    { id: 'testing', label: 'Testing', icon: '6' },
-    { id: 'deployment', label: 'Deployment', icon: '7' },
+    { id: 'building', label: 'Build & Preview', icon: '3' },
+    { id: 'infrastructure', label: 'Infrastructure', icon: '4' },
+    { id: 'testing', label: 'Testing', icon: '5' },
+    { id: 'deployment', label: 'Deployment', icon: '6' },
   ];
 
   const completedModules = project?.modules?.filter(m => m.status === 'completed' || m.tables?.length > 0) || [];
@@ -484,63 +483,65 @@ export default function ProjectBuilder() {
 
           {phase === 'building' && project && (
             <div className="building-phase">
-              <div className="building-main">
-                <div className="tabs-header">
-                  <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>Chat with AI</button>
+              <div className="chat-panel">
+                <div className="chat-header">
+                  <h3>Chat with AI Agent</h3>
+                  <span className="status-badge">{loading ? 'Thinking...' : 'Ready'}</span>
+                </div>
+                <div className="chat-messages">
+                  {chatHistory.length === 0 && (
+                    <div className="chat-welcome">
+                      <h3>AI Development Agent</h3>
+                      <p>Tell me what to build. For example:</p>
+                      <ul>
+                        <li>"Build the {selectedDomain === 'ami' ? 'meter management' : 'user management'} module"</li>
+                        <li>"What modules do I need?"</li>
+                        <li>"Add authentication with JWT"</li>
+                        <li>"The login button doesn't work" (report issues)</li>
+                      </ul>
+                    </div>
+                  )}
+                  {chatHistory.map((msg, i) => (
+                    <div key={i} className={`chat-message ${msg.role}`}>
+                      <div className="message-time">{msg.timestamp}</div>
+                      <div className="message-content">{msg.message}</div>
+                    </div>
+                  ))}
+                  {loading && <div className="chat-message assistant loading">Thinking...</div>}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className="chat-input-area">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyPress={e => e.key === 'Enter' && sendMessage()}
+                    placeholder="Tell the AI what to build or report issues..."
+                    disabled={loading}
+                  />
+                  <button onClick={sendMessage} disabled={loading || !chatInput.trim()}>Send</button>
+                </div>
+              </div>
+
+              <div className="output-panel">
+                <div className="output-tabs">
                   <button className={activeTab === 'console' ? 'active' : ''} onClick={() => setActiveTab('console')}>Console</button>
                   <button className={activeTab === 'tables' ? 'active' : ''} onClick={() => setActiveTab('tables')}>Tables ({allTables.length})</button>
                   <button className={activeTab === 'apis' ? 'active' : ''} onClick={() => setActiveTab('apis')}>APIs ({allApis.length})</button>
                   <button className={activeTab === 'files' ? 'active' : ''} onClick={() => setActiveTab('files')}>Files</button>
                 </div>
 
-                <div className="tab-content">
-                  {activeTab === 'chat' && (
-                    <div className="chat-area">
-                      <div className="chat-messages">
-                        {chatHistory.length === 0 && (
-                          <div className="chat-welcome">
-                            <h3>AI Development Agent</h3>
-                            <p>Tell me what modules to build. For example:</p>
-                            <ul>
-                              <li>"Build the {selectedDomain === 'ami' ? 'meter management' : 'user management'} module"</li>
-                              <li>"What modules do I need for this domain?"</li>
-                              <li>"Add authentication with JWT"</li>
-                            </ul>
-                          </div>
-                        )}
-                        {chatHistory.map((msg, i) => (
-                          <div key={i} className={`chat-message ${msg.role}`}>
-                            <div className="message-time">{msg.timestamp}</div>
-                            <div className="message-content">{msg.message}</div>
-                          </div>
-                        ))}
-                        {loading && <div className="chat-message assistant loading">Thinking...</div>}
-                        <div ref={chatEndRef} />
-                      </div>
-                      <div className="chat-input-area">
-                        <input
-                          type="text"
-                          value={chatInput}
-                          onChange={e => setChatInput(e.target.value)}
-                          onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                          placeholder="Tell the AI what to build..."
-                          disabled={loading}
-                        />
-                        <button onClick={sendMessage} disabled={loading || !chatInput.trim()}>Send</button>
-                      </div>
-                    </div>
-                  )}
-
+                <div className="output-content">
                   {activeTab === 'console' && (
-                    <div className="console-area">
-                      <div className="console-output">
-                        {consoleLogs.map((log, i) => (
-                          <div key={i} className={`console-line ${log.includes('ERROR') ? 'error' : log.includes('AI:') ? 'ai' : ''}`}>
-                            {log}
-                          </div>
-                        ))}
-                        <div ref={consoleEndRef} />
-                      </div>
+                    <div className="console-output">
+                      {consoleLogs.length === 0 ? (
+                        <div className="console-welcome">Console output will appear here as you work...</div>
+                      ) : consoleLogs.map((log, i) => (
+                        <div key={i} className={`console-line ${log.includes('ERROR') ? 'error' : log.includes('AI:') ? 'ai' : log.includes('Generated') ? 'success' : ''}`}>
+                          {log}
+                        </div>
+                      ))}
+                      <div ref={consoleEndRef} />
                     </div>
                   )}
 
@@ -554,9 +555,7 @@ export default function ProjectBuilder() {
                             <div key={i} className="table-card">
                               <h4>{table.name}</h4>
                               <table className="schema-table">
-                                <thead>
-                                  <tr><th>Column</th><th>Type</th><th>Key</th></tr>
-                                </thead>
+                                <thead><tr><th>Column</th><th>Type</th><th>Key</th></tr></thead>
                                 <tbody>
                                   {table.columns?.map((col, j) => (
                                     <tr key={j}>
@@ -577,7 +576,7 @@ export default function ProjectBuilder() {
                   {activeTab === 'apis' && (
                     <div className="apis-area">
                       {allApis.length === 0 ? (
-                        <div className="empty-state">No APIs generated yet. Ask the AI to build modules.</div>
+                        <div className="empty-state">No APIs generated yet.</div>
                       ) : (
                         <div className="apis-list">
                           {allApis.map((api, i) => (
@@ -606,101 +605,22 @@ export default function ProjectBuilder() {
                     </div>
                   )}
                 </div>
-              </div>
 
-              <div className="building-sidebar">
-                <div className="project-info">
-                  <h3>{project.name}</h3>
-                  <div className="info-row"><span>Domain:</span><strong>{getDomainConfig()?.name}</strong></div>
-                  <div className="info-row"><span>Database:</span><strong>{project.database}</strong></div>
-                  <div className="info-row"><span>Status:</span><strong>{project.status}</strong></div>
-                </div>
-
-                <div className="modules-list">
-                  <h4>Modules ({completedModules.length})</h4>
-                  {completedModules.map((m, i) => (
-                    <div key={i} className="module-item">
-                      <span className="module-status">done</span>
-                      <span className="module-name">{m.name}</span>
-                      <span className="module-meta">{m.tables?.length || 0}T / {m.apis?.length || 0}A</span>
-                    </div>
-                  ))}
-                </div>
-
-                {completedModules.length > 0 && (
-                  <button className="primary-btn full-width" onClick={startPreview}>
-                    Start Preview & Test
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {phase === 'preview' && project && (
-            <div className="preview-phase">
-              <div className="preview-main">
-                <div className="preview-frame">
-                  <div className="preview-header-bar">
-                    <span>Preview: {project.previewStatus?.url || 'Loading...'}</span>
+                <div className="project-summary">
+                  <div className="summary-row">
+                    <span>{getDomainConfig()?.icon} {project.name}</span>
+                    <span className="db-badge">{project.database}</span>
                   </div>
-                  <div className="preview-content-area">
-                    {project.previewStatus?.url ? (
-                      <iframe src={project.previewStatus.url} title="App Preview" />
-                    ) : (
-                      <div className="preview-placeholder">
-                        <p>Application preview is ready for testing.</p>
-                        <p>Test your application and report any issues below.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="issue-reporter">
-                  <h4>Report Issues for AI to Fix</h4>
-                  <div className="issue-input-area">
-                    <input
-                      type="text"
-                      value={issueInput}
-                      onChange={e => setIssueInput(e.target.value)}
-                      onKeyPress={e => e.key === 'Enter' && reportIssue()}
-                      placeholder="Describe the issue (e.g., 'Login button not working')"
-                    />
-                    <button onClick={reportIssue} disabled={loading || !issueInput.trim()}>Report & Fix</button>
-                  </div>
-                </div>
-
-                <div className="console-preview">
-                  <h4>Console Output</h4>
-                  <div className="console-output small">
-                    {consoleLogs.slice(-10).map((log, i) => (
-                      <div key={i} className={`console-line ${log.includes('ERROR') ? 'error' : ''}`}>{log}</div>
+                  <div className="modules-row">
+                    {completedModules.map((m, i) => (
+                      <span key={i} className="module-badge">{m.name}</span>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div className="preview-sidebar">
-                <div className="issues-section">
-                  <h4>Issues ({project.issues?.length || 0})</h4>
-                  {project.issues?.map((issue, i) => (
-                    <div key={i} className={`issue-item ${issue.status}`}>
-                      <div className="issue-header">
-                        <span className={`issue-type ${issue.type}`}>{issue.type}</span>
-                        <span className={`issue-status ${issue.status}`}>{issue.status}</span>
-                      </div>
-                      <div className="issue-message">{issue.message}</div>
-                      {issue.aiAnalysis && <div className="issue-fix">AI: {issue.aiAnalysis}</div>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="preview-actions">
-                  <button className="secondary-btn" onClick={() => setPhase('building')}>
-                    Back to Building
-                  </button>
-                  <button className="primary-btn" onClick={verifyApplication} disabled={loading}>
-                    App Works - Get Infrastructure
-                  </button>
+                  {completedModules.length > 0 && (
+                    <button className="primary-btn full-width" onClick={verifyApplication} disabled={loading}>
+                      App Works - Get Infrastructure
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
