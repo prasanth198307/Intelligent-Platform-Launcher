@@ -173,7 +173,7 @@ Always respond with JSON:
 Keep working until ALL tasks are complete, then use final_response.`;
   }
 
-  private async callLLM(messages: any[], tools: any[]): Promise<{ content: string; toolCalls: any[] }> {
+  private async callLLM(messages: any[], tools: any[]): Promise<{ content: string; toolCalls: any[]; thinking?: string }> {
     const provider = getLLMProvider();
     
     if (provider === "anthropic") {
@@ -217,7 +217,13 @@ Keep working until ALL tasks are complete, then use final_response.`;
           return { role: m.role as "user" | "assistant", content: m.content };
         });
       
-      const response = await client.messages.create({
+      // Use streaming for real-time thinking display
+      let textContent = "";
+      let thinkingContent = "";
+      const toolCalls: any[] = [];
+      
+      // Stream the response for real-time updates
+      const stream = await client.messages.stream({
         model: CLAUDE_MODEL,
         max_tokens: 16000,
         system: systemPrompt,
@@ -225,14 +231,35 @@ Keep working until ALL tasks are complete, then use final_response.`;
         tools: anthropicTools
       });
       
-      // Extract content and tool calls from Anthropic response
-      let textContent = "";
-      const toolCalls: any[] = [];
+      // Collect streamed content and emit thinking events
+      for await (const event of stream) {
+        if (event.type === "content_block_delta") {
+          const delta = event.delta as any;
+          if (delta.type === "text_delta" && delta.text) {
+            textContent += delta.text;
+            // Emit streaming thinking event
+            this.emit_event("thinking", { 
+              message: delta.text, 
+              streaming: true,
+              partial: textContent.slice(-200) // Last 200 chars for display
+            });
+          } else if (delta.type === "thinking_delta" && delta.thinking) {
+            thinkingContent += delta.thinking;
+            // Emit extended thinking
+            this.emit_event("thinking", { 
+              message: delta.thinking, 
+              extended: true,
+              streaming: true 
+            });
+          }
+        }
+      }
       
-      for (const block of response.content) {
-        if (block.type === "text") {
-          textContent += block.text;
-        } else if (block.type === "tool_use") {
+      // Get final message for tool calls
+      const finalMessage = await stream.finalMessage();
+      
+      for (const block of finalMessage.content) {
+        if (block.type === "tool_use") {
           toolCalls.push({
             id: block.id,
             type: "function",
@@ -244,7 +271,7 @@ Keep working until ALL tasks are complete, then use final_response.`;
         }
       }
       
-      return { content: textContent, toolCalls };
+      return { content: textContent, toolCalls, thinking: thinkingContent };
     } else {
       // Groq (OpenAI-compatible)
       const client = getGroqClient();
@@ -354,8 +381,8 @@ Keep working until ALL tasks are complete, then use final_response.`;
     const allTools = [...toolDefinitions, ...orchestrationTools];
 
     // Build messages with FULL conversation history (like Claude's large context window)
-    // Include up to 50 previous messages for full context
-    const recentHistory = this.session.conversationHistory.slice(-50);
+    // Include up to 200 previous messages for full context (matching Claude's large context)
+    const recentHistory = this.session.conversationHistory.slice(-200);
     
     // Also include a summary of older history if there's more
     const olderHistoryCount = this.session.conversationHistory.length - recentHistory.length;
