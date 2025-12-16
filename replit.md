@@ -73,6 +73,14 @@ ipl-platform/
     - Git & Packages: install_package, git_status, git_commit, glob_files, grep_search
   - **Separate Architect Agent**: Independent code reviewer that reads actual files, checks project context, and grades work (A-F)
   - **Task Management**: create_tasks, update_task tools for progress tracking visible in the UI
+  - **Claude-Level Advanced Tools**:
+    - restart_app: Restart the running server after code changes
+    - take_screenshot: Verify UI by checking server response
+    - web_search: Search the internet for documentation and solutions (DuckDuckGo API)
+    - get_lsp_diagnostics: Get detailed TypeScript errors with line numbers
+    - spawn_subagent: Delegate tasks to parallel sub-agents
+    - run_command: Execute any npm scripts, builds, or tests
+  - **Full Conversation Context**: Maintains 50 message history with older conversation summary
 - **Workspace Management**: Allows users to save, load, and delete project configurations, persisting data in a PostgreSQL database.
 - **DevOps & Automation Panel**: Unified panel with generators for Infrastructure as Code (Terraform, CloudFormation, Docker), CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins), API Documentation (OpenAPI), Database Migrations, Authentication Templates (JWT, OAuth), Load Testing (k6, JMeter), Security Scanning, and Cost Optimization.
 - **App Benchmarking**: Executes live performance tests against API endpoints, providing metrics (response times, latency percentiles, throughput), performance grading, and AI-powered optimization recommendations.
