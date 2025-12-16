@@ -669,94 +669,15 @@ export default function ProjectBuilder() {
 
           {phase === 'building' && project && (
             <div className="building-phase">
-              <div className="chat-panel">
-                <div className="chat-header">
-                  <h3>Chat with AI Agent</h3>
-                  <div className="chat-mode-toggle">
-                    <button 
-                      className={useAgenticMode ? 'active' : ''} 
-                      onClick={() => setUseAgenticMode(true)}
-                      title="Claude-like agent with tools, tasks, and self-correction"
-                    >
-                      Agentic Mode
-                    </button>
-                    <button 
-                      className={!useAgenticMode ? 'active' : ''} 
-                      onClick={() => setUseAgenticMode(false)}
-                      title="Simple chat interface"
-                    >
-                      Classic
-                    </button>
-                  </div>
-                  <span className="status-badge">{loading ? 'Thinking...' : 'Ready'}</span>
-                </div>
-
-                {useAgenticMode ? (
-                  <AgentChat projectId={project.projectId} onModuleBuilt={(mod) => {
-                    if (mod && project) {
-                      setProject({
-                        ...project,
-                        modules: [...project.modules, mod]
-                      });
-                      addLog(`Module built: ${mod.name}`);
-                    }
-                  }} />
-                ) : (
-                  <>
-                <div className="chat-messages">
-                  {chatHistory.length === 0 && (
-                    <div className="chat-welcome">
-                      <h3>AI Development Agent</h3>
-                      <p>Tell me what to build. For example:</p>
-                      <ul>
-                        <li>"Build the {selectedDomain === 'ami' ? 'meter management' : 'user management'} module"</li>
-                        <li>"What modules do I need?"</li>
-                        <li>"Add authentication with JWT"</li>
-                        <li>"The login button doesn't work" (report issues)</li>
-                      </ul>
-                    </div>
-                  )}
-                  {chatHistory.map((msg, i) => (
-                    <div key={i} className={`chat-message ${msg.role}`}>
-                      <div className="message-time">{msg.timestamp}</div>
-                      <div className="message-content">
-                        {msg.message.split('\n').map((line, j) => (
-                          <span key={j}>{line}{j < msg.message.split('\n').length - 1 && <br />}</span>
-                        ))}
-                      </div>
-                      {msg.suggestedModules && msg.suggestedModules.length > 0 && (
-                        <div className="suggested-modules">
-                          {msg.suggestedModules.map((mod, j) => (
-                            <button 
-                              key={j} 
-                              className="module-suggestion-btn"
-                              onClick={() => sendMessage(`Build the ${mod} module`)}
-                              disabled={loading}
-                            >
-                              Build {mod}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {loading && <div className="chat-message assistant loading">Thinking...</div>}
-                  <div ref={chatEndRef} />
-                </div>
-                <div className="chat-input-area">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                    placeholder="Tell the AI what to build or report issues..."
-                    disabled={loading}
-                  />
-                  <button onClick={() => sendMessage()} disabled={loading || !chatInput.trim()}>Send</button>
-                </div>
-                  </>
-                )}
-              </div>
+              <AgentChat projectId={project.projectId} onModuleBuilt={(mod) => {
+                if (mod && project) {
+                  setProject({
+                    ...project,
+                    modules: [...project.modules, mod]
+                  });
+                  addLog(`Module built: ${mod.name}`);
+                }
+              }} />
 
               <div className="tools-panel-container">
                 <ToolsTabs
