@@ -627,13 +627,14 @@ export default function ProjectBuilder() {
                   {activeTab === 'files' && (
                     <div className="files-area">
                       {!project.generatedFiles?.length ? (
-                        <div className="empty-state">No files generated yet.</div>
-                      ) : (
-                        <div className="files-list">
-                          {project.generatedFiles.map((file, i) => (
-                            <div key={i} className="file-item">{file.path}</div>
-                          ))}
+                        <div className="empty-state">
+                          <p>No files generated yet.</p>
+                          <p style={{ marginTop: '12px', color: '#808090' }}>
+                            Build modules with AI, then click "Generate Code Files" to create runnable code.
+                          </p>
                         </div>
+                      ) : (
+                        <FileExplorer files={project.generatedFiles} />
                       )}
                     </div>
                   )}
@@ -800,6 +801,104 @@ export default function ProjectBuilder() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FileExplorer({ files }: { files: Array<{ path: string; content: string; type: string }> }) {
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set(['backend', 'frontend']));
+
+  const toggleDir = (dir: string) => {
+    const newExpanded = new Set(expandedDirs);
+    if (newExpanded.has(dir)) {
+      newExpanded.delete(dir);
+    } else {
+      newExpanded.add(dir);
+    }
+    setExpandedDirs(newExpanded);
+  };
+
+  const getFileTree = () => {
+    const tree: Record<string, any> = {};
+    files.forEach(file => {
+      const parts = file.path.split('/');
+      let current = tree;
+      parts.forEach((part, i) => {
+        if (i === parts.length - 1) {
+          current[part] = { type: 'file', path: file.path };
+        } else {
+          if (!current[part]) current[part] = { type: 'dir', children: {} };
+          current = current[part].children;
+        }
+      });
+    });
+    return tree;
+  };
+
+  const renderTree = (node: Record<string, any>, path: string = '') => {
+    return Object.entries(node).sort(([, a], [, b]) => {
+      if (a.type === 'dir' && b.type !== 'dir') return -1;
+      if (a.type !== 'dir' && b.type === 'dir') return 1;
+      return 0;
+    }).map(([name, value]: [string, any]) => {
+      const fullPath = path ? `${path}/${name}` : name;
+      if (value.type === 'dir') {
+        const isExpanded = expandedDirs.has(fullPath);
+        return (
+          <div key={fullPath}>
+            <div className="tree-dir" onClick={() => toggleDir(fullPath)}>
+              <span className="tree-icon">{isExpanded ? '📂' : '📁'}</span>
+              {name}
+            </div>
+            {isExpanded && <div className="tree-children">{renderTree(value.children, fullPath)}</div>}
+          </div>
+        );
+      }
+      return (
+        <div 
+          key={value.path} 
+          className={`tree-file ${selectedFile === value.path ? 'active' : ''}`}
+          onClick={() => setSelectedFile(value.path)}
+        >
+          <span className="tree-icon">{getFileIcon(name)}</span>
+          {name}
+        </div>
+      );
+    });
+  };
+
+  const getFileIcon = (name: string) => {
+    if (name.endsWith('.ts') || name.endsWith('.tsx')) return '📘';
+    if (name.endsWith('.js') || name.endsWith('.jsx')) return '📙';
+    if (name.endsWith('.css')) return '🎨';
+    if (name.endsWith('.json')) return '📋';
+    if (name.endsWith('.html')) return '🌐';
+    if (name.endsWith('.md')) return '📝';
+    if (name.endsWith('.env')) return '🔐';
+    return '📄';
+  };
+
+  const selectedContent = files.find(f => f.path === selectedFile)?.content || '';
+
+  return (
+    <div className="file-explorer">
+      <div className="file-tree">
+        {renderTree(getFileTree())}
+      </div>
+      <div className="file-content">
+        {selectedFile ? (
+          <>
+            <div className="file-header">
+              <span className="file-path">{selectedFile}</span>
+              <button className="copy-btn" onClick={() => navigator.clipboard.writeText(selectedContent)}>Copy</button>
+            </div>
+            <pre className="code-view"><code>{selectedContent}</code></pre>
+          </>
+        ) : (
+          <div className="no-file-selected">Select a file to view its contents</div>
+        )}
       </div>
     </div>
   );

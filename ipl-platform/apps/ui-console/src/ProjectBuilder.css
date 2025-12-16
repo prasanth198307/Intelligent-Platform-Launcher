@@ -452,3 +452,24 @@ h4 { color: #808090; margin: 0 0 8px; font-size: 0.9rem; }
 .action-buttons .full-width { width: 100%; }
 .action-buttons .secondary-btn { background: #2a2a4a; border: 1px solid #667eea; }
 .action-buttons .secondary-btn:hover { background: #3a3a5a; }
+
+.file-explorer { display: flex; height: 100%; gap: 12px; }
+.file-tree { width: 220px; background: #0f0f1a; border-radius: 8px; padding: 12px; overflow-y: auto; flex-shrink: 0; }
+.tree-dir { display: flex; align-items: center; gap: 6px; padding: 4px 8px; cursor: pointer; color: #e0e0e0; font-size: 0.85rem; border-radius: 4px; }
+.tree-dir:hover { background: #2a2a4a; }
+.tree-file { display: flex; align-items: center; gap: 6px; padding: 4px 8px; cursor: pointer; color: #a0a0b0; font-size: 0.85rem; border-radius: 4px; }
+.tree-file:hover { background: #2a2a4a; color: #e0e0e0; }
+.tree-file.active { background: #667eea33; color: #667eea; }
+.tree-children { margin-left: 16px; }
+.tree-icon { font-size: 0.9rem; }
+
+.file-content { flex: 1; background: #0f0f1a; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.file-header { padding: 8px 12px; background: #1a1a2e; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a4a; }
+.file-path { color: #808090; font-size: 0.8rem; font-family: monospace; }
+.copy-btn { padding: 4px 12px; background: #2a2a4a; border: 1px solid #3a3a5a; border-radius: 4px; color: #e0e0e0; cursor: pointer; font-size: 0.75rem; }
+.copy-btn:hover { background: #3a3a5a; }
+
+.code-view { flex: 1; margin: 0; padding: 12px; overflow: auto; background: #0f0f1a; font-size: 0.8rem; line-height: 1.5; }
+.code-view code { color: #e0e0e0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; white-space: pre; }
+
+.no-file-selected { display: flex; align-items: center; justify-content: center; height: 100%; color: #808090; }
