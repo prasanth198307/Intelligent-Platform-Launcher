@@ -176,11 +176,87 @@
   font-size: 14px;
   line-height: 1.7;
   color: #111;
-  white-space: pre-wrap;
-  padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
-  background: #fff;
+  padding: 4px 0;
 }
+
+.agent-response p {
+  margin: 0 0 12px;
+}
+
+.agent-response p:last-child {
+  margin-bottom: 0;
+}
+
+.agent-response code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.agent-response pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.agent-response pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.agent-response ul,
+.agent-response ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.agent-response li {
+  margin: 4px 0;
+}
+
+.agent-response strong {
+  font-weight: 600;
+}
+
+.agent-response em {
+  font-style: italic;
+}
+
+.agent-response a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.agent-response a:hover {
+  text-decoration: underline;
+}
+
+.agent-response blockquote {
+  border-left: 3px solid #d1d5db;
+  margin: 12px 0;
+  padding-left: 16px;
+  color: #6b7280;
+}
+
+.agent-response h1,
+.agent-response h2,
+.agent-response h3 {
+  margin: 16px 0 8px;
+  font-weight: 600;
+  color: #111;
+}
+
+.agent-response h1 { font-size: 20px; }
+.agent-response h2 { font-size: 18px; }
+.agent-response h3 { font-size: 16px; }
 
 .agent-working {
   padding: 12px 16px;

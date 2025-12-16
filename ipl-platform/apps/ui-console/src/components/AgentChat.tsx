@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './AgentChat.css';
 
 interface ToolCall {
@@ -36,6 +38,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentConversationRef = useRef<string | null>(null);
+  const streamingBufferRef = useRef<string>('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -58,12 +61,58 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
     ));
   };
 
+  const getActivityDescription = (toolName: string, detail?: string): string => {
+    const descriptions: Record<string, string> = {
+      'write_file': `Edited file${detail ? `: ${detail}` : ''}`,
+      'read_file': `Read file${detail ? `: ${detail}` : ''}`,
+      'execute_sql': 'Executed SQL query',
+      'create_directory': `Created directory${detail ? `: ${detail}` : ''}`,
+      'delete_file': `Deleted file${detail ? `: ${detail}` : ''}`,
+      'list_directory': 'Listed directory contents',
+      'run_command': `Ran command${detail ? `: ${detail}` : ''}`,
+      'install_package': `Installed package${detail ? `: ${detail}` : ''}`,
+      'git_commit': 'Committed changes',
+      'git_status': 'Checked git status',
+      'test_api_endpoint': 'Tested API endpoint',
+      'run_typescript_check': 'Ran TypeScript check',
+      'get_lsp_diagnostics': 'Checked for errors',
+      'restart_app': 'Restarted application',
+      'take_screenshot': 'Captured screenshot',
+      'web_search': `Searched web${detail ? `: ${detail}` : ''}`,
+      'get_project_info': 'Retrieved project info',
+      'list_database_tables': 'Listed database tables',
+      'get_table_data': 'Retrieved table data',
+      'check_file_syntax': 'Checked file syntax',
+      'read_app_logs': 'Read application logs',
+      'get_app_status': 'Checked app status',
+      'glob_files': 'Searched for files',
+      'grep_search': `Searched code${detail ? `: ${detail}` : ''}`,
+      'batch_file_operations': 'Performed file operations',
+      'github_push_file': 'Pushed to GitHub',
+      'github_create_repo': 'Created GitHub repository',
+      'computer_screenshot': 'Captured browser screenshot',
+      'computer_click': 'Clicked element',
+      'computer_type': 'Typed text',
+      'analyze_screenshot': 'Analyzed screenshot',
+    };
+    
+    const normalizedName = toolName.toLowerCase();
+    for (const [key, desc] of Object.entries(descriptions)) {
+      if (normalizedName.includes(key.toLowerCase()) || key.toLowerCase().includes(normalizedName)) {
+        return desc;
+      }
+    }
+    
+    return toolName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isRunning) return;
 
     const userMessage = input.trim();
     const conversationId = `conv_${Date.now()}`;
     currentConversationRef.current = conversationId;
+    streamingBufferRef.current = '';
     
     const currentAttachments = attachments.map(f => ({ name: f.name, type: f.type }));
     setInput('');
@@ -151,7 +200,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         setCurrentStatus(`${event.data.tool}`);
         setConversations(prev => prev.map(c => 
           c.id === conversationId 
-            ? { ...c, toolCalls: [...c.toolCalls, { name: event.data.tool, status: 'running', timestamp: Date.now(), detail: event.data.detail }] }
+            ? { ...c, toolCalls: [...c.toolCalls, { name: event.data.tool, status: 'running', timestamp: Date.now(), detail: event.data.detail || event.data.args?.file_path || event.data.args?.path }] }
             : c
         ));
         break;
@@ -170,15 +219,22 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         break;
 
       case 'message':
-        setConversations(prev => prev.map(c => 
-          c.id === conversationId 
-            ? { ...c, assistantMessage: event.data.message }
-            : c
-        ));
+      case 'text_delta':
+      case 'content_block_delta':
+        if (event.data.message || event.data.delta || event.data.text) {
+          const newText = event.data.message || event.data.delta || event.data.text;
+          streamingBufferRef.current += newText;
+          setConversations(prev => prev.map(c => 
+            c.id === conversationId 
+              ? { ...c, assistantMessage: streamingBufferRef.current }
+              : c
+          ));
+        }
         break;
 
       case 'complete':
         if (event.data.message) {
+          streamingBufferRef.current = event.data.message;
           setConversations(prev => prev.map(c => 
             c.id === conversationId 
               ? { ...c, assistantMessage: event.data.message }
@@ -208,10 +264,6 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         setCurrentStatus('');
         break;
     }
-  };
-
-  const formatToolName = (name: string) => {
-    return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   return (
@@ -245,7 +297,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
               <div className="user-message">{conv.userMessage}</div>
             </div>
 
-            {(conv.toolCalls.length > 0 || conv.endTime || conv.assistantMessage) && (
+            {conv.toolCalls.length > 0 && (
               <div className="agent-session">
                 <div 
                   className="session-header"
@@ -275,33 +327,31 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
                 </div>
                 
                 {conv.isExpanded && (
-                  <>
-                    {conv.toolCalls.length > 0 && (
-                      <div className="session-activity">
-                        {conv.toolCalls.map((tool, i) => (
-                          <div key={i} className="activity-item">
-                            <span className={`activity-status ${tool.status}`}>
-                              {tool.status === 'completed' ? (
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              ) : (
-                                <span className="activity-spinner"></span>
-                              )}
-                            </span>
-                            <span className="activity-name">{formatToolName(tool.name)}</span>
-                          </div>
-                        ))}
+                  <div className="session-activity">
+                    {conv.toolCalls.map((tool, i) => (
+                      <div key={i} className="activity-item">
+                        <span className={`activity-status ${tool.status}`}>
+                          {tool.status === 'completed' ? (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          ) : (
+                            <span className="activity-spinner"></span>
+                          )}
+                        </span>
+                        <span className="activity-name">{getActivityDescription(tool.name, tool.detail)}</span>
                       </div>
-                    )}
-                    
-                    {conv.assistantMessage && (
-                      <div className="agent-response">
-                        {conv.assistantMessage}
-                      </div>
-                    )}
-                  </>
+                    ))}
+                  </div>
                 )}
+              </div>
+            )}
+
+            {conv.assistantMessage && (
+              <div className="agent-response">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {conv.assistantMessage}
+                </ReactMarkdown>
               </div>
             )}
           </div>
