@@ -233,6 +233,24 @@ export function ToolsTabs({
   const [tableDataPage, setTableDataPage] = useState(0);
   const [tableDataLoading, setTableDataLoading] = useState(false);
   const [tableDataTotal, setTableDataTotal] = useState(0);
+  
+  // Shell terminal state
+  const [shellCommand, setShellCommand] = useState('');
+  const [shellHistory, setShellHistory] = useState<Array<{type: 'input' | 'output' | 'error', content: string}>>([]);
+  const [shellRunning, setShellRunning] = useState(false);
+  
+  // Git branches state
+  const [gitBranches, setGitBranches] = useState<Array<{name: string, current: boolean}>>([]);
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [showNewBranchInput, setShowNewBranchInput] = useState(false);
+  
+  // File operations state
+  const [fileContextMenu, setFileContextMenu] = useState<{x: number, y: number, path: string, isFolder: boolean} | null>(null);
+  const [showNewFileModal, setShowNewFileModal] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [newFileIsFolder, setNewFileIsFolder] = useState(false);
+  const [newFileParent, setNewFileParent] = useState('');
 
   // Secrets state
   const [secrets, setSecrets] = useState<Secret[]>([]);
@@ -512,6 +530,137 @@ export function ToolsTabs({
     }
   }, [selectedTable]);
 
+  // Shell operations
+  const executeShellCommand = async () => {
+    if (!shellCommand.trim() || shellRunning) return;
+    
+    setShellHistory(prev => [...prev, { type: 'input', content: `$ ${shellCommand}` }]);
+    setShellRunning(true);
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/shell/exec`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: shellCommand })
+      });
+      const data = await res.json();
+      
+      if (data.ok) {
+        if (data.stdout) {
+          setShellHistory(prev => [...prev, { type: 'output', content: data.stdout }]);
+        }
+        if (data.stderr) {
+          setShellHistory(prev => [...prev, { type: 'error', content: data.stderr }]);
+        }
+      } else {
+        setShellHistory(prev => [...prev, { type: 'error', content: data.error || 'Command failed' }]);
+      }
+    } catch (e: any) {
+      setShellHistory(prev => [...prev, { type: 'error', content: e?.message || 'Failed to execute command' }]);
+    }
+    
+    setShellCommand('');
+    setShellRunning(false);
+  };
+  
+  // Git branch operations
+  const loadGitBranches = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/git/branches?projectId=${projectId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setGitBranches(data.data.branches || []);
+      }
+    } catch (e) {
+      console.error('Failed to load branches:', e);
+    }
+  };
+  
+  const createBranch = async () => {
+    if (!newBranchName.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/git/branch/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, branchName: newBranchName })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNewBranchName('');
+        setShowNewBranchInput(false);
+        await loadGitStatus();
+        await loadGitBranches();
+      }
+    } catch (e) {
+      console.error('Failed to create branch:', e);
+    }
+  };
+  
+  const switchBranch = async (branchName: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/git/branch/switch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, branchName })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setShowBranchDropdown(false);
+        await loadGitStatus();
+      }
+    } catch (e) {
+      console.error('Failed to switch branch:', e);
+    }
+  };
+  
+  const deleteBranch = async (branchName: string) => {
+    if (!confirm(`Delete branch "${branchName}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/git/branch/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, branchName })
+      });
+      await loadGitBranches();
+    } catch (e) {
+      console.error('Failed to delete branch:', e);
+    }
+  };
+  
+  // File operations
+  const createFile = async () => {
+    if (!newFileName.trim()) return;
+    const filePath = newFileParent ? `${newFileParent}/${newFileName}` : newFileName;
+    try {
+      const res = await fetch(`${API_BASE}/api/files/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, path: filePath, isDirectory: newFileIsFolder })
+      });
+      if (res.ok) {
+        setShowNewFileModal(false);
+        setNewFileName('');
+        setNewFileParent('');
+      }
+    } catch (e) {
+      console.error('Failed to create file:', e);
+    }
+  };
+  
+  const deleteFile = async (filePath: string) => {
+    if (!confirm(`Delete "${filePath}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/files/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, path: filePath })
+      });
+      setFileContextMenu(null);
+    } catch (e) {
+      console.error('Failed to delete file:', e);
+    }
+  };
+
   // Database operations
   const handleRunQuery = async () => {
     if (!sqlQuery.trim()) return;
@@ -776,11 +925,80 @@ export function ToolsTabs({
         {activeTab === 'git' && (
           <div className="tab-content git-content">
             <div className="git-header">
-              <div className="git-branch-selector" title="Current branch">
-                <span className="branch-icon">⎇</span>
-                <span className="branch-name">{gitStatus?.branch || 'main'}</span>
-                <span className="branch-dropdown">▾</span>
+              <div className="git-branch-selector-wrapper">
+                <div 
+                  className="git-branch-selector" 
+                  title="Current branch"
+                  onClick={() => {
+                    loadGitBranches();
+                    setShowBranchDropdown(!showBranchDropdown);
+                  }}
+                >
+                  <span className="branch-icon">⎇</span>
+                  <span className="branch-name">{gitStatus?.branch || 'main'}</span>
+                  <span className="branch-dropdown">{showBranchDropdown ? '▲' : '▼'}</span>
+                </div>
+                
+                {showBranchDropdown && (
+                  <div className="branch-dropdown-menu">
+                    <div className="branch-dropdown-header">
+                      <span>Branches</span>
+                      <button 
+                        className="new-branch-btn"
+                        onClick={() => setShowNewBranchInput(true)}
+                      >
+                        + New
+                      </button>
+                    </div>
+                    
+                    {showNewBranchInput && (
+                      <div className="new-branch-input-row">
+                        <input
+                          type="text"
+                          value={newBranchName}
+                          onChange={e => setNewBranchName(e.target.value)}
+                          placeholder="branch-name"
+                          className="new-branch-input"
+                          onKeyPress={e => e.key === 'Enter' && createBranch()}
+                          autoFocus
+                        />
+                        <button className="create-btn" onClick={createBranch}>Create</button>
+                        <button className="cancel-btn" onClick={() => {
+                          setShowNewBranchInput(false);
+                          setNewBranchName('');
+                        }}>×</button>
+                      </div>
+                    )}
+                    
+                    <div className="branch-list">
+                      {gitBranches.filter(b => !b.name.startsWith('origin/')).map((branch, i) => (
+                        <div 
+                          key={i} 
+                          className={`branch-item ${gitStatus?.branch === branch.name ? 'current' : ''}`}
+                        >
+                          <span 
+                            className="branch-name-text"
+                            onClick={() => switchBranch(branch.name)}
+                          >
+                            {gitStatus?.branch === branch.name && '✓ '}
+                            {branch.name}
+                          </span>
+                          {gitStatus?.branch !== branch.name && (
+                            <button 
+                              className="delete-branch-btn"
+                              onClick={() => deleteBranch(branch.name)}
+                              title="Delete branch"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+              
               <div className="git-header-actions">
                 <button 
                   className="git-fetch-btn" 
@@ -1213,8 +1431,32 @@ export function ToolsTabs({
         {activeTab === 'files' && (
           <div className="tab-content files-content">
             <div className="files-header">
-              <h3>📁 Project Files</h3>
-              <span className="file-count">{files.length} files</span>
+              <div className="files-title">
+                <h3>📁 Project Files</h3>
+                <span className="file-count">{files.length} files</span>
+              </div>
+              <div className="files-actions">
+                <button 
+                  className="new-file-btn"
+                  onClick={() => {
+                    setNewFileIsFolder(false);
+                    setNewFileParent('');
+                    setShowNewFileModal(true);
+                  }}
+                >
+                  + File
+                </button>
+                <button 
+                  className="new-folder-btn"
+                  onClick={() => {
+                    setNewFileIsFolder(true);
+                    setNewFileParent('');
+                    setShowNewFileModal(true);
+                  }}
+                >
+                  + Folder
+                </button>
+              </div>
             </div>
             <div className="files-tree">
               {files.length === 0 ? (
@@ -1413,11 +1655,37 @@ export function ToolsTabs({
         {activeTab === 'shell' && (
           <div className="tab-content shell-content">
             <div className="shell-header">
-              <h3>Shell</h3>
+              <h3>💻 Shell</h3>
+              <button className="clear-btn" onClick={() => setShellHistory([])}>Clear</button>
             </div>
             <p className="tool-desc">Directly access your App through a command line interface (CLI)</p>
             <div className="shell-terminal">
-              <div className="terminal-line">$ <span className="cursor">_</span></div>
+              <div className="terminal-output">
+                {shellHistory.map((item, i) => (
+                  <div key={i} className={`terminal-line ${item.type}`}>
+                    <pre>{item.content}</pre>
+                  </div>
+                ))}
+              </div>
+              <div className="terminal-input-row">
+                <span className="prompt">$</span>
+                <input
+                  type="text"
+                  value={shellCommand}
+                  onChange={e => setShellCommand(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && executeShellCommand()}
+                  placeholder="Enter command..."
+                  className="terminal-input"
+                  disabled={shellRunning}
+                />
+                <button 
+                  className="run-btn" 
+                  onClick={executeShellCommand}
+                  disabled={shellRunning || !shellCommand.trim()}
+                >
+                  {shellRunning ? '...' : 'Run'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1601,6 +1869,47 @@ export function ToolsTabs({
                 disabled={!gitHubUrlInput.trim() || gitLoading}
               >
                 {gitLoading ? 'Connecting...' : 'Connect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* New File/Folder Modal */}
+      {showNewFileModal && (
+        <div className="modal-overlay" onClick={() => setShowNewFileModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{newFileIsFolder ? '📁 New Folder' : '📄 New File'}</h3>
+              <button className="modal-close" onClick={() => setShowNewFileModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>{newFileIsFolder ? 'Folder Name' : 'File Name'}</label>
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={e => setNewFileName(e.target.value)}
+                  placeholder={newFileIsFolder ? 'my-folder' : 'filename.ts'}
+                  className="modal-input"
+                  autoFocus
+                  onKeyPress={e => e.key === 'Enter' && createFile()}
+                />
+              </div>
+              {newFileParent && (
+                <p className="input-hint">Creating in: {newFileParent}/</p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn secondary" onClick={() => setShowNewFileModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="modal-btn primary" 
+                onClick={createFile}
+                disabled={!newFileName.trim()}
+              >
+                Create
               </button>
             </div>
           </div>

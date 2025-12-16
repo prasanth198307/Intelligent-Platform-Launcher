@@ -3819,6 +3819,364 @@ app.post("/api/git/add-remote", async (req, res) => {
 });
 
 // ====================
+// Shell/Terminal API
+// ====================
+app.post("/api/shell/exec", async (req, res) => {
+  try {
+    const { command, cwd } = req.body;
+    
+    if (!command || typeof command !== 'string') {
+      return res.status(400).json({ ok: false, error: "Command is required" });
+    }
+    
+    // Security: Block dangerous commands
+    const blockedPatterns = [
+      /rm\s+-rf\s+[\/~\.]/i,
+      /rm\s+-rf\s+\//i,
+      /rm\s+-rf\s*$/i,
+      /mkfs/i,
+      /dd\s+if=/i,
+      /shutdown/i,
+      /reboot/i,
+      /passwd/i,
+      /sudo/i,
+      /su\s+-/i,
+      /chmod\s+777/i,
+      /chown/i,
+      /curl.*\|\s*(ba)?sh/i,
+      /wget.*\|\s*(ba)?sh/i,
+      /eval\s*\(/i,
+      />\s*\/etc\//i,
+      />\s*\/var\//i,
+      />\s*\/usr\//i,
+      />\s*\/bin\//i,
+      />\s*\/root/i,
+      /kill\s+-9\s+1\b/i,
+      /pkill\s+-9/i,
+      /killall/i,
+      /nc\s+-l/i,
+      /ncat/i,
+      /python.*-c.*import\s+os/i,
+      /node.*-e.*child_process/i,
+    ];
+    
+    for (const pattern of blockedPatterns) {
+      if (pattern.test(command)) {
+        return res.status(403).json({ ok: false, error: "Command blocked for security reasons" });
+      }
+    }
+    
+    // Validate and constrain cwd to workspace root
+    const workspaceRoot = process.cwd();
+    let workDir = workspaceRoot;
+    
+    if (cwd && typeof cwd === 'string') {
+      // Resolve the requested cwd
+      const resolvedCwd = path.resolve(workspaceRoot, cwd);
+      
+      // Verify it's within the workspace
+      if (!resolvedCwd.startsWith(workspaceRoot)) {
+        return res.status(403).json({ ok: false, error: "Invalid working directory" });
+      }
+      
+      // Verify it exists
+      if (fs.existsSync(resolvedCwd)) {
+        workDir = resolvedCwd;
+      }
+    }
+    
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execPromise = promisify(exec);
+    
+    try {
+      const { stdout, stderr } = await execPromise(command, { 
+        cwd: workDir,
+        timeout: 30000,
+        maxBuffer: 1024 * 1024
+      });
+      res.json({ ok: true, stdout, stderr });
+    } catch (execError: any) {
+      res.json({ 
+        ok: true, 
+        stdout: execError.stdout || '', 
+        stderr: execError.stderr || execError.message,
+        exitCode: execError.code 
+      });
+    }
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ====================
+// Git Branch Operations API
+// ====================
+app.get("/api/git/branches", async (req, res) => {
+  try {
+    const rawProjectId = req.query.projectId as string | undefined;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
+    }
+    
+    // Get local branches
+    const { stdout: branchOutput } = await execFileAsync('git', ['branch', '-a', '--format=%(refname:short)|%(HEAD)'], { cwd: workDir });
+    const branches = branchOutput.trim().split('\n').filter(Boolean).map(line => {
+      const [name, isCurrent] = line.split('|');
+      return { name: name.trim(), current: isCurrent === '*' };
+    });
+    
+    // Get current branch
+    const { stdout: currentBranch } = await execFileAsync('git', ['branch', '--show-current'], { cwd: workDir });
+    
+    res.json({
+      ok: true,
+      data: {
+        current: currentBranch.trim(),
+        branches: branches.filter(b => !b.name.startsWith('origin/HEAD'))
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/git/branch/create", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, branchName } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!branchName || typeof branchName !== 'string') {
+      return res.status(400).json({ ok: false, error: "Branch name is required" });
+    }
+    
+    // Sanitize branch name
+    const safeName = branchName.replace(/[^a-zA-Z0-9_\-\/]/g, '');
+    if (!safeName) {
+      return res.status(400).json({ ok: false, error: "Invalid branch name" });
+    }
+    
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
+    }
+    
+    await execFileAsync('git', ['checkout', '-b', safeName], { cwd: workDir });
+    
+    res.json({ ok: true, data: { branchName: safeName } });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/git/branch/switch", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, branchName } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!branchName || typeof branchName !== 'string') {
+      return res.status(400).json({ ok: false, error: "Branch name is required" });
+    }
+    
+    const safeName = branchName.replace(/[^a-zA-Z0-9_\-\/]/g, '');
+    
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
+    }
+    
+    await execFileAsync('git', ['checkout', safeName], { cwd: workDir });
+    
+    res.json({ ok: true, data: { branchName: safeName } });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/git/branch/delete", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, branchName } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    if (!branchName || typeof branchName !== 'string') {
+      return res.status(400).json({ ok: false, error: "Branch name is required" });
+    }
+    
+    const safeName = branchName.replace(/[^a-zA-Z0-9_\-\/]/g, '');
+    
+    let workDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        workDir = projectDir;
+      }
+    }
+    
+    // Cannot delete current branch
+    const { stdout: currentBranch } = await execFileAsync('git', ['branch', '--show-current'], { cwd: workDir });
+    if (currentBranch.trim() === safeName) {
+      return res.status(400).json({ ok: false, error: "Cannot delete the current branch" });
+    }
+    
+    await execFileAsync('git', ['branch', '-d', safeName], { cwd: workDir });
+    
+    res.json({ ok: true, data: { deleted: safeName } });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ====================
+// File Operations API
+// ====================
+// Helper: Validate file path is safe and within project boundary
+const validateFilePath = (filePath: string, baseDir: string): { valid: boolean; error?: string; fullPath?: string } => {
+  if (!filePath || typeof filePath !== 'string' || !filePath.trim()) {
+    return { valid: false, error: "File path is required" };
+  }
+  
+  // Block dangerous patterns
+  if (filePath.includes('..') || filePath.startsWith('/') || filePath.includes('\0')) {
+    return { valid: false, error: "Invalid file path" };
+  }
+  
+  // Normalize and resolve full path
+  const normalizedPath = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, '');
+  const fullPath = path.resolve(baseDir, normalizedPath);
+  
+  // Verify the resolved path is within baseDir
+  if (!fullPath.startsWith(path.resolve(baseDir))) {
+    return { valid: false, error: "Path traversal detected" };
+  }
+  
+  // Block server/system directories
+  const blockedPatterns = [
+    /^\.git(\/|$)/,
+    /^node_modules(\/|$)/,
+    /^\.env/,
+    /^\.replit/,
+    /^replit\.nix/,
+  ];
+  
+  for (const pattern of blockedPatterns) {
+    if (pattern.test(normalizedPath)) {
+      return { valid: false, error: "Cannot modify protected files" };
+    }
+  }
+  
+  return { valid: true, fullPath, error: undefined };
+};
+
+app.post("/api/files/create", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, path: filePath, content = '', isDirectory = false } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    let baseDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        baseDir = projectDir;
+      }
+    }
+    
+    const validation = validateFilePath(filePath, baseDir);
+    if (!validation.valid) {
+      return res.status(403).json({ ok: false, error: validation.error });
+    }
+    
+    const fullPath = validation.fullPath!;
+    
+    if (isDirectory) {
+      await fs.promises.mkdir(fullPath, { recursive: true });
+    } else {
+      await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.promises.writeFile(fullPath, content, 'utf-8');
+    }
+    
+    res.json({ ok: true, data: { path: filePath } });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/files/rename", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, oldPath, newPath } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    let baseDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        baseDir = projectDir;
+      }
+    }
+    
+    const oldValidation = validateFilePath(oldPath, baseDir);
+    const newValidation = validateFilePath(newPath, baseDir);
+    
+    if (!oldValidation.valid) {
+      return res.status(403).json({ ok: false, error: `Old path: ${oldValidation.error}` });
+    }
+    if (!newValidation.valid) {
+      return res.status(403).json({ ok: false, error: `New path: ${newValidation.error}` });
+    }
+    
+    await fs.promises.rename(oldValidation.fullPath!, newValidation.fullPath!);
+    
+    res.json({ ok: true, data: { oldPath, newPath } });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+app.post("/api/files/delete", async (req, res) => {
+  try {
+    const { projectId: rawProjectId, path: filePath } = req.body;
+    const projectId = sanitizeProjectId(rawProjectId);
+    
+    let baseDir = process.cwd();
+    if (projectId) {
+      const projectDir = await getProjectDir(projectId);
+      if (projectDir && fs.existsSync(projectDir)) {
+        baseDir = projectDir;
+      }
+    }
+    
+    const validation = validateFilePath(filePath, baseDir);
+    if (!validation.valid) {
+      return res.status(403).json({ ok: false, error: validation.error });
+    }
+    
+    const fullPath = validation.fullPath!;
+    
+    const stats = await fs.promises.stat(fullPath);
+    if (stats.isDirectory()) {
+      await fs.promises.rm(fullPath, { recursive: true });
+    } else {
+      await fs.promises.unlink(fullPath);
+    }
+    
+    res.json({ ok: true, data: { deleted: filePath } });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ====================
 // GitHub Integration API
 // ====================
 app.get("/api/github/repos", async (req, res) => {
