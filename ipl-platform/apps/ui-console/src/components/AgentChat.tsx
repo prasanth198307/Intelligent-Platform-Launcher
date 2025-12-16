@@ -194,6 +194,15 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
     switch (event.type) {
       case 'thinking':
         setCurrentStatus(event.data.message || 'Thinking...');
+        // Handle streaming thinking text - show it as the response
+        if (event.data.streaming && event.data.partial) {
+          streamingBufferRef.current = event.data.partial;
+          setConversations(prev => prev.map(c => 
+            c.id === conversationId 
+              ? { ...c, assistantMessage: streamingBufferRef.current }
+              : c
+          ));
+        }
         break;
 
       case 'tool_call':
