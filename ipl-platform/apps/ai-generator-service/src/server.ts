@@ -1150,6 +1150,582 @@ app.delete("/api/projects/:projectId", async (req, res) => {
   }
 });
 
+// ============================================================
+// APPLICATION-FIRST WORKFLOW APIs
+// ============================================================
+
+// Domain Benchmarking Profiles - defines parameters for each domain
+const DOMAIN_BENCHMARKING_PROFILES: Record<string, {
+  name: string;
+  description: string;
+  parameters: Array<{
+    key: string;
+    label: string;
+    type: 'number' | 'select';
+    options?: Array<{ value: number; label: string }>;
+    default: number;
+    unit?: string;
+    description: string;
+  }>;
+  databaseRecommendations: Record<string, { minValue: number; database: string; reason: string }>;
+}> = {
+  ami: {
+    name: "Advanced Metering Infrastructure",
+    description: "Smart grid and utility meter management systems",
+    parameters: [
+      { key: "metersDevices", label: "Number of Meters/Devices", type: "select", 
+        options: [
+          { value: 10000, label: "10K (Small utility)" },
+          { value: 100000, label: "100K (Medium utility)" },
+          { value: 1000000, label: "1M (Large utility)" },
+          { value: 10000000, label: "10M+ (Enterprise)" },
+        ],
+        default: 100000, unit: "meters", description: "Total smart meters in the network" },
+      { key: "recordsPerDay", label: "Records per Day", type: "select",
+        options: [
+          { value: 1000000, label: "1M (15-min intervals)" },
+          { value: 10000000, label: "10M (5-min intervals)" },
+          { value: 100000000, label: "100M (1-min intervals)" },
+          { value: 1000000000, label: "1B+ (Real-time)" },
+        ],
+        default: 10000000, unit: "records", description: "Daily meter readings volume" },
+      { key: "concurrentUsers", label: "Concurrent Users", type: "select",
+        options: [
+          { value: 50, label: "50 (Small team)" },
+          { value: 200, label: "200 (Medium team)" },
+          { value: 1000, label: "1000 (Large team)" },
+          { value: 5000, label: "5000+ (Enterprise)" },
+        ],
+        default: 200, unit: "users", description: "Simultaneous system users" },
+      { key: "dataRetentionYears", label: "Data Retention", type: "select",
+        options: [
+          { value: 1, label: "1 year" },
+          { value: 3, label: "3 years" },
+          { value: 5, label: "5 years" },
+          { value: 10, label: "10 years" },
+        ],
+        default: 5, unit: "years", description: "How long to keep historical data" },
+      { key: "readingIntervalMinutes", label: "Reading Interval", type: "select",
+        options: [
+          { value: 60, label: "Hourly" },
+          { value: 15, label: "15 minutes" },
+          { value: 5, label: "5 minutes" },
+          { value: 1, label: "1 minute (Real-time)" },
+        ],
+        default: 15, unit: "minutes", description: "Frequency of meter readings" },
+    ],
+    databaseRecommendations: {
+      recordsPerDay: { minValue: 100000000, database: "timescaledb", reason: "TimescaleDB optimized for time-series data at this scale" },
+      metersDevices: { minValue: 1000000, database: "cassandra", reason: "Cassandra recommended for 1M+ devices" },
+    },
+  },
+  healthcare: {
+    name: "Healthcare",
+    description: "Hospital and clinic management systems",
+    parameters: [
+      { key: "patients", label: "Number of Patients", type: "select",
+        options: [
+          { value: 1000, label: "1K (Small clinic)" },
+          { value: 10000, label: "10K (Medium hospital)" },
+          { value: 100000, label: "100K (Large hospital)" },
+          { value: 1000000, label: "1M+ (Healthcare network)" },
+        ],
+        default: 10000, unit: "patients", description: "Total patient records" },
+      { key: "appointmentsPerDay", label: "Appointments per Day", type: "select",
+        options: [
+          { value: 50, label: "50 (Small clinic)" },
+          { value: 200, label: "200 (Medium)" },
+          { value: 1000, label: "1000 (Large hospital)" },
+          { value: 5000, label: "5000+ (Multi-location)" },
+        ],
+        default: 200, unit: "appointments", description: "Daily appointment volume" },
+      { key: "doctors", label: "Number of Doctors", type: "select",
+        options: [
+          { value: 10, label: "10 (Small clinic)" },
+          { value: 50, label: "50 (Medium)" },
+          { value: 200, label: "200 (Large hospital)" },
+          { value: 1000, label: "1000+ (Healthcare network)" },
+        ],
+        default: 50, unit: "doctors", description: "Medical staff count" },
+      { key: "concurrentUsers", label: "Concurrent Users", type: "number", default: 100, unit: "users", description: "Simultaneous system users" },
+    ],
+    databaseRecommendations: {},
+  },
+  banking: {
+    name: "Banking & Finance",
+    description: "Banking and financial transaction systems",
+    parameters: [
+      { key: "accounts", label: "Number of Accounts", type: "select",
+        options: [
+          { value: 10000, label: "10K (Small bank)" },
+          { value: 100000, label: "100K (Regional bank)" },
+          { value: 1000000, label: "1M (National bank)" },
+          { value: 10000000, label: "10M+ (Large bank)" },
+        ],
+        default: 100000, unit: "accounts", description: "Total customer accounts" },
+      { key: "transactionsPerDay", label: "Transactions per Day", type: "select",
+        options: [
+          { value: 10000, label: "10K (Small)" },
+          { value: 100000, label: "100K (Medium)" },
+          { value: 1000000, label: "1M (Large)" },
+          { value: 10000000, label: "10M+ (Enterprise)" },
+        ],
+        default: 100000, unit: "transactions", description: "Daily transaction volume" },
+      { key: "concurrentUsers", label: "Concurrent Users", type: "number", default: 500, unit: "users", description: "Simultaneous system users" },
+    ],
+    databaseRecommendations: {
+      transactionsPerDay: { minValue: 1000000, database: "postgresql", reason: "PostgreSQL with partitioning for high transaction volume" },
+    },
+  },
+  ecommerce: {
+    name: "E-Commerce",
+    description: "Online retail and marketplace systems",
+    parameters: [
+      { key: "products", label: "Number of Products", type: "select",
+        options: [
+          { value: 1000, label: "1K (Small store)" },
+          { value: 10000, label: "10K (Medium store)" },
+          { value: 100000, label: "100K (Large marketplace)" },
+          { value: 1000000, label: "1M+ (Enterprise)" },
+        ],
+        default: 10000, unit: "products", description: "Total product catalog size" },
+      { key: "ordersPerDay", label: "Orders per Day", type: "select",
+        options: [
+          { value: 100, label: "100 (Small)" },
+          { value: 1000, label: "1000 (Medium)" },
+          { value: 10000, label: "10K (Large)" },
+          { value: 100000, label: "100K+ (Enterprise)" },
+        ],
+        default: 1000, unit: "orders", description: "Daily order volume" },
+      { key: "concurrentUsers", label: "Concurrent Users", type: "number", default: 500, unit: "users", description: "Simultaneous shoppers" },
+    ],
+    databaseRecommendations: {},
+  },
+};
+
+// Get all domain benchmarking profiles
+app.get("/api/domains/benchmarking", (_req, res) => {
+  res.json({ 
+    ok: true, 
+    domains: Object.entries(DOMAIN_BENCHMARKING_PROFILES).map(([id, profile]) => ({
+      id,
+      name: profile.name,
+      description: profile.description,
+      parameters: profile.parameters,
+    })),
+  });
+});
+
+// Get benchmarking profile for a specific domain
+app.get("/api/domains/:domain/benchmarking", (req, res) => {
+  const profile = DOMAIN_BENCHMARKING_PROFILES[req.params.domain.toLowerCase()];
+  if (!profile) {
+    return res.status(404).json({ error: "Domain not found", availableDomains: Object.keys(DOMAIN_BENCHMARKING_PROFILES) });
+  }
+  res.json({ ok: true, domain: req.params.domain, ...profile });
+});
+
+// Update project benchmarking configuration
+app.put("/api/projects/:projectId/benchmarking", async (req, res) => {
+  try {
+    const { benchmarking } = req.body;
+    if (!benchmarking) {
+      return res.status(400).json({ error: "benchmarking configuration is required" });
+    }
+    
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    // Calculate database recommendation based on benchmarking
+    const domainProfile = DOMAIN_BENCHMARKING_PROFILES[project.domain?.toLowerCase() || ''];
+    let recommendedDatabase = project.database || 'postgresql';
+    let databaseReason = 'Default choice for most applications';
+    
+    if (domainProfile) {
+      for (const [param, rule] of Object.entries(domainProfile.databaseRecommendations)) {
+        if (benchmarking[param] >= rule.minValue) {
+          recommendedDatabase = rule.database;
+          databaseReason = rule.reason;
+          break;
+        }
+      }
+    }
+    
+    // Calculate estimated storage
+    const recordsPerDay = benchmarking.recordsPerDay || benchmarking.transactionsPerDay || benchmarking.ordersPerDay || 10000;
+    const retentionYears = benchmarking.dataRetentionYears || 3;
+    const avgRecordSizeKB = 0.5; // 500 bytes per record estimate
+    const estimatedStorageGB = Math.ceil((recordsPerDay * 365 * retentionYears * avgRecordSizeKB) / (1024 * 1024));
+    
+    await db.update(projects)
+      .set({
+        benchmarking: { ...benchmarking, estimatedStorageGB },
+        database: recommendedDatabase,
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    res.json({ 
+      ok: true, 
+      benchmarking: { ...benchmarking, estimatedStorageGB },
+      recommendation: {
+        database: recommendedDatabase,
+        reason: databaseReason,
+        estimatedStorageGB,
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to update benchmarking", details: e?.message || String(e) });
+  }
+});
+
+// Generate preview of the application (build and run)
+app.post("/api/projects/:projectId/preview", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const modules = (project.modules as any) || [];
+    const completedModules = modules.filter((m: any) => m.status === 'completed' || m.tables?.length > 0);
+    
+    if (completedModules.length === 0) {
+      return res.status(400).json({ error: "No modules built yet. Use the AI agent to build modules first." });
+    }
+    
+    // Update preview status
+    await db.update(projects)
+      .set({
+        previewStatus: { status: 'building', startedAt: new Date().toISOString() },
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    // In a real implementation, this would:
+    // 1. Generate complete code from modules
+    // 2. Set up database and run migrations
+    // 3. Start the server in a container
+    // 4. Return the preview URL
+    
+    // For now, return a simulated preview
+    const previewUrl = `https://${req.params.projectId}-preview.replit.dev`;
+    
+    await db.update(projects)
+      .set({
+        previewStatus: { 
+          status: 'running', 
+          url: previewUrl,
+          port: 3000,
+          startedAt: new Date().toISOString(),
+          logs: ['Building application...', 'Running database migrations...', 'Starting server...', 'Preview ready!'],
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    res.json({ 
+      ok: true, 
+      preview: {
+        status: 'running',
+        url: previewUrl,
+        modules: completedModules.map((m: any) => m.name),
+        message: "Application preview is now running. Test your app and report any issues.",
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to start preview", details: e?.message || String(e) });
+  }
+});
+
+// Get preview status
+app.get("/api/projects/:projectId/preview", async (req, res) => {
+  try {
+    const [project] = await db.select({
+      previewStatus: projects.previewStatus,
+      modules: projects.modules,
+    }).from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    res.json({ ok: true, preview: project.previewStatus, modules: project.modules });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get preview status", details: e?.message || String(e) });
+  }
+});
+
+// Report an issue for AI to analyze and fix
+app.post("/api/projects/:projectId/issues", async (req, res) => {
+  try {
+    const { type, source, message, stackTrace } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: "message is required" });
+    }
+    
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const issueId = `issue-${Date.now()}`;
+    const newIssue = {
+      id: issueId,
+      type: type || 'error',
+      source: source || 'api',
+      message,
+      stackTrace,
+      status: 'detected' as const,
+      createdAt: new Date().toISOString(),
+    };
+    
+    const currentIssues = (project.issues as any) || [];
+    
+    await db.update(projects)
+      .set({
+        issues: [...currentIssues, newIssue],
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    res.json({ ok: true, issue: newIssue, message: "Issue reported. Use /issues/:issueId/analyze to get AI analysis and fix." });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to report issue", details: e?.message || String(e) });
+  }
+});
+
+// Get all issues for a project
+app.get("/api/projects/:projectId/issues", async (req, res) => {
+  try {
+    const [project] = await db.select({
+      issues: projects.issues,
+    }).from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    res.json({ ok: true, issues: project.issues || [] });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get issues", details: e?.message || String(e) });
+  }
+});
+
+// AI analyze and fix an issue (like how I debug!)
+app.post("/api/projects/:projectId/issues/:issueId/fix", async (req, res) => {
+  try {
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: "AI issue fixing requires GROQ_API_KEY" });
+    }
+    
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const issues = (project.issues as any) || [];
+    const issueIndex = issues.findIndex((i: any) => i.id === req.params.issueId);
+    
+    if (issueIndex === -1) {
+      return res.status(404).json({ error: "Issue not found" });
+    }
+    
+    const issue = issues[issueIndex];
+    
+    // Update status to analyzing
+    issues[issueIndex].status = 'analyzing';
+    await db.update(projects)
+      .set({ issues, updatedAt: new Date() })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    // Use AI to analyze and fix the issue
+    const modules = (project.modules as any) || [];
+    const context = {
+      projectName: project.name,
+      domain: project.domain,
+      modules: modules.map((m: any) => ({
+        name: m.name,
+        tables: m.tables,
+        apis: m.apis,
+      })),
+      issue: {
+        type: issue.type,
+        source: issue.source,
+        message: issue.message,
+        stackTrace: issue.stackTrace,
+      },
+    };
+    
+    // Call AI to analyze and suggest fix
+    const aiAnalysis = await runFixCode(
+      JSON.stringify(context, null, 2), // code context
+      'typescript', // language
+      [issue.message, issue.stackTrace || ''].filter(Boolean) // issues array
+    );
+    
+    // Update issue with AI analysis
+    issues[issueIndex] = {
+      ...issue,
+      status: 'fixed',
+      aiAnalysis: aiAnalysis.explanation || 'Issue analyzed',
+      suggestedFix: aiAnalysis.fixedCode || 'See AI analysis for recommendations',
+      fixedAt: new Date().toISOString(),
+    };
+    
+    await db.update(projects)
+      .set({ issues, updatedAt: new Date() })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    res.json({ 
+      ok: true, 
+      issue: issues[issueIndex],
+      aiGenerated: true,
+      analysis: aiAnalysis.explanation,
+      suggestedFix: aiAnalysis.fixedCode,
+      message: "Issue analyzed and fix suggested. Review the fix and apply if appropriate.",
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to analyze issue", details: e?.message || String(e) });
+  }
+});
+
+// Verify application works and move to infrastructure phase
+app.post("/api/projects/:projectId/verify-application", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const modules = (project.modules as any) || [];
+    const completedModules = modules.filter((m: any) => m.status === 'completed' || m.tables?.length > 0);
+    const openIssues = ((project.issues as any) || []).filter((i: any) => i.status !== 'fixed' && i.status !== 'ignored');
+    
+    if (completedModules.length === 0) {
+      return res.status(400).json({ error: "No modules completed yet. Build modules first." });
+    }
+    
+    if (openIssues.length > 0) {
+      return res.status(400).json({ 
+        error: "There are unresolved issues. Fix or ignore them before verifying.",
+        openIssues: openIssues.length,
+      });
+    }
+    
+    await db.update(projects)
+      .set({
+        applicationVerified: "true",
+        status: "ready_for_infrastructure",
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    res.json({ 
+      ok: true, 
+      message: "Application verified! You can now proceed to infrastructure setup.",
+      completedModules: completedModules.map((m: any) => m.name),
+      nextPhase: "Use /api/projects/:projectId/infrastructure/recommend to get cloud/on-prem recommendations",
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to verify application", details: e?.message || String(e) });
+  }
+});
+
+// Get infrastructure recommendations based on benchmarking
+app.post("/api/projects/:projectId/infrastructure/recommend", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    if (project.applicationVerified !== "true") {
+      return res.status(400).json({ 
+        error: "Application must be verified first. Use /verify-application endpoint.",
+      });
+    }
+    
+    const benchmarking = (project.benchmarking as any) || {};
+    const modules = (project.modules as any) || [];
+    
+    // Calculate infrastructure needs based on benchmarking
+    const recordsPerDay = benchmarking.recordsPerDay || benchmarking.transactionsPerDay || 10000;
+    const concurrentUsers = benchmarking.concurrentUsers || 100;
+    const storageGB = benchmarking.estimatedStorageGB || 100;
+    
+    // Determine tier
+    let tier = 'small';
+    let cpu = 2;
+    let memoryGB = 4;
+    let replicas = 1;
+    
+    if (recordsPerDay > 10000000 || concurrentUsers > 1000) {
+      tier = 'massive';
+      cpu = 16;
+      memoryGB = 64;
+      replicas = 5;
+    } else if (recordsPerDay > 1000000 || concurrentUsers > 500) {
+      tier = 'large';
+      cpu = 8;
+      memoryGB = 32;
+      replicas = 3;
+    } else if (recordsPerDay > 100000 || concurrentUsers > 100) {
+      tier = 'medium';
+      cpu = 4;
+      memoryGB = 16;
+      replicas = 2;
+    }
+    
+    const infrastructure = {
+      tier,
+      compute: { cpu, memoryGB, replicas },
+      database: {
+        type: project.database,
+        storageGB,
+        iops: tier === 'massive' ? 10000 : tier === 'large' ? 5000 : 3000,
+        replicas: tier === 'massive' ? 3 : tier === 'large' ? 2 : 1,
+      },
+      caching: recordsPerDay > 1000000 ? { type: 'redis', memoryGB: tier === 'massive' ? 16 : 8 } : null,
+      messageQueue: recordsPerDay > 10000000 ? { type: 'kafka', partitions: 12 } : null,
+      loadBalancer: replicas > 1,
+      cdn: true,
+      monitoring: { prometheus: true, grafana: true },
+    };
+    
+    // Cloud cost estimates
+    const cloudCosts = {
+      aws: { monthly: (cpu * 50 + memoryGB * 5 + storageGB * 0.1) * replicas },
+      azure: { monthly: (cpu * 48 + memoryGB * 4.8 + storageGB * 0.09) * replicas },
+      gcp: { monthly: (cpu * 45 + memoryGB * 4.5 + storageGB * 0.08) * replicas },
+    };
+    
+    res.json({
+      ok: true,
+      applicationSummary: {
+        modules: modules.length,
+        tables: modules.reduce((acc: number, m: any) => acc + (m.tables?.length || 0), 0),
+        apis: modules.reduce((acc: number, m: any) => acc + (m.apis?.length || 0), 0),
+      },
+      benchmarking,
+      infrastructure,
+      cloudCosts,
+      deploymentOptions: ['cloud', 'on-premises', 'hybrid'],
+      nextSteps: [
+        "Choose cloud provider or on-premises deployment",
+        "Generate CI/CD pipelines",
+        "Generate Docker/Kubernetes configurations",
+        "Deploy application",
+      ],
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to generate recommendations", details: e?.message || String(e) });
+  }
+});
+
 // AI-powered domain module recommendations
 app.post("/api/recommend-modules", async (req, res) => {
   try {

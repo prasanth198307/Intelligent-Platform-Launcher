@@ -26,6 +26,36 @@ export const chatSessions = pgTable("chat_sessions", {
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type InsertChatSession = typeof chatSessions.$inferInsert;
 
+// Domain-specific benchmarking configuration
+export interface BenchmarkingConfig {
+  // AMI Domain
+  metersDevices?: number;
+  recordsPerDay?: number;
+  concurrentUsers?: number;
+  dataRetentionYears?: number;
+  readingIntervalMinutes?: number;
+  // Healthcare Domain
+  patients?: number;
+  appointmentsPerDay?: number;
+  doctors?: number;
+  // Banking Domain
+  accounts?: number;
+  transactionsPerDay?: number;
+  // Generic
+  estimatedStorageGB?: number;
+  peakLoadMultiplier?: number;
+}
+
+// Preview status for live running application
+export interface PreviewStatus {
+  status: 'idle' | 'building' | 'running' | 'error' | 'stopped';
+  url?: string;
+  port?: number;
+  startedAt?: string;
+  logs?: string[];
+  errors?: string[];
+}
+
 // AI-powered Projects
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
@@ -36,6 +66,12 @@ export const projects = pgTable("projects", {
   database: varchar("database", { length: 50 }).default("postgresql"),
   cloudProvider: varchar("cloud_provider", { length: 50 }).default("aws"),
   status: varchar("status", { length: 50 }).default("planning"),
+  // Benchmarking configuration for domain-specific sizing
+  benchmarking: jsonb("benchmarking").$type<BenchmarkingConfig>().default({}),
+  // Preview status for live application
+  previewStatus: jsonb("preview_status").$type<PreviewStatus>().default({ status: 'idle' }),
+  // Application verified by user before infrastructure phase
+  applicationVerified: varchar("application_verified", { length: 10 }).default("false"),
   modules: jsonb("modules").$type<Array<{
     name: string;
     description: string;
@@ -50,6 +86,19 @@ export const projects = pgTable("projects", {
     role: 'user' | 'assistant';
     message: string;
     timestamp: string;
+  }>>().default([]),
+  // Issue tracking for live debugging
+  issues: jsonb("issues").$type<Array<{
+    id: string;
+    type: 'error' | 'warning' | 'performance';
+    source: 'api' | 'database' | 'ui' | 'build';
+    message: string;
+    stackTrace?: string;
+    status: 'detected' | 'analyzing' | 'fixing' | 'fixed' | 'ignored';
+    aiAnalysis?: string;
+    suggestedFix?: string;
+    createdAt: string;
+    fixedAt?: string;
   }>>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
