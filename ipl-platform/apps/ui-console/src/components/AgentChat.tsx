@@ -5,6 +5,7 @@ interface ToolCall {
   name: string;
   status: 'running' | 'completed' | 'error';
   timestamp: number;
+  detail?: string;
 }
 
 interface ConversationGroup {
@@ -28,7 +29,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<string>('');
   const [sessionId] = useState(() => `session_${Date.now()}`);
-  const [showBuildMenu, setShowBuildMenu] = useState(false);
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const [mode, setMode] = useState<'build' | 'plan'>('build');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [workStartTime, setWorkStartTime] = useState<number | null>(null);
@@ -46,9 +47,9 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
 
   const formatDuration = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return `${seconds} seconds`;
+    if (seconds < 60) return `${seconds} second${seconds !== 1 ? 's' : ''}`;
     const minutes = Math.floor(seconds / 60);
-    return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
   };
 
   const toggleExpand = (id: string) => {
@@ -150,7 +151,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         setCurrentStatus(`${event.data.tool}`);
         setConversations(prev => prev.map(c => 
           c.id === conversationId 
-            ? { ...c, toolCalls: [...c.toolCalls, { name: event.data.tool, status: 'running', timestamp: Date.now() }] }
+            ? { ...c, toolCalls: [...c.toolCalls, { name: event.data.tool, status: 'running', timestamp: Date.now(), detail: event.data.detail }] }
             : c
         ));
         break;
@@ -209,134 +210,155 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
     }
   };
 
+  const formatToolName = (name: string) => {
+    return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   return (
-    <div className="agent-chat">
-      <div className="agent-activity">
+    <div className="replit-chat">
+      <div className="chat-messages">
         {conversations.length === 0 && !isRunning && (
-          <div className="agent-welcome">
-            <h3>AI Development Agent</h3>
-            <p>Tell me what to build. For example:</p>
-            <ul>
-              <li onClick={() => setInput('Build the user management module')}>"Build the user management module"</li>
-              <li onClick={() => setInput('Create a REST API for products')}>"Create a REST API for products"</li>
-              <li onClick={() => setInput('Add authentication with JWT')}>"Add authentication with JWT"</li>
-            </ul>
+          <div className="chat-empty">
+            <div className="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <h2>What would you like to build?</h2>
+            <div className="quick-prompts">
+              <button onClick={() => setInput('Build the user management module')}>
+                Build the user management module
+              </button>
+              <button onClick={() => setInput('Create a REST API for products')}>
+                Create a REST API for products
+              </button>
+              <button onClick={() => setInput('Add authentication with JWT')}>
+                Add authentication with JWT
+              </button>
+            </div>
           </div>
         )}
         
         {conversations.map((conv) => (
-          <div key={conv.id} className="conversation-group">
-            {/* User message */}
-            <div className="user-message-row">
-              <div className="user-bubble">{conv.userMessage}</div>
-              <div className="user-avatar">Y</div>
+          <div key={conv.id} className="chat-turn">
+            <div className="user-turn">
+              <div className="user-message">{conv.userMessage}</div>
             </div>
 
-            {/* Collapsible work session */}
-            {conv.toolCalls.length > 0 && (
-              <div className="work-session">
+            {(conv.toolCalls.length > 0 || conv.endTime || conv.assistantMessage) && (
+              <div className="agent-session">
                 <div 
-                  className="work-session-header"
+                  className="session-header"
                   onClick={() => toggleExpand(conv.id)}
                 >
-                  <span className="expand-icon">{conv.isExpanded ? '▼' : '▶'}</span>
-                  <span className="work-session-summary">
-                    {conv.toolCalls.length} action{conv.toolCalls.length > 1 ? 's' : ''}
-                  </span>
-                  {conv.endTime && (
-                    <span className="work-duration">
-                      Worked for {formatDuration(conv.endTime - conv.startTime)}
+                  <div className="session-left">
+                    <svg className="checkpoint-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="session-title">
+                      {conv.endTime 
+                        ? `Worked for ${formatDuration(conv.endTime - conv.startTime)}`
+                        : 'Working...'
+                      }
                     </span>
-                  )}
+                  </div>
+                  <svg 
+                    className={`expand-chevron ${conv.isExpanded ? 'expanded' : ''}`} 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 16 16" 
+                    fill="none"
+                  >
+                    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </div>
                 
                 {conv.isExpanded && (
-                  <div className="work-session-details">
-                    {conv.toolCalls.map((tool, i) => (
-                      <div key={i} className="tool-call-row">
-                        <span className="tool-status-icon">
-                          {tool.status === 'completed' ? '✓' : '↻'}
-                        </span>
-                        <span className="tool-name">{tool.name}</span>
+                  <>
+                    {conv.toolCalls.length > 0 && (
+                      <div className="session-activity">
+                        {conv.toolCalls.map((tool, i) => (
+                          <div key={i} className="activity-item">
+                            <span className={`activity-status ${tool.status}`}>
+                              {tool.status === 'completed' ? (
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              ) : (
+                                <span className="activity-spinner"></span>
+                              )}
+                            </span>
+                            <span className="activity-name">{formatToolName(tool.name)}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    
+                    {conv.assistantMessage && (
+                      <div className="agent-response">
+                        {conv.assistantMessage}
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
-            )}
-
-            {/* Assistant response */}
-            {conv.assistantMessage && (
-              <div className="assistant-message">
-                <div className="assistant-avatar">A</div>
-                <div className="assistant-content">
-                  {conv.assistantMessage}
-                </div>
               </div>
             )}
           </div>
         ))}
 
-        {/* Current working indicator */}
         {isRunning && (
-          <div className="working-indicator">
-            <div className="working-status">
-              <span className="working-icon">◐</span>
-              <span className="working-text">{currentStatus || 'Working...'}</span>
-              <span className="working-dots">
-                <span></span><span></span><span></span>
-              </span>
+          <div className="agent-working">
+            <div className="working-content">
+              <span className="working-spinner"></span>
+              <span className="working-label">{currentStatus || 'Working...'}</span>
             </div>
-            {workStartTime && (
-              <div className="working-timer">
-                Working for {formatDuration(Date.now() - workStartTime)}
-              </div>
-            )}
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="agent-input-container">
-        <div className="input-left-controls">
-          <div className="build-menu-wrapper">
+      <div className="chat-input-area">
+        <div className="input-row">
+          <div className="mode-selector">
             <button 
-              className={`build-mode-btn ${mode}`}
-              onClick={() => setShowBuildMenu(!showBuildMenu)}
+              className={`mode-btn ${mode}`}
+              onClick={() => setShowModeMenu(!showModeMenu)}
             >
-              <span>{mode === 'build' ? 'Build' : 'Plan'}</span>
-              <span className="dropdown-arrow">▾</span>
+              {mode === 'build' ? 'Build' : 'Plan'}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
-            {showBuildMenu && (
-              <div className="build-menu">
+            {showModeMenu && (
+              <div className="mode-menu">
                 <button 
-                  className={`build-option ${mode === 'build' ? 'active' : ''}`}
-                  onClick={() => { setMode('build'); setShowBuildMenu(false); }}
+                  className={mode === 'build' ? 'active' : ''}
+                  onClick={() => { setMode('build'); setShowModeMenu(false); }}
                 >
-                  <div className="option-info">
-                    <strong>Build</strong>
-                    <span>Agent builds and executes code</span>
-                  </div>
+                  <strong>Build</strong>
+                  <span>Agent builds and executes code</span>
                 </button>
                 <button 
-                  className={`build-option ${mode === 'plan' ? 'active' : ''}`}
-                  onClick={() => { setMode('plan'); setShowBuildMenu(false); }}
+                  className={mode === 'plan' ? 'active' : ''}
+                  onClick={() => { setMode('plan'); setShowModeMenu(false); }}
                 >
-                  <div className="option-info">
-                    <strong>Plan</strong>
-                    <span>Agent creates a plan without executing</span>
-                  </div>
+                  <strong>Plan</strong>
+                  <span>Agent creates a plan without executing</span>
                 </button>
               </div>
             )}
           </div>
+
           <button 
             className="attach-btn"
             onClick={() => fileInputRef.current?.click()}
             title="Attach files"
           >
-            +
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 3v12M3 9h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </button>
           <input
             ref={fileInputRef}
@@ -349,42 +371,41 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
               }
             }}
           />
-        </div>
-        
-        <div className="input-main">
-          {attachments.length > 0 && (
-            <div className="attachments-preview">
-              {attachments.map((file, i) => (
-                <div key={i} className="attachment-chip">
-                  <span>{file.name}</span>
-                  <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <textarea
-            className="agent-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
-            placeholder={isRunning ? 'Agent is working...' : 'Make, test, iterate...'}
-            disabled={isRunning}
-            rows={1}
-          />
-        </div>
-        
-        <div className="input-right-controls">
+
+          <div className="input-wrapper">
+            {attachments.length > 0 && (
+              <div className="attachments">
+                {attachments.map((file, i) => (
+                  <span key={i} className="attachment">
+                    {file.name}
+                    <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+              placeholder={isRunning ? 'Agent is working...' : 'Ask Agent...'}
+              disabled={isRunning}
+              rows={1}
+            />
+          </div>
+
           <button
-            className="agent-send-btn"
+            className="send-btn"
             onClick={sendMessage}
             disabled={isRunning || !input.trim()}
           >
-            ↑
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 15V3M4 8l5-5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
         </div>
       </div>
