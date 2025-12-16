@@ -26,6 +26,38 @@ export const chatSessions = pgTable("chat_sessions", {
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type InsertChatSession = typeof chatSessions.$inferInsert;
 
+// AI-powered Projects
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  projectId: varchar("project_id", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  domain: varchar("domain", { length: 100 }),
+  database: varchar("database", { length: 50 }).default("postgresql"),
+  cloudProvider: varchar("cloud_provider", { length: 50 }).default("aws"),
+  status: varchar("status", { length: 50 }).default("planning"),
+  modules: jsonb("modules").$type<Array<{
+    name: string;
+    description: string;
+    status: 'planned' | 'in_progress' | 'completed';
+    tables: Array<{ name: string; columns: Array<{ name: string; type: string; primaryKey?: boolean; references?: string }> }>;
+    apis: Array<{ method: string; path: string; description: string }>;
+    screens: Array<{ name: string; type: string; route: string }>;
+    generatedCode?: { migration?: string; apiRoutes?: string; screens?: string };
+  }>>().default([]),
+  generatedFiles: jsonb("generated_files").$type<Array<{ path: string; content: string; type: string }>>().default([]),
+  conversationHistory: jsonb("conversation_history").$type<Array<{
+    role: 'user' | 'assistant';
+    message: string;
+    timestamp: string;
+  }>>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = typeof projects.$inferInsert;
+
 export const workspaces = pgTable("workspaces", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),

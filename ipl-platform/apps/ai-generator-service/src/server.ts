@@ -22,13 +22,15 @@ import {
   groqGenerateSingleModule,
   groqNLPAssistant,
   groqConversationalAssistant,
+  groqProjectAgent,
   type ProjectSession,
+  type Project as ProjectType,
 } from "./llm/providers/groq-devops.js";
 
 // In-memory session storage (would use DB in production)
 const projectSessions = new Map<string, ProjectSession>();
 import { db } from "./db/index.js";
-import { workspaces, chatSessions } from "./db/schema.js";
+import { workspaces, chatSessions, projects } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import {
   generateTerraform,
@@ -967,6 +969,184 @@ app.get("/api/chat-sessions", async (req, res) => {
     res.json({ ok: true, sessions });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to list sessions", details: e?.message || String(e) });
+  }
+});
+
+// ===================== PROJECT-BASED AI AGENT =====================
+
+// Create a new project
+app.post("/api/projects", async (req, res) => {
+  try {
+    const { name, description, domain, database, cloudProvider } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: "Project name is required" });
+    }
+    
+    const projectId = `project-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    const [newProject] = await db.insert(projects).values({
+      projectId,
+      name,
+      description: description || '',
+      domain: domain || '',
+      database: database || 'postgresql',
+      cloudProvider: cloudProvider || 'aws',
+      status: 'planning',
+      modules: [],
+      generatedFiles: [],
+      conversationHistory: [],
+    }).returning();
+    
+    res.json({ ok: true, project: newProject });
+  } catch (e: any) {
+    console.error("Create project failed:", e);
+    res.status(500).json({ error: "Failed to create project", details: e?.message || String(e) });
+  }
+});
+
+// List all projects
+app.get("/api/projects", async (req, res) => {
+  try {
+    const allProjects = await db.select({
+      projectId: projects.projectId,
+      name: projects.name,
+      description: projects.description,
+      domain: projects.domain,
+      status: projects.status,
+      modules: projects.modules,
+      createdAt: projects.createdAt,
+      updatedAt: projects.updatedAt,
+    }).from(projects).orderBy(desc(projects.updatedAt)).limit(50);
+    res.json({ ok: true, projects: allProjects });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to list projects", details: e?.message || String(e) });
+  }
+});
+
+// Get a specific project
+app.get("/api/projects/:projectId", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    res.json({ ok: true, project });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get project", details: e?.message || String(e) });
+  }
+});
+
+// AI Agent: Work on a project with natural language
+app.post("/api/projects/:projectId/agent", async (req, res) => {
+  try {
+    const { message } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: "message is required" });
+    }
+    
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: "AI agent requires GROQ_API_KEY" });
+    }
+    
+    // Get project from database
+    const [dbProject] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!dbProject) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    // Convert to ProjectType for the agent
+    const projectForAgent: ProjectType = {
+      id: dbProject.projectId,
+      name: dbProject.name,
+      description: dbProject.description || '',
+      domain: dbProject.domain || '',
+      database: dbProject.database || 'postgresql',
+      cloudProvider: dbProject.cloudProvider || 'aws',
+      status: (dbProject.status as any) || 'planning',
+      modules: (dbProject.modules as any) || [],
+      generatedFiles: (dbProject.generatedFiles as any) || [],
+      conversationHistory: (dbProject.conversationHistory as any) || [],
+    };
+    
+    console.log(`Project Agent [${dbProject.name}]: "${message.substring(0, 50)}..."`);
+    const result = await groqProjectAgent({
+      project: projectForAgent,
+      userMessage: message,
+    });
+    
+    // Update project with changes
+    const updatedModules = result.updatedProject?.modules || projectForAgent.modules;
+    const updatedFiles = result.generatedCode?.files 
+      ? [...projectForAgent.generatedFiles, ...result.generatedCode.files.map(f => ({ ...f, type: 'generated' }))]
+      : projectForAgent.generatedFiles;
+    
+    await db.update(projects)
+      .set({
+        domain: result.updatedProject?.domain || projectForAgent.domain,
+        status: result.updatedProject?.status || projectForAgent.status,
+        modules: updatedModules as any,
+        generatedFiles: updatedFiles as any,
+        conversationHistory: [
+          ...projectForAgent.conversationHistory,
+          { role: 'user', message, timestamp: new Date().toISOString() },
+          { role: 'assistant', message: result.message, timestamp: new Date().toISOString() },
+        ],
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    // Get updated project
+    const [updatedProject] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    
+    res.json({
+      ok: true,
+      aiGenerated: true,
+      action: result.action,
+      message: result.message,
+      generatedCode: result.generatedCode,
+      nextSteps: result.nextSteps,
+      project: {
+        projectId: updatedProject.projectId,
+        name: updatedProject.name,
+        domain: updatedProject.domain,
+        status: updatedProject.status,
+        modulesCount: (updatedProject.modules as any)?.length || 0,
+        completedModules: ((updatedProject.modules as any) || []).filter((m: any) => m.status === 'completed').map((m: any) => m.name),
+        filesCount: (updatedProject.generatedFiles as any)?.length || 0,
+      },
+    });
+  } catch (e: any) {
+    console.error("Project agent failed:", e);
+    res.status(500).json({ error: "AI agent failed", details: e?.message || String(e) });
+  }
+});
+
+// Get generated files for a project
+app.get("/api/projects/:projectId/files", async (req, res) => {
+  try {
+    const [project] = await db.select({
+      generatedFiles: projects.generatedFiles,
+    }).from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    res.json({ ok: true, files: project.generatedFiles });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get files", details: e?.message || String(e) });
+  }
+});
+
+// Delete a project
+app.delete("/api/projects/:projectId", async (req, res) => {
+  try {
+    await db.delete(projects).where(eq(projects.projectId, req.params.projectId));
+    res.json({ ok: true, message: "Project deleted" });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to delete project", details: e?.message || String(e) });
   }
 });
 

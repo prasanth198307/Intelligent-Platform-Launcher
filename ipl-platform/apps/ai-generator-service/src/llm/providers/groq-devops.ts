@@ -1491,3 +1491,159 @@ Return ONLY valid JSON:
     clearTimeout(timeout);
   }
 }
+
+// Project-based AI Agent
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  domain: string;
+  database: string;
+  cloudProvider: string;
+  status: 'planning' | 'in_progress' | 'completed';
+  modules: Array<{
+    name: string;
+    description: string;
+    status: 'planned' | 'in_progress' | 'completed';
+    tables: Array<{ name: string; columns: Array<{ name: string; type: string; primaryKey?: boolean; references?: string }> }>;
+    apis: Array<{ method: string; path: string; description: string }>;
+    screens: Array<{ name: string; type: string; route: string }>;
+    generatedCode?: {
+      migration?: string;
+      apiRoutes?: string;
+      screens?: string;
+    };
+  }>;
+  generatedFiles: Array<{ path: string; content: string; type: string }>;
+  conversationHistory: Array<{ role: 'user' | 'assistant'; message: string; timestamp: string }>;
+}
+
+export interface ProjectAgentRequest {
+  project: Project;
+  userMessage: string;
+}
+
+export interface ProjectAgentResponse {
+  message: string;
+  action: 'created_project' | 'recommended_modules' | 'built_module' | 'updated_module' | 'generated_code' | 'answered_question' | 'listed_status';
+  updatedProject?: Partial<Project>;
+  generatedCode?: {
+    files: Array<{ path: string; content: string; description: string }>;
+  };
+  nextSteps?: string[];
+}
+
+export async function groqProjectAgent(request: ProjectAgentRequest): Promise<ProjectAgentResponse> {
+  const client = getClient();
+
+  const completedModules = request.project.modules.filter(m => m.status === 'completed');
+  const plannedModules = request.project.modules.filter(m => m.status === 'planned');
+  const existingTables = completedModules.flatMap(m => m.tables);
+
+  const projectSummary = `
+PROJECT: ${request.project.name || 'Unnamed Project'}
+Description: ${request.project.description || 'No description'}
+Domain: ${request.project.domain || 'Not set'}
+Database: ${request.project.database}
+Status: ${request.project.status}
+
+COMPLETED MODULES (${completedModules.length}):
+${completedModules.map(m => `- ${m.name}: ${m.tables.map(t => t.name).join(', ')}`).join('\n') || 'None yet'}
+
+PLANNED MODULES (${plannedModules.length}):
+${plannedModules.map(m => `- ${m.name}`).join('\n') || 'None'}
+
+EXISTING TABLES:
+${existingTables.map(t => `- ${t.name}: ${t.columns.map(c => c.name + (c.references ? ` -> ${c.references}` : '')).join(', ')}`).join('\n') || 'None'}
+`;
+
+  const prompt = `You are an AI development agent helping build a software project incrementally.
+
+${projectSummary}
+
+USER REQUEST: "${request.userMessage}"
+
+Based on the request, determine the action and provide structured data (NO code, just structure):
+
+1. If user wants to build a module → Define module structure with tables, API endpoints, screens
+2. If user asks what modules needed → List recommended modules
+3. If user asks status → Summarize what is built
+
+IMPORTANT: Do NOT include actual code. Only include structural definitions.
+
+For building a module, provide:
+- Tables with column names and types
+- API endpoint paths and methods
+- Screen names and types
+
+Return ONLY valid JSON (no code, no special characters):
+{
+  "message": "Human-friendly explanation of what was done",
+  "action": "built_module",
+  "updatedProject": {
+    "modules": [
+      {
+        "name": "Module Name",
+        "description": "What this module does",
+        "status": "completed",
+        "tables": [
+          {"name": "table_name", "columns": [{"name": "id", "type": "serial", "primaryKey": true}, {"name": "patient_id", "type": "integer", "references": "patients.id"}]}
+        ],
+        "apis": [{"method": "GET", "path": "/api/patients", "description": "List all patients"}],
+        "screens": [{"name": "PatientList", "type": "list", "route": "/patients"}]
+      }
+    ]
+  },
+  "nextSteps": ["Build X module next", "Add authentication"]
+}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
+
+  try {
+    console.log(`Project Agent processing: "${request.userMessage.substring(0, 50)}..."`);
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { 
+            role: "system", 
+            content: `You are an expert software architect and full-stack developer. Help users build applications module by module, generating production-ready code. Always maintain proper relationships between modules. Return ONLY valid JSON.` 
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 16000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty response");
+    
+    // Try to extract JSON from the response
+    let jsonStr = content;
+    
+    // Remove markdown code blocks if present
+    jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+    
+    // Find the JSON object
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("No JSON found in response:", content.substring(0, 500));
+      throw new Error("No JSON found in response");
+    }
+    
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      // If parsing fails, try to fix common issues
+      let fixedJson = jsonMatch[0];
+      // Remove trailing commas before } or ]
+      fixedJson = fixedJson.replace(/,(\s*[}\]])/g, '$1');
+      // Try parsing again
+      return JSON.parse(fixedJson);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
