@@ -788,6 +788,22 @@
   color: var(--text-muted);
 }
 
+.change-repo-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.change-repo-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 .sync-actions {
   display: flex;
   gap: 8px;

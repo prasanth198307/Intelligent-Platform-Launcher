@@ -629,6 +629,21 @@ export function ToolsTabs({
                       <div className="remote-info">
                         <span className="remote-branch">origin/{gitStatus.branch}</span>
                         <span className="remote-upstream">• upstream</span>
+                        <button 
+                          className="change-repo-btn"
+                          onClick={() => {
+                            const repoUrl = prompt('Enter new GitHub repository URL:', gitStatus.remotes?.find(r => r.name === 'origin')?.url || '');
+                            if (repoUrl) {
+                              fetch(`${API_BASE}/api/git/add-remote`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ projectId, remoteUrl: repoUrl, remoteName: 'origin' })
+                              }).then(() => loadGitStatus()).catch(console.error);
+                            }
+                          }}
+                        >
+                          Change
+                        </button>
                       </div>
                       <div className="sync-actions">
                         <button className="sync-btn" onClick={handleGitPull} disabled={gitLoading}>
