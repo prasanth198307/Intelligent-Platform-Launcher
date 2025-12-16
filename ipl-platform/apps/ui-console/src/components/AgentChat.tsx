@@ -214,166 +214,170 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
 
   return (
     <div className="agent-chat">
-      <div className="agent-chat-main">
-        <div className="agent-messages">
-          {messages.map((msg, i) => (
-            <div key={i} className={`agent-message agent-message-${msg.role}`}>
-              <div className="agent-message-role">
-                {msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'Agent' : 'System'}
+      {tasks.length > 0 && (
+        <div className="agent-tasks-bar">
+          {tasks.map(task => (
+            <div key={task.id} className={`agent-task-chip agent-task-${task.status}`}>
+              <span className="task-icon">{getTaskIcon(task.status)}</span>
+              <span className="task-text">{task.content}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="agent-activity">
+        {messages.length === 0 && events.length === 0 && (
+          <div className="agent-welcome">
+            <h3>AI Development Agent</h3>
+            <p>Tell me what to build. For example:</p>
+            <ul>
+              <li>"Build the user management module"</li>
+              <li>"Create a REST API for products"</li>
+              <li>"Add authentication with JWT"</li>
+            </ul>
+          </div>
+        )}
+        
+        {messages.map((msg, i) => (
+          <div key={`msg-${i}`} className={`activity-item activity-${msg.role}`}>
+            <div className="activity-icon">
+              {msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '⚠️'}
+            </div>
+            <div className="activity-content">
+              <div className="activity-header">
+                <span className="activity-sender">{msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'Agent' : 'System'}</span>
               </div>
               {msg.attachments && msg.attachments.length > 0 && (
                 <div className="message-attachments">
                   {msg.attachments.map((att, idx) => (
-                    <span key={idx} className="message-attachment-chip">
-                      📎 {att.name}
-                    </span>
+                    <span key={idx} className="attachment-chip-inline">📎 {att.name}</span>
                   ))}
                 </div>
               )}
-              <div className="agent-message-content">{msg.content}</div>
+              <div className="activity-text">{msg.content}</div>
             </div>
-          ))}
-          {currentThinking && (
-            <div className="agent-message agent-message-thinking">
-              <div className="agent-thinking-indicator">
-                <span className="thinking-dot"></span>
-                <span className="thinking-dot"></span>
-                <span className="thinking-dot"></span>
-              </div>
-              <span>{currentThinking}</span>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+          </div>
+        ))}
 
-        <div className="agent-input-container">
-          <div className="input-left-controls">
-            <div className="build-menu-wrapper">
-              <button 
-                className={`build-mode-btn ${mode}`}
-                onClick={() => setShowBuildMenu(!showBuildMenu)}
-              >
-                <span className="build-icon">{mode === 'build' ? '⚡' : '📋'}</span>
-                <span>{mode === 'build' ? 'Build' : 'Plan'}</span>
-                <span className="dropdown-arrow">▾</span>
-              </button>
-              {showBuildMenu && (
-                <div className="build-menu">
-                  <button 
-                    className={`build-option ${mode === 'build' ? 'active' : ''}`}
-                    onClick={() => { setMode('build'); setShowBuildMenu(false); }}
-                  >
-                    <span className="option-icon">⚡</span>
-                    <div className="option-info">
-                      <strong>Build</strong>
-                      <span>Agent builds and executes code</span>
-                    </div>
-                  </button>
-                  <button 
-                    className={`build-option ${mode === 'plan' ? 'active' : ''}`}
-                    onClick={() => { setMode('plan'); setShowBuildMenu(false); }}
-                  >
-                    <span className="option-icon">📋</span>
-                    <div className="option-info">
-                      <strong>Plan</strong>
-                      <span>Agent creates a plan without executing</span>
-                    </div>
-                  </button>
-                </div>
-              )}
+        {events.filter(e => e.type === 'tool_call' || e.type === 'thinking').slice(-5).map((event, i) => (
+          <div key={`event-${i}`} className={`activity-item activity-event activity-event-${event.type}`}>
+            <div className="activity-icon">{getEventIcon(event.type)}</div>
+            <div className="activity-content">
+              <span className="activity-text">
+                {event.type === 'tool_call' && `Using ${event.data.tool}...`}
+                {event.type === 'thinking' && event.data.message}
+              </span>
             </div>
-            <button 
-              className="attach-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach files"
-            >
-              📎
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files) {
-                  setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
-                }
-              }}
-            />
           </div>
-          
-          <div className="input-main">
-            {attachments.length > 0 && (
-              <div className="attachments-preview">
-                {attachments.map((file, i) => (
-                  <div key={i} className="attachment-chip">
-                    <span>{file.name}</span>
-                    <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <textarea
-              className="agent-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              placeholder={isRunning ? 'Agent is working...' : 'Ask the agent to build something...'}
-              disabled={isRunning}
-              rows={1}
-            />
-          </div>
-          
-          <div className="input-right-controls">
-            <button className="control-btn" title="Settings">⚙️</button>
-            <button
-              className="agent-send-btn"
-              onClick={sendMessage}
-              disabled={isRunning || !input.trim()}
-            >
-              ↑
-            </button>
-          </div>
-        </div>
-      </div>
+        ))}
 
-      <div className="agent-sidebar">
-        {tasks.length > 0 && (
-          <div className="agent-tasks">
-            <h4>Tasks</h4>
-            {tasks.map(task => (
-              <div key={task.id} className={`agent-task agent-task-${task.status}`}>
-                <span className="agent-task-icon">{getTaskIcon(task.status)}</span>
-                <span className="agent-task-content">{task.content}</span>
+        {currentThinking && (
+          <div className="activity-item activity-thinking">
+            <div className="activity-icon">
+              <div className="thinking-dots">
+                <span></span><span></span><span></span>
               </div>
-            ))}
+            </div>
+            <div className="activity-content">
+              <span className="activity-text">{currentThinking}</span>
+            </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
+      </div>
 
-        <div className="agent-events">
-          <h4>Activity</h4>
-          <div className="agent-events-list">
-            {events.slice(-20).map((event, i) => (
-              <div key={i} className={`agent-event agent-event-${event.type}`}>
-                <span className="agent-event-icon">{getEventIcon(event.type)}</span>
-                <span className="agent-event-content">
-                  {event.type === 'tool_call' && `${event.data.tool}`}
-                  {event.type === 'tool_result' && `${event.data.tool}: ${event.data.result?.success ? 'success' : 'failed'}`}
-                  {event.type === 'thinking' && event.data.message}
-                  {event.type === 'task_update' && `${event.data.action}: ${event.data.task?.content?.substring(0, 30)}...`}
-                  {event.type === 'review' && 'Reviewing changes...'}
-                  {event.type === 'complete' && 'Completed'}
-                  {event.type === 'error' && event.data.error}
-                </span>
+      <div className="agent-input-container">
+        <div className="input-left-controls">
+          <div className="build-menu-wrapper">
+            <button 
+              className={`build-mode-btn ${mode}`}
+              onClick={() => setShowBuildMenu(!showBuildMenu)}
+            >
+              <span className="build-icon">{mode === 'build' ? '⚡' : '📋'}</span>
+              <span>{mode === 'build' ? 'Build' : 'Plan'}</span>
+              <span className="dropdown-arrow">▾</span>
+            </button>
+            {showBuildMenu && (
+              <div className="build-menu">
+                <button 
+                  className={`build-option ${mode === 'build' ? 'active' : ''}`}
+                  onClick={() => { setMode('build'); setShowBuildMenu(false); }}
+                >
+                  <span className="option-icon">⚡</span>
+                  <div className="option-info">
+                    <strong>Build</strong>
+                    <span>Agent builds and executes code</span>
+                  </div>
+                </button>
+                <button 
+                  className={`build-option ${mode === 'plan' ? 'active' : ''}`}
+                  onClick={() => { setMode('plan'); setShowBuildMenu(false); }}
+                >
+                  <span className="option-icon">📋</span>
+                  <div className="option-info">
+                    <strong>Plan</strong>
+                    <span>Agent creates a plan without executing</span>
+                  </div>
+                </button>
               </div>
-            ))}
-            <div ref={eventsEndRef} />
+            )}
           </div>
+          <button 
+            className="attach-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach files"
+          >
+            📎
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (e.target.files) {
+                setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+              }
+            }}
+          />
+        </div>
+        
+        <div className="input-main">
+          {attachments.length > 0 && (
+            <div className="attachments-preview">
+              {attachments.map((file, i) => (
+                <div key={i} className="attachment-chip">
+                  <span>{file.name}</span>
+                  <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <textarea
+            className="agent-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder={isRunning ? 'Agent is working...' : 'Ask the agent to build something...'}
+            disabled={isRunning}
+            rows={1}
+          />
+        </div>
+        
+        <div className="input-right-controls">
+          <button className="control-btn" title="Settings">⚙️</button>
+          <button
+            className="agent-send-btn"
+            onClick={sendMessage}
+            disabled={isRunning || !input.trim()}
+          >
+            ↑
+          </button>
         </div>
       </div>
     </div>
