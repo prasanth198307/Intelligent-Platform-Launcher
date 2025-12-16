@@ -44,6 +44,7 @@ export class AgentOrchestrator extends EventEmitter {
   private context: ToolContext;
   private maxIterations = 100; // Essentially unlimited - like Claude
   private currentIteration = 0;
+  private rateLimitRetries = 0;
 
   constructor(projectId: string, sessionId?: string) {
     super();
@@ -392,9 +393,22 @@ Keep working until ALL tasks are complete, then use final_response.`;
       } catch (e: any) {
         console.error("Agent error:", e);
         
-        if (e?.message?.includes("rate_limit") || e?.message?.includes("429")) {
-          this.emit_event("thinking", { message: "Rate limited, waiting..." });
-          await new Promise(r => setTimeout(r, 2000));
+        if (e?.message?.includes("rate_limit") || e?.message?.includes("429") || e?.status === 429) {
+          this.rateLimitRetries = (this.rateLimitRetries || 0) + 1;
+          
+          // Extract wait time from error message
+          const waitMatch = e?.message?.match(/try again in (\d+m[\d.]+s|\d+s)/i);
+          const waitTime = waitMatch ? waitMatch[1] : "a while";
+          
+          if (this.rateLimitRetries >= 3) {
+            const errorMsg = `Rate limit exceeded. Groq free tier allows 100,000 tokens/day. Please wait ${waitTime} or switch to OpenAI by setting OPENAI_API_KEY and LLM_PROVIDER=openai.`;
+            this.emit_event("error", { error: errorMsg });
+            this.session.status = "idle";
+            return;
+          }
+          
+          this.emit_event("thinking", { message: `Rate limited (attempt ${this.rateLimitRetries}/3), waiting...` });
+          await new Promise(r => setTimeout(r, 5000));
           continue;
         }
 
