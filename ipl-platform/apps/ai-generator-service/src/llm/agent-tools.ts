@@ -1581,7 +1581,7 @@ Respond with JSON:
       required: ["url"]
     },
     execute: async (params, context) => {
-      let browser = null;
+      let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
       try {
         const waitMs = params.wait_ms || 2000;
         const url = params.url;
@@ -1599,7 +1599,7 @@ Respond with JSON:
         
         // Navigate to URL
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-        await page.waitForTimeout(waitMs);
+        await new Promise(r => setTimeout(r, waitMs));
         
         // Take screenshot as base64
         const screenshotBuffer = await page.screenshot({ 
@@ -1701,7 +1701,7 @@ Respond with JSON:
       required: ["url"]
     },
     execute: async (params, context) => {
-      let browser = null;
+      let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
       try {
         browser = await puppeteer.launch({
           headless: true,
@@ -1750,7 +1750,7 @@ Respond with JSON:
         }
         
         // Wait after action
-        await page.waitForTimeout(params.wait_after_ms || 1000);
+        await new Promise(r => setTimeout(r, params.wait_after_ms || 1000));
         
         // Get current URL (may have navigated)
         const currentUrl = page.url();
@@ -1813,7 +1813,7 @@ Respond with JSON:
       required: ["url", "selector", "text"]
     },
     execute: async (params, context) => {
-      let browser = null;
+      let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
       try {
         browser = await puppeteer.launch({
           headless: true,
@@ -1843,7 +1843,7 @@ Respond with JSON:
         // Press enter if requested
         if (params.press_enter) {
           await page.keyboard.press('Enter');
-          await page.waitForTimeout(1000);
+          await new Promise(r => setTimeout(r, 1000));
         }
         
         // Get current URL and take screenshot
@@ -1964,12 +1964,12 @@ Respond with JSON:
           return { success: false, error: "Project not found" };
         }
         
-        const projectDir = getProjectDir(context.projectId);
+        const projectDir = await getProjectDir(context.projectId);
         const results: any[] = [];
         
         // Execute all operations in parallel
         const operations = params.operations.map(async (op: any) => {
-          const fullPath = path.join(projectDir, op.path);
+          const fullPath = path.join(projectDir || '', op.path);
           
           try {
             switch (op.action) {
@@ -1987,7 +1987,7 @@ Respond with JSON:
                 return { path: op.path, action: 'delete', success: true };
               }
               case 'copy': {
-                const destPath = path.join(projectDir, op.dest_path);
+                const destPath = path.join(projectDir || '', op.dest_path);
                 await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
                 await fs.promises.copyFile(fullPath, destPath);
                 return { path: op.path, action: 'copy', dest: op.dest_path, success: true };
