@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './ProjectBuilder.css';
 import { AgentChat } from './components/AgentChat';
+import { ToolsTabs } from './components/ToolsTabs';
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8080' : '';
 
@@ -667,7 +668,8 @@ export default function ProjectBuilder() {
           )}
 
           {phase === 'building' && project && (
-            <div className="building-phase">
+            <div className="building-phase with-tools">
+              <div className="main-builder-area">
               <div className="chat-panel">
                 <div className="chat-header">
                   <h3>Chat with AI Agent</h3>
@@ -931,6 +933,16 @@ export default function ProjectBuilder() {
                     </div>
                   )}
                 </div>
+              </div>
+              </div>
+              <div className="tools-panel-container">
+                <ToolsTabs
+                  projectId={project.projectId}
+                  files={project.generatedFiles || []}
+                  consoleLogs={consoleLogs}
+                  appStatus={appStatus}
+                  onClearConsole={() => setConsoleLogs([])}
+                />
               </div>
             </div>
           )}
