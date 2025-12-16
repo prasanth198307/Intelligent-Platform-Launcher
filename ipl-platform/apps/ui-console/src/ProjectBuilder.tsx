@@ -228,6 +228,20 @@ export default function ProjectBuilder() {
         if (data.nextSteps) {
           data.nextSteps.forEach((step: string) => addLog(`  → ${step}`));
         }
+        
+        // Handle automation response - auto-switch to Preview and start polling
+        if (data.automation?.status === 'started') {
+          addLog(`🚀 ${data.automation.message}`);
+          setChatHistory(prev => [...prev, { 
+            role: 'system', 
+            message: '🚀 Building and starting your application automatically...', 
+            timestamp: new Date().toLocaleTimeString() 
+          }]);
+          setActiveTab('preview');
+          // Start polling for app status after a short delay
+          setTimeout(() => pollAppStatus(), 3000);
+        }
+        
         await refreshProject();
       } else {
         setChatHistory(prev => [...prev, { role: 'assistant', message: `Error: ${data.error}`, timestamp: new Date().toLocaleTimeString() }]);

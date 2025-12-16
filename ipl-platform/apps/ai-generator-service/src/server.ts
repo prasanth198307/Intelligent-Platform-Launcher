@@ -1108,6 +1108,23 @@ app.post("/api/projects/:projectId/agent", async (req, res) => {
     // Get updated project
     const [updatedProject] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
     
+    // Check if we should auto-run the pipeline (when a module was built)
+    let automationResult = null;
+    const shouldAutomate = result.action === 'module_built' || 
+                           result.action === 'module_updated' ||
+                           (updatedModules.length > 0 && updatedModules.some((m: any) => m.status === 'completed'));
+    
+    if (shouldAutomate) {
+      console.log(`[Agent] Auto-running pipeline for project ${req.params.projectId}`);
+      // Run automation in background - don't block the response
+      runAutomationPipeline(req.params.projectId).then(pipelineResult => {
+        console.log(`[Agent] Pipeline completed:`, pipelineResult);
+      }).catch(err => {
+        console.error(`[Agent] Pipeline failed:`, err);
+      });
+      automationResult = { status: 'started', message: 'Automatically building and running your application...' };
+    }
+    
     res.json({
       ok: true,
       aiGenerated: true,
@@ -1118,6 +1135,7 @@ app.post("/api/projects/:projectId/agent", async (req, res) => {
       suggestedModules: result.suggestedModules,
       questions: result.questions,
       suggestions: result.suggestions,
+      automation: automationResult,
       project: {
         projectId: updatedProject.projectId,
         name: updatedProject.name,
@@ -1238,6 +1256,7 @@ interface RunningProject {
 }
 
 const runningProjects = new Map<string, RunningProject>();
+const automationInProgress = new Set<string>();
 const PROJECT_PORT_START = 3100;
 
 function getNextAvailablePort(): number {
@@ -1246,6 +1265,180 @@ function getNextAvailablePort(): number {
     if (!usedPorts.has(port)) return port;
   }
   return PROJECT_PORT_START + 100;
+}
+
+// Automation pipeline: materialize -> provision -> run
+async function runAutomationPipeline(projectId: string): Promise<{
+  success: boolean;
+  stage: string;
+  error?: string;
+  port?: number;
+}> {
+  // Prevent concurrent automation runs
+  if (automationInProgress.has(projectId)) {
+    console.log(`[Automation] Already in progress for ${projectId}, skipping`);
+    return { success: false, stage: "skipped", error: "Automation already in progress" };
+  }
+  
+  // Skip if app is already running
+  const existing = runningProjects.get(projectId);
+  if (existing && (existing.status === "running" || existing.status === "starting")) {
+    console.log(`[Automation] App already running for ${projectId}, skipping`);
+    return { success: true, stage: "already_running", port: existing.port };
+  }
+  
+  automationInProgress.add(projectId);
+  const fs = await import("fs/promises");
+  const PROJECTS_DIR = "/tmp/ipl-projects";
+  
+  try {
+    // Stage 1: Materialize code
+    console.log(`[Automation] Stage 1: Materializing project ${projectId}`);
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, projectId)).limit(1);
+    if (!project) {
+      return { success: false, stage: "materialize", error: "Project not found" };
+    }
+    
+    const modules = (project.modules as any) || [];
+    if (modules.length === 0) {
+      return { success: false, stage: "materialize", error: "No modules to materialize" };
+    }
+    
+    const { materializeProject } = await import("./generators/code-materializer.js");
+    const materializeResult = await materializeProject({
+      projectId: project.projectId,
+      projectName: project.name || "IPL Project",
+      domain: project.domain || "custom",
+      database: project.database || "postgresql",
+      modules: modules,
+    });
+    
+    // Update generated files in DB - store metadata only (path and type)
+    const existingFiles = (project.generatedFiles as any[]) || [];
+    const newFilesMeta = materializeResult.files.map(f => ({
+      path: f.path,
+      type: f.type,
+    }));
+    
+    // Merge - avoid duplicates by path
+    const mergedFiles = [...existingFiles];
+    for (const newFile of newFilesMeta) {
+      const existingIndex = mergedFiles.findIndex((f: any) => f.path === newFile.path);
+      if (existingIndex >= 0) {
+        mergedFiles[existingIndex] = newFile;
+      } else {
+        mergedFiles.push(newFile);
+      }
+    }
+    
+    await db.update(projects)
+      .set({
+        generatedFiles: mergedFiles as any,
+        status: "materialized",
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, projectId));
+    
+    // Stage 2: Provision database
+    console.log(`[Automation] Stage 2: Provisioning database for ${projectId}`);
+    try {
+      const provisionResult = await provisionProjectDatabase(projectId, modules);
+      console.log(`[Automation] Database provisioned: ${provisionResult.tablesCreated} tables`);
+    } catch (dbError: any) {
+      console.log(`[Automation] Database provision skipped or failed: ${dbError?.message}`);
+    }
+    
+    // Stage 3: Run the application
+    console.log(`[Automation] Stage 3: Starting application for ${projectId}`);
+    const projectDir = `${PROJECTS_DIR}/${projectId}`;
+    
+    try {
+      await fs.access(projectDir);
+    } catch {
+      return { success: false, stage: "run", error: "Project directory not found" };
+    }
+    
+    const port = getNextAvailablePort();
+    const logs: string[] = [];
+    const projectState: RunningProject = {
+      process: null as any,
+      port,
+      logs,
+      status: "starting",
+      startedAt: new Date()
+    };
+    
+    runningProjects.set(projectId, projectState);
+    logs.push(`[${new Date().toISOString()}] [Auto] Starting project on port ${port}...`);
+    logs.push(`[${new Date().toISOString()}] [Auto] Installing dependencies...`);
+    
+    // Run npm install
+    await new Promise<void>((resolve, reject) => {
+      const npmInstall = spawn("npm", ["install"], { 
+        cwd: projectDir,
+        env: { ...process.env, PORT: String(port) }
+      });
+      
+      projectState.process = npmInstall;
+      
+      npmInstall.stdout.on("data", (data) => {
+        logs.push(data.toString().trim());
+        if (logs.length > 500) logs.shift();
+      });
+      
+      npmInstall.stderr.on("data", (data) => {
+        logs.push(data.toString().trim());
+        if (logs.length > 500) logs.shift();
+      });
+      
+      npmInstall.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`npm install failed with code ${code}`));
+      });
+      
+      npmInstall.on("error", reject);
+    });
+    
+    logs.push(`[${new Date().toISOString()}] [Auto] Dependencies installed. Starting server...`);
+    
+    // Start the server
+    const serverProcess = spawn("npm", ["start"], {
+      cwd: projectDir,
+      env: { ...process.env, PORT: String(port), DATABASE_URL: process.env.DATABASE_URL }
+    });
+    
+    projectState.process = serverProcess;
+    projectState.status = "running";
+    
+    serverProcess.stdout.on("data", (data) => {
+      logs.push(data.toString().trim());
+      if (logs.length > 500) logs.shift();
+    });
+    
+    serverProcess.stderr.on("data", (data) => {
+      logs.push(data.toString().trim());
+      if (logs.length > 500) logs.shift();
+    });
+    
+    serverProcess.on("close", (exitCode) => {
+      logs.push(`[${new Date().toISOString()}] Server exited with code ${exitCode}`);
+      projectState.status = "stopped";
+    });
+    
+    serverProcess.on("error", (err) => {
+      logs.push(`[${new Date().toISOString()}] Server error: ${err.message}`);
+      projectState.status = "error";
+    });
+    
+    console.log(`[Automation] Complete! App running on port ${port}`);
+    return { success: true, stage: "complete", port };
+    
+  } catch (error: any) {
+    console.error(`[Automation] Failed:`, error);
+    return { success: false, stage: "unknown", error: error?.message || String(error) };
+  } finally {
+    automationInProgress.delete(projectId);
+  }
 }
 
 app.post("/api/projects/:projectId/run", async (req, res) => {
