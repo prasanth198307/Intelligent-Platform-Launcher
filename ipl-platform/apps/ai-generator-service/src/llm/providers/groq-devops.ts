@@ -1080,3 +1080,195 @@ Return ONLY valid JSON with files array.`;
     clearTimeout(timeout);
   }
 }
+
+export interface DomainModuleConfig {
+  domain: string;
+  existingModules?: string[];
+}
+
+export interface RecommendedModule {
+  name: string;
+  description: string;
+  priority: 'core' | 'recommended' | 'optional';
+  entities: Array<{ name: string; description: string }>;
+  screens: Array<{ name: string; type: string; description: string }>;
+  apis: string[];
+  dependencies: string[];
+  compliance?: string[];
+}
+
+export interface DomainModulesRecommendation {
+  domain: string;
+  overview: string;
+  modules: RecommendedModule[];
+  suggestedOrder: string[];
+  integrations: string[];
+}
+
+export async function groqRecommendDomainModules(config: DomainModuleConfig): Promise<DomainModulesRecommendation> {
+  const client = getClient();
+
+  const prompt = `You are an enterprise software architect. For the ${config.domain.toUpperCase()} domain, recommend all the modules needed for a complete application.
+
+${config.existingModules?.length ? `Already implemented modules: ${config.existingModules.join(', ')}` : 'Starting fresh - no modules yet.'}
+
+For each module provide:
+1. Name and description
+2. Priority: core (must-have), recommended (important), optional (nice-to-have)
+3. Entities/tables it needs
+4. Screens it needs (list, form, detail, dashboard, chart, etc.)
+5. APIs it exposes
+6. Dependencies on other modules
+7. Any compliance requirements (HIPAA, PCI-DSS, GDPR, etc.)
+
+Also provide:
+- Suggested implementation order (build dependencies first)
+- External integrations needed (payment, email, SMS, etc.)
+
+Return ONLY valid JSON:
+{
+  "domain": "${config.domain}",
+  "overview": "Brief description of the domain",
+  "modules": [
+    {
+      "name": "Module Name",
+      "description": "What this module does",
+      "priority": "core",
+      "entities": [{"name": "EntityName", "description": "..."}],
+      "screens": [{"name": "ScreenName", "type": "list", "description": "..."}],
+      "apis": ["GET /api/entity", "POST /api/entity"],
+      "dependencies": [],
+      "compliance": ["HIPAA"]
+    }
+  ],
+  "suggestedOrder": ["Module1", "Module2", "Module3"],
+  "integrations": ["Stripe", "SendGrid", "Twilio"]
+}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    console.log("Recommending domain modules with Groq AI...");
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: "You are an enterprise software architect with deep domain expertise. Return ONLY valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 8000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export interface SingleModuleConfig {
+  domain: string;
+  moduleName: string;
+  moduleDescription?: string;
+  database: string;
+  framework: string;
+  existingTables?: Array<{ name: string; columns: Array<{ name: string; type: string }> }>;
+}
+
+export interface GeneratedModule {
+  module: {
+    name: string;
+    description: string;
+  };
+  entities: Array<{
+    name: string;
+    tableName: string;
+    columns: Array<{ name: string; type: string; nullable: boolean; references?: string }>;
+  }>;
+  screens: Array<{
+    name: string;
+    type: string;
+    code: string;
+  }>;
+  apis: Array<{
+    method: string;
+    path: string;
+    description: string;
+    code: string;
+  }>;
+  migration: string;
+  tests: string;
+  instructions: string;
+}
+
+export async function groqGenerateSingleModule(config: SingleModuleConfig): Promise<GeneratedModule> {
+  const client = getClient();
+
+  const existingTablesInfo = config.existingTables?.map(t => `- ${t.name}: ${t.columns.map(c => c.name).join(', ')}`).join('\n') || 'None';
+
+  const prompt = `Generate a COMPLETE module for the ${config.domain.toUpperCase()} domain.
+
+Module: ${config.moduleName}
+${config.moduleDescription ? `Description: ${config.moduleDescription}` : ''}
+Database: ${config.database}
+Framework: ${config.framework}
+
+EXISTING TABLES (can reference for foreign keys):
+${existingTablesInfo}
+
+Generate EVERYTHING needed for this module:
+
+1. ENTITIES - Full table schemas with:
+   - All columns with proper types
+   - Foreign key relationships
+   - Indexes for performance
+
+2. SCREENS - React components for:
+   - List view with search/filter/pagination
+   - Form for create/edit
+   - Detail view
+   - Any dashboards or charts if applicable
+
+3. APIs - Express endpoints for:
+   - CRUD operations
+   - Search/filter
+   - Any business logic endpoints
+
+4. MIGRATION - SQL migration file
+
+5. TESTS - Basic test cases
+
+Return ONLY valid JSON with all code.`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
+
+  try {
+    console.log(`Generating module ${config.moduleName} with Groq AI...`);
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: "You are a full-stack developer. Generate complete, production-ready code for each module component. Return ONLY valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 16000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}

@@ -18,6 +18,8 @@ import {
   groqGenerateSecurity,
   groqGenerateCostOptimization,
   groqGenerateDocumentation,
+  groqRecommendDomainModules,
+  groqGenerateSingleModule,
 } from "./llm/providers/groq-devops.js";
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
@@ -800,6 +802,62 @@ app.post("/api/generate-documentation", async (req, res) => {
   } catch (e: any) {
     console.error("Documentation generation failed:", e);
     res.status(500).json({ error: "Documentation generation failed", details: e?.message || String(e) });
+  }
+});
+
+// AI-powered domain module recommendations
+app.post("/api/recommend-modules", async (req, res) => {
+  try {
+    const { domain, existingModules } = req.body;
+    
+    if (!domain) {
+      return res.status(400).json({ error: "domain is required" });
+    }
+    
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: "AI module recommendations require GROQ_API_KEY" });
+    }
+    
+    console.log(`Recommending modules for domain: ${domain}`);
+    const result = await groqRecommendDomainModules({
+      domain,
+      existingModules: existingModules || [],
+    });
+    
+    res.json({ ok: true, aiGenerated: true, ...result });
+  } catch (e: any) {
+    console.error("Module recommendation failed:", e);
+    res.status(500).json({ error: "Module recommendation failed", details: e?.message || String(e) });
+  }
+});
+
+// AI-powered single module generation
+app.post("/api/generate-module", async (req, res) => {
+  try {
+    const { domain, moduleName, moduleDescription, database, framework, existingTables } = req.body;
+    
+    if (!domain || !moduleName) {
+      return res.status(400).json({ error: "domain and moduleName are required" });
+    }
+    
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: "AI module generation requires GROQ_API_KEY" });
+    }
+    
+    console.log(`Generating module: ${moduleName} for domain: ${domain}`);
+    const result = await groqGenerateSingleModule({
+      domain,
+      moduleName,
+      moduleDescription,
+      database: database || "postgresql",
+      framework: framework || "express",
+      existingTables: existingTables || [],
+    });
+    
+    res.json({ ok: true, aiGenerated: true, ...result });
+  } catch (e: any) {
+    console.error("Module generation failed:", e);
+    res.status(500).json({ error: "Module generation failed", details: e?.message || String(e) });
   }
 });
 
