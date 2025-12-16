@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getDomainContext, getModuleSpec, getAllModulesForDomain } from "../../steps/domainPackLoader.js";
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -1540,6 +1541,13 @@ export async function groqProjectAgent(request: ProjectAgentRequest): Promise<Pr
   const plannedModules = request.project.modules.filter(m => m.status === 'planned');
   const existingTables = completedModules.flatMap(m => m.tables);
 
+  // Get domain-specific context from domain pack
+  const domainContext = getDomainContext(request.project.domain || '', request.userMessage);
+  const availableModules = getAllModulesForDomain(request.project.domain || '');
+  
+  // Check if user is asking for a specific module from domain pack
+  const moduleSpec = getModuleSpec(request.project.domain || '', request.userMessage);
+
   const projectSummary = `
 PROJECT: ${request.project.name || 'Unnamed Project'}
 Description: ${request.project.description || 'No description'}
@@ -1555,26 +1563,48 @@ ${plannedModules.map(m => `- ${m.name}`).join('\n') || 'None'}
 
 EXISTING TABLES:
 ${existingTables.map(t => `- ${t.name}: ${t.columns.map(c => c.name + (c.references ? ` -> ${c.references}` : '')).join(', ')}`).join('\n') || 'None'}
+
+${availableModules.length > 0 ? `AVAILABLE DOMAIN MODULES:
+${availableModules.map(m => `- ${m.name}: ${m.description}`).join('\n')}` : ''}
 `;
+
+  // If we have a module spec from domain pack, include it
+  const moduleSpecContext = moduleSpec ? `
+DOMAIN MODULE SPECIFICATION (use this exact structure):
+Module: ${moduleSpec.name}
+Description: ${moduleSpec.description}
+
+Tables to create:
+${moduleSpec.entities?.map((e: any) => `- ${e.name}: ${e.fields?.map((f: any) => `${f.name} (${f.type}${f.primaryKey ? ', PK' : ''}${f.references ? ', FK -> ' + f.references : ''})`).join(', ')}`).join('\n') || 'None specified'}
+
+APIs to create:
+${moduleSpec.apis?.map((a: any) => `- ${a.method} ${a.path}: ${a.description}`).join('\n') || 'None specified'}
+
+Screens to create:
+${moduleSpec.screens?.map((s: any) => `- ${s.name} (${s.type}) at ${s.route}`).join('\n') || 'None specified'}
+` : '';
 
   const prompt = `You are an AI development agent helping build a software project incrementally.
 
 ${projectSummary}
+${domainContext}
+${moduleSpecContext}
 
 USER REQUEST: "${request.userMessage}"
 
-Based on the request, determine the action and provide structured data (NO code, just structure):
+Based on the request, determine the action and provide structured data.
 
-1. If user wants to build a module → Define module structure with tables, API endpoints, screens
-2. If user asks what modules needed → List recommended modules
-3. If user asks status → Summarize what is built
+DOMAIN UNDERSTANDING:
+- If user mentions domain-specific terms, use the domain context above to understand what they mean
+- For AMI: "Head End System" = meter communication hub, "MDM" = meter data management
+- For Healthcare: "EMR" = electronic medical records, "HL7" = health data exchange
+- Always use the DOMAIN MODULE SPECIFICATION if provided
 
-IMPORTANT: Do NOT include actual code. Only include structural definitions.
-
-For building a module, provide:
-- Tables with column names and types
-- API endpoint paths and methods
-- Screen names and types
+For building a module, you MUST provide complete table schemas with:
+- Primary keys (id with serial or uuid type)
+- All necessary columns with proper types
+- Foreign keys referencing existing tables where appropriate
+- Proper enum values for status fields
 
 Return ONLY valid JSON (no code, no special characters):
 {
@@ -1587,10 +1617,10 @@ Return ONLY valid JSON (no code, no special characters):
         "description": "What this module does",
         "status": "completed",
         "tables": [
-          {"name": "table_name", "columns": [{"name": "id", "type": "serial", "primaryKey": true}, {"name": "patient_id", "type": "integer", "references": "patients.id"}]}
+          {"name": "table_name", "columns": [{"name": "id", "type": "serial", "primaryKey": true}, {"name": "meter_id", "type": "varchar(50)", "references": "meters.meter_id"}]}
         ],
-        "apis": [{"method": "GET", "path": "/api/patients", "description": "List all patients"}],
-        "screens": [{"name": "PatientList", "type": "list", "route": "/patients"}]
+        "apis": [{"method": "GET", "path": "/api/meters", "description": "List all meters"}],
+        "screens": [{"name": "MeterList", "type": "list", "route": "/meters"}]
       }
     ]
   },

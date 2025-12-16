@@ -1,0 +1,213 @@
+{
+  "domain": "ami",
+  "name": "AMI / Smart Metering",
+  "description": "Advanced Metering Infrastructure for utility companies - smart meters, data collection, billing integration",
+  
+  "terminology": {
+    "head_end_system": {
+      "aliases": ["HES", "head end", "headend", "meter data management head"],
+      "description": "Central system that communicates with smart meters, collects data, and manages meter operations",
+      "components": ["Meter Communication Engine", "Command Scheduler", "Data Collector", "Event Processor"]
+    },
+    "meter_data_management": {
+      "aliases": ["MDM", "MDMS", "meter data management system"],
+      "description": "System for validating, editing, estimating meter data and preparing for billing",
+      "components": ["VEE Engine", "Data Warehouse", "Analytics", "Billing Interface"]
+    },
+    "dlms_cosem": {
+      "aliases": ["DLMS", "COSEM", "IEC 62056"],
+      "description": "Standard protocol for smart meter communication",
+      "dataTypes": ["Register", "Profile", "Event Log", "Image Transfer"]
+    },
+    "communication_profiles": {
+      "rf_mesh": { "description": "Radio frequency mesh network", "protocols": ["Zigbee", "Wi-SUN", "LoRa"] },
+      "cellular": { "description": "Cellular network", "protocols": ["LTE", "NB-IoT", "Cat-M1"] },
+      "plc": { "description": "Power Line Communication", "protocols": ["PRIME", "G3-PLC", "OSGP"] }
+    }
+  },
+
+  "entities": {
+    "meter": {
+      "description": "Smart meter device",
+      "fields": [
+        { "name": "meter_id", "type": "varchar(50)", "primaryKey": true },
+        { "name": "serial_number", "type": "varchar(100)", "unique": true },
+        { "name": "manufacturer", "type": "varchar(100)" },
+        { "name": "model", "type": "varchar(100)" },
+        { "name": "firmware_version", "type": "varchar(50)" },
+        { "name": "communication_type", "type": "varchar(50)", "enum": ["RF_MESH", "CELLULAR", "PLC", "ETHERNET"] },
+        { "name": "installation_date", "type": "timestamp" },
+        { "name": "status", "type": "varchar(20)", "enum": ["ACTIVE", "INACTIVE", "MAINTENANCE", "DECOMMISSIONED"] },
+        { "name": "last_communication", "type": "timestamp" },
+        { "name": "latitude", "type": "decimal(10,7)" },
+        { "name": "longitude", "type": "decimal(10,7)" }
+      ]
+    },
+    "meter_reading": {
+      "description": "Meter reading data (time-series)",
+      "fields": [
+        { "name": "id", "type": "bigserial", "primaryKey": true },
+        { "name": "meter_id", "type": "varchar(50)", "references": "meter.meter_id" },
+        { "name": "reading_time", "type": "timestamptz", "index": true },
+        { "name": "register_id", "type": "varchar(50)" },
+        { "name": "value", "type": "decimal(18,6)" },
+        { "name": "unit", "type": "varchar(20)", "enum": ["kWh", "kVAh", "kVARh", "V", "A", "kW"] },
+        { "name": "quality_flag", "type": "varchar(20)" },
+        { "name": "source", "type": "varchar(20)", "enum": ["AUTOMATIC", "MANUAL", "ESTIMATED"] }
+      ],
+      "timeseries": true,
+      "partitionBy": "reading_time"
+    },
+    "meter_event": {
+      "description": "Meter events and alarms",
+      "fields": [
+        { "name": "id", "type": "bigserial", "primaryKey": true },
+        { "name": "meter_id", "type": "varchar(50)", "references": "meter.meter_id" },
+        { "name": "event_time", "type": "timestamptz" },
+        { "name": "event_code", "type": "varchar(50)" },
+        { "name": "event_type", "type": "varchar(50)", "enum": ["POWER_OUTAGE", "POWER_RESTORE", "TAMPER", "COVER_OPEN", "MAGNETIC_INTERFERENCE", "OVERCURRENT", "OVERVOLTAGE"] },
+        { "name": "severity", "type": "varchar(20)", "enum": ["INFO", "WARNING", "CRITICAL"] },
+        { "name": "description", "type": "text" }
+      ]
+    },
+    "communication_log": {
+      "description": "Communication attempts with meters",
+      "fields": [
+        { "name": "id", "type": "bigserial", "primaryKey": true },
+        { "name": "meter_id", "type": "varchar(50)", "references": "meter.meter_id" },
+        { "name": "timestamp", "type": "timestamptz" },
+        { "name": "command_type", "type": "varchar(50)" },
+        { "name": "status", "type": "varchar(20)", "enum": ["SUCCESS", "FAILED", "TIMEOUT", "PENDING"] },
+        { "name": "response_time_ms", "type": "integer" },
+        { "name": "error_code", "type": "varchar(50)" }
+      ]
+    },
+    "data_concentrator": {
+      "description": "DCU - Data Concentrator Unit for RF mesh networks",
+      "fields": [
+        { "name": "dcu_id", "type": "varchar(50)", "primaryKey": true },
+        { "name": "serial_number", "type": "varchar(100)" },
+        { "name": "location", "type": "varchar(200)" },
+        { "name": "ip_address", "type": "varchar(50)" },
+        { "name": "connected_meters", "type": "integer" },
+        { "name": "status", "type": "varchar(20)" }
+      ]
+    },
+    "tariff": {
+      "description": "Tariff/rate structure",
+      "fields": [
+        { "name": "tariff_id", "type": "varchar(50)", "primaryKey": true },
+        { "name": "name", "type": "varchar(100)" },
+        { "name": "description", "type": "text" },
+        { "name": "rate_type", "type": "varchar(50)", "enum": ["FLAT", "TOU", "TIERED", "DEMAND"] },
+        { "name": "effective_date", "type": "date" },
+        { "name": "rates", "type": "jsonb" }
+      ]
+    },
+    "billing_determinant": {
+      "description": "Aggregated data for billing",
+      "fields": [
+        { "name": "id", "type": "bigserial", "primaryKey": true },
+        { "name": "meter_id", "type": "varchar(50)", "references": "meter.meter_id" },
+        { "name": "billing_period_start", "type": "date" },
+        { "name": "billing_period_end", "type": "date" },
+        { "name": "total_consumption_kwh", "type": "decimal(18,6)" },
+        { "name": "peak_demand_kw", "type": "decimal(18,6)" },
+        { "name": "tou_consumption", "type": "jsonb" },
+        { "name": "validated", "type": "boolean" }
+      ]
+    }
+  },
+
+  "modules": {
+    "head_end_system": {
+      "name": "Head End System",
+      "description": "Central communication hub for smart meters",
+      "entities": ["meter", "communication_log", "data_concentrator"],
+      "apis": [
+        { "method": "GET", "path": "/api/meters", "description": "List all meters with pagination and filters" },
+        { "method": "GET", "path": "/api/meters/:id", "description": "Get meter details" },
+        { "method": "POST", "path": "/api/meters/:id/read", "description": "Request on-demand meter read" },
+        { "method": "POST", "path": "/api/meters/:id/disconnect", "description": "Remote disconnect meter" },
+        { "method": "POST", "path": "/api/meters/:id/reconnect", "description": "Remote reconnect meter" },
+        { "method": "GET", "path": "/api/meters/:id/communication-logs", "description": "Get communication history" },
+        { "method": "GET", "path": "/api/dcus", "description": "List data concentrators" },
+        { "method": "POST", "path": "/api/dcus/:id/poll", "description": "Poll DCU for meter data" }
+      ],
+      "screens": [
+        { "name": "Meter List", "type": "list", "route": "/meters" },
+        { "name": "Meter Detail", "type": "detail", "route": "/meters/:id" },
+        { "name": "DCU Management", "type": "list", "route": "/dcus" },
+        { "name": "Communication Dashboard", "type": "dashboard", "route": "/communication" }
+      ]
+    },
+    "data_collection": {
+      "name": "Data Collection & Processing",
+      "description": "Automated meter data collection and processing",
+      "entities": ["meter_reading", "meter_event"],
+      "apis": [
+        { "method": "GET", "path": "/api/readings", "description": "Query meter readings" },
+        { "method": "POST", "path": "/api/readings/batch", "description": "Bulk insert readings" },
+        { "method": "GET", "path": "/api/meters/:id/readings", "description": "Get readings for a meter" },
+        { "method": "GET", "path": "/api/events", "description": "Query meter events" },
+        { "method": "GET", "path": "/api/meters/:id/events", "description": "Get events for a meter" }
+      ],
+      "screens": [
+        { "name": "Readings Explorer", "type": "chart", "route": "/readings" },
+        { "name": "Event Log", "type": "list", "route": "/events" },
+        { "name": "Data Quality Dashboard", "type": "dashboard", "route": "/data-quality" }
+      ]
+    },
+    "meter_data_management": {
+      "name": "Meter Data Management (MDM)",
+      "description": "VEE processing and billing preparation",
+      "entities": ["billing_determinant", "tariff"],
+      "apis": [
+        { "method": "GET", "path": "/api/billing-determinants", "description": "Get billing determinants" },
+        { "method": "POST", "path": "/api/vee/validate", "description": "Run VEE on readings" },
+        { "method": "POST", "path": "/api/billing/calculate", "description": "Calculate bill for meter" },
+        { "method": "GET", "path": "/api/tariffs", "description": "List tariffs" },
+        { "method": "POST", "path": "/api/tariffs", "description": "Create tariff" }
+      ],
+      "screens": [
+        { "name": "VEE Dashboard", "type": "dashboard", "route": "/vee" },
+        { "name": "Billing Preparation", "type": "list", "route": "/billing" },
+        { "name": "Tariff Management", "type": "list", "route": "/tariffs" }
+      ]
+    },
+    "outage_management": {
+      "name": "Outage Management",
+      "description": "Power outage detection and restoration tracking",
+      "entities": ["meter_event"],
+      "apis": [
+        { "method": "GET", "path": "/api/outages", "description": "Get active outages" },
+        { "method": "GET", "path": "/api/outages/map", "description": "Get outage map data" },
+        { "method": "POST", "path": "/api/outages/ping", "description": "Ping meters in outage area" }
+      ],
+      "screens": [
+        { "name": "Outage Map", "type": "map", "route": "/outages/map" },
+        { "name": "Outage History", "type": "list", "route": "/outages/history" }
+      ]
+    }
+  },
+
+  "scale_profiles": {
+    "small": { "meters": 50000, "readings_per_day": 5000000, "retention_years": 2 },
+    "medium": { "meters": 500000, "readings_per_day": 50000000, "retention_years": 5 },
+    "large": { "meters": 2000000, "readings_per_day": 200000000, "retention_years": 7 },
+    "massive": { "meters": 10000000, "readings_per_day": 1000000000, "retention_years": 10 }
+  },
+
+  "infrastructure_recommendations": {
+    "database": {
+      "under_10M": "PostgreSQL",
+      "10M_to_100M": "TimescaleDB",
+      "over_100M": "TimescaleDB with Compression"
+    },
+    "messaging": {
+      "under_1M": "Redis Pub/Sub",
+      "over_1M": "Apache Kafka"
+    },
+    "caching": "Redis for meter status and recent readings"
+  }
+}
