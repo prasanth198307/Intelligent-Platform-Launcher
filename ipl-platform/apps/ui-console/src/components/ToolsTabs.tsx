@@ -52,6 +52,7 @@ const AVAILABLE_TOOLS = [
   { id: 'modules', name: 'Modules', icon: '📦', description: 'View modules created by the AI agent' },
   { id: 'shell', name: 'Shell', icon: '💻', description: 'Directly access your App through a command line interface (CLI)' },
   { id: 'git', name: 'Git', icon: '⎇', description: 'Version control for your App' },
+  { id: 'github', name: 'GitHub', icon: '🐙', description: 'Connect to GitHub repositories, manage branches, commits, and pull requests' },
   { id: 'database', name: 'Database', icon: '🗄️', description: 'Stores structured data such as user profiles, game scores, and product catalogs' },
   { id: 'storage', name: 'App Storage', icon: '📦', description: 'Built-in object storage for images, videos, and documents' },
   { id: 'kvstore', name: 'Key-Value Store', icon: '🔑', description: 'Easy-to-use store for unstructured data, caching, and session management' },
@@ -107,6 +108,12 @@ export function ToolsTabs({
   // Code search state
   const [codeSearchQuery, setCodeSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ file: string; line: number; content: string }>>([]);
+
+  // GitHub state
+  const [githubRepos, setGithubRepos] = useState<Array<{ name: string; full_name: string; description: string | null; private: boolean; html_url: string; updated_at: string }>>([]);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubError, setGithubError] = useState('');
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -197,12 +204,34 @@ export function ToolsTabs({
     setSecretsLoading(false);
   }, [projectId]);
 
+  // Load GitHub repos
+  const loadGithubRepos = useCallback(async () => {
+    setGithubLoading(true);
+    setGithubError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/github/repos?projectId=${projectId}`);
+      const data = await res.json();
+      if (data.ok) {
+        setGithubConnected(true);
+        setGithubRepos(data.data || []);
+      } else {
+        setGithubConnected(false);
+        setGithubError(data.error || 'GitHub not connected');
+      }
+    } catch (e: any) {
+      setGithubConnected(false);
+      setGithubError(e?.message || 'Failed to load GitHub repos');
+    }
+    setGithubLoading(false);
+  }, [projectId]);
+
   // Load data when tab becomes active
   useEffect(() => {
     if (activeTab === 'git') loadGitStatus();
     if (activeTab === 'database') loadDbTables();
     if (activeTab === 'secrets') loadSecrets();
-  }, [activeTab, loadGitStatus, loadDbTables, loadSecrets]);
+    if (activeTab === 'github') loadGithubRepos();
+  }, [activeTab, loadGitStatus, loadDbTables, loadSecrets, loadGithubRepos]);
 
   const addTab = (tool: typeof AVAILABLE_TOOLS[0]) => {
     if (!tabs.find(t => t.id === tool.id)) {
@@ -611,6 +640,66 @@ export function ToolsTabs({
                           <span className="commit-hash">{commit.hash}</span>
                           <span className="commit-message">{commit.message}</span>
                           <span className="commit-time">{commit.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'github' && (
+          <div className="tab-content github-content">
+            <div className="github-header">
+              <h3>🐙 GitHub</h3>
+              <button className="refresh-btn" onClick={loadGithubRepos} disabled={githubLoading}>
+                {githubLoading ? '...' : '↻'}
+              </button>
+            </div>
+            
+            {githubError && !githubConnected && (
+              <div className="github-not-connected">
+                <p className="github-status">GitHub is not connected</p>
+                <p className="github-info">Connect your GitHub account to:</p>
+                <ul className="github-benefits">
+                  <li>Push code to repositories</li>
+                  <li>Create and manage branches</li>
+                  <li>Open pull requests</li>
+                  <li>Import from existing repos</li>
+                </ul>
+                <p className="github-hint">Ask the AI agent to connect GitHub or use the Integrations tab.</p>
+              </div>
+            )}
+            
+            {githubConnected && (
+              <>
+                <div className="github-connected-badge">
+                  <span className="check-icon">✓</span>
+                  <span>Connected to GitHub</span>
+                </div>
+                
+                <div className="github-repos">
+                  <h4>Your Repositories ({githubRepos.length})</h4>
+                  {githubLoading ? (
+                    <p>Loading repositories...</p>
+                  ) : githubRepos.length === 0 ? (
+                    <p className="no-repos">No repositories found</p>
+                  ) : (
+                    <div className="repos-list">
+                      {githubRepos.map((repo, i) => (
+                        <div key={i} className="repo-item">
+                          <div className="repo-header">
+                            <span className="repo-icon">{repo.private ? '🔒' : '📂'}</span>
+                            <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="repo-name">
+                              {repo.full_name}
+                            </a>
+                          </div>
+                          {repo.description && (
+                            <p className="repo-description">{repo.description}</p>
+                          )}
+                          <span className="repo-updated">Updated {new Date(repo.updated_at).toLocaleDateString()}</span>
                         </div>
                       ))}
                     </div>

@@ -75,6 +75,7 @@ ipl-platform/
     - Verification: run_typescript_check, test_api_endpoint, read_app_logs, check_file_syntax, get_app_status
     - Write: write_file, write_any_file, execute_sql, create_directory, delete_file, batch_file_operations
     - Git & Packages: install_package, git_status, git_commit, glob_files, grep_search
+    - **GitHub Integration**: github_list_repos, github_create_repo, github_list_branches, github_get_file, github_push_file, github_list_commits, github_create_pull_request (uses Replit's secure OAuth connector)
     - **Computer Use (Puppeteer)**: computer_screenshot (real browser screenshots with element detection), computer_click (pixel-precise and selector-based), computer_type (keyboard simulation with Enter support)
     - **Vision**: analyze_screenshot (Claude vision API for image understanding)
     - **MCP Integrations**: mcp_list_integrations, mcp_connect, mcp_execute (GitHub, Slack, Notion, PostgreSQL, HTTP, Filesystem)

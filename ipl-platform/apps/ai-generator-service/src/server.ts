@@ -3739,6 +3739,66 @@ app.post("/api/git/pull", async (req, res) => {
 });
 
 // ====================
+// GitHub Integration API
+// ====================
+app.get("/api/github/repos", async (req, res) => {
+  try {
+    const { listRepositories, isGitHubConnected } = await import('./integrations/github-client.js');
+    
+    const connected = await isGitHubConnected();
+    if (!connected) {
+      return res.json({ ok: false, error: "GitHub not connected" });
+    }
+    
+    const repos = await listRepositories({
+      type: 'owner',
+      sort: 'updated',
+      per_page: 30
+    });
+    
+    res.json({
+      ok: true,
+      data: repos.map(r => ({
+        name: r.name,
+        full_name: r.full_name,
+        description: r.description,
+        private: r.private,
+        html_url: r.html_url,
+        updated_at: r.updated_at
+      }))
+    });
+  } catch (e: any) {
+    console.error("GitHub repos fetch error:", e);
+    res.json({ ok: false, error: e?.message || "Failed to fetch GitHub repos" });
+  }
+});
+
+app.get("/api/github/user", async (req, res) => {
+  try {
+    const { getAuthenticatedUser, isGitHubConnected } = await import('./integrations/github-client.js');
+    
+    const connected = await isGitHubConnected();
+    if (!connected) {
+      return res.json({ ok: false, error: "GitHub not connected" });
+    }
+    
+    const user = await getAuthenticatedUser();
+    
+    res.json({
+      ok: true,
+      data: {
+        login: user.login,
+        name: user.name,
+        avatar_url: user.avatar_url,
+        html_url: user.html_url
+      }
+    });
+  } catch (e: any) {
+    res.json({ ok: false, error: e?.message || "Failed to fetch GitHub user" });
+  }
+});
+
+// ====================
 // Database Operations API
 // ====================
 app.get("/api/database/tables", async (req, res) => {

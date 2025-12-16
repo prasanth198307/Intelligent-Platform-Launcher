@@ -789,6 +789,388 @@ export const agentTools: AgentTool[] = [
     }
   },
 
+  // ============ GITHUB INTEGRATION TOOLS ============
+  
+  {
+    name: "github_list_repos",
+    description: "List GitHub repositories for the authenticated user",
+    parameters: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          description: "Repository type filter",
+          enum: ["all", "owner", "public", "private", "member"]
+        },
+        sort: {
+          type: "string",
+          description: "Sort order",
+          enum: ["created", "updated", "pushed", "full_name"]
+        }
+      },
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const { listRepositories, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const repos = await listRepositories({
+          type: params.type || 'owner',
+          sort: params.sort || 'updated',
+          per_page: 20
+        });
+        
+        return {
+          success: true,
+          data: {
+            count: repos.length,
+            repositories: repos.map(r => ({
+              name: r.name,
+              full_name: r.full_name,
+              description: r.description,
+              private: r.private,
+              default_branch: r.default_branch,
+              html_url: r.html_url,
+              updated_at: r.updated_at
+            }))
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "github_create_repo",
+    description: "Create a new GitHub repository",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Repository name"
+        },
+        description: {
+          type: "string",
+          description: "Repository description"
+        },
+        private: {
+          type: "boolean",
+          description: "Whether the repo should be private (default: true)"
+        }
+      },
+      required: ["name"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { createRepository, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const repo = await createRepository(params.name, {
+          description: params.description,
+          private: params.private ?? true,
+          auto_init: true
+        });
+        
+        return {
+          success: true,
+          data: {
+            name: repo.name,
+            full_name: repo.full_name,
+            html_url: repo.html_url,
+            clone_url: repo.clone_url,
+            ssh_url: repo.ssh_url,
+            default_branch: repo.default_branch
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "github_list_branches",
+    description: "List branches in a GitHub repository",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner (username or org)"
+        },
+        repo: {
+          type: "string",
+          description: "Repository name"
+        }
+      },
+      required: ["owner", "repo"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { listBranches, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const branches = await listBranches(params.owner, params.repo);
+        
+        return {
+          success: true,
+          data: {
+            count: branches.length,
+            branches: branches.map(b => ({
+              name: b.name,
+              protected: b.protected
+            }))
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "github_get_file",
+    description: "Get file content from a GitHub repository",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner"
+        },
+        repo: {
+          type: "string",
+          description: "Repository name"
+        },
+        path: {
+          type: "string",
+          description: "File path in the repository"
+        },
+        branch: {
+          type: "string",
+          description: "Branch name (optional, defaults to default branch)"
+        }
+      },
+      required: ["owner", "repo", "path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { getFileContent, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const file = await getFileContent(params.owner, params.repo, params.path, params.branch);
+        
+        return {
+          success: true,
+          data: file
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "github_push_file",
+    description: "Create or update a file in a GitHub repository",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner"
+        },
+        repo: {
+          type: "string",
+          description: "Repository name"
+        },
+        path: {
+          type: "string",
+          description: "File path in the repository"
+        },
+        content: {
+          type: "string",
+          description: "File content"
+        },
+        message: {
+          type: "string",
+          description: "Commit message"
+        },
+        branch: {
+          type: "string",
+          description: "Branch name (optional)"
+        }
+      },
+      required: ["owner", "repo", "path", "content", "message"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { createOrUpdateFile, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const result = await createOrUpdateFile(
+          params.owner,
+          params.repo,
+          params.path,
+          params.content,
+          params.message,
+          params.branch
+        );
+        
+        return {
+          success: true,
+          data: {
+            path: result.content?.path,
+            sha: result.content?.sha,
+            commit: {
+              sha: result.commit?.sha,
+              message: result.commit?.message
+            }
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "github_list_commits",
+    description: "List recent commits in a GitHub repository",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner"
+        },
+        repo: {
+          type: "string",
+          description: "Repository name"
+        },
+        branch: {
+          type: "string",
+          description: "Branch name (optional)"
+        }
+      },
+      required: ["owner", "repo"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { listCommits, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const commits = await listCommits(params.owner, params.repo, {
+          branch: params.branch,
+          per_page: 10
+        });
+        
+        return {
+          success: true,
+          data: {
+            count: commits.length,
+            commits: commits.map(c => ({
+              sha: c.sha.substring(0, 7),
+              message: c.commit.message.split('\n')[0],
+              author: c.commit.author?.name,
+              date: c.commit.author?.date
+            }))
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "github_create_pull_request",
+    description: "Create a pull request in a GitHub repository",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner"
+        },
+        repo: {
+          type: "string",
+          description: "Repository name"
+        },
+        title: {
+          type: "string",
+          description: "Pull request title"
+        },
+        head: {
+          type: "string",
+          description: "The name of the branch with your changes"
+        },
+        base: {
+          type: "string",
+          description: "The name of the branch you want to merge into"
+        },
+        body: {
+          type: "string",
+          description: "Pull request description"
+        }
+      },
+      required: ["owner", "repo", "title", "head", "base"]
+    },
+    execute: async (params, context) => {
+      try {
+        const { createPullRequest, isGitHubConnected } = await import('../integrations/github-client.js');
+        
+        if (!(await isGitHubConnected())) {
+          return { success: false, error: "GitHub not connected. Please set up GitHub integration first." };
+        }
+        
+        const pr = await createPullRequest(
+          params.owner,
+          params.repo,
+          params.title,
+          params.head,
+          params.base,
+          params.body
+        );
+        
+        return {
+          success: true,
+          data: {
+            number: pr.number,
+            title: pr.title,
+            html_url: pr.html_url,
+            state: pr.state
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  // ============ LOCAL GIT TOOLS ============
+  
   {
     name: "git_status",
     description: "Get git status showing changed files, branch, and commit info",
