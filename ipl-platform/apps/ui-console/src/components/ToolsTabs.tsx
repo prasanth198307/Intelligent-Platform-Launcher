@@ -50,6 +50,119 @@ interface DbTable {
   rowCount: number;
 }
 
+// Helper function to build file tree from flat list
+interface FileNode {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  children: FileNode[];
+}
+
+const buildFileTree = (files: Array<{ path: string }>): FileNode[] => {
+  const root: FileNode[] = [];
+  
+  files.forEach(file => {
+    const parts = file.path.split('/');
+    let current = root;
+    
+    parts.forEach((part, index) => {
+      const isLast = index === parts.length - 1;
+      const existing = current.find(n => n.name === part);
+      
+      if (existing) {
+        current = existing.children;
+      } else {
+        const newNode: FileNode = {
+          name: part,
+          path: parts.slice(0, index + 1).join('/'),
+          isFolder: !isLast,
+          children: []
+        };
+        current.push(newNode);
+        current = newNode.children;
+      }
+    });
+  });
+  
+  // Sort: folders first, then files alphabetically
+  const sortNodes = (nodes: FileNode[]): FileNode[] => {
+    return nodes.sort((a, b) => {
+      if (a.isFolder && !b.isFolder) return -1;
+      if (!a.isFolder && b.isFolder) return 1;
+      return a.name.localeCompare(b.name);
+    }).map(n => ({ ...n, children: sortNodes(n.children) }));
+  };
+  
+  return sortNodes(root);
+};
+
+const getFileIcon = (filename: string): string => {
+  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return '📘';
+  if (filename.endsWith('.js') || filename.endsWith('.jsx')) return '📙';
+  if (filename.endsWith('.css') || filename.endsWith('.scss')) return '🎨';
+  if (filename.endsWith('.json')) return '📋';
+  if (filename.endsWith('.md')) return '📝';
+  if (filename.endsWith('.html')) return '🌐';
+  if (filename.endsWith('.sql')) return '🗄️';
+  if (filename.endsWith('.py')) return '🐍';
+  if (filename.endsWith('.go')) return '🔷';
+  return '📄';
+};
+
+interface FileTreeProps {
+  files: Array<{ path: string }>;
+  expandedFolders: Set<string>;
+  setExpandedFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+const FileTree: React.FC<FileTreeProps> = ({ files, expandedFolders, setExpandedFolders }) => {
+  const tree = buildFileTree(files);
+  
+  const toggleFolder = (path: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+  
+  const renderNode = (node: FileNode, depth: number = 0): JSX.Element => {
+    const isExpanded = expandedFolders.has(node.path);
+    
+    if (node.isFolder) {
+      return (
+        <div key={node.path} className="file-tree-node">
+          <div className="file-tree-folder" onClick={() => toggleFolder(node.path)}>
+            <span className="folder-toggle">{isExpanded ? '▼' : '▶'}</span>
+            <span className="folder-icon">{isExpanded ? '📂' : '📁'}</span>
+            <span className="folder-name">{node.name}</span>
+          </div>
+          {isExpanded && node.children.length > 0 && (
+            <div className="file-tree-children">
+              {node.children.map(child => renderNode(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div key={node.path} className="file-tree-node">
+        <div className="file-tree-file">
+          <span className="file-icon">{getFileIcon(node.name)}</span>
+          <span className="file-name">{node.name}</span>
+        </div>
+      </div>
+    );
+  };
+  
+  return <div className="file-tree">{tree.map(node => renderNode(node))}</div>;
+};
+
 const AVAILABLE_TOOLS = [
   { id: 'preview', name: 'Preview', icon: '🖥️', description: 'Preview your App' },
   { id: 'console', name: 'Console', icon: '⌨️', description: 'View terminal output after running your code' },
@@ -108,6 +221,18 @@ export function ToolsTabs({
   // GitHub connection modal
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [gitHubUrlInput, setGitHubUrlInput] = useState('');
+  
+  // Secrets reveal state
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
+  
+  // File tree state
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  
+  // Table data viewer state
+  const [tableData, setTableData] = useState<any[]>([]);
+  const [tableDataPage, setTableDataPage] = useState(0);
+  const [tableDataLoading, setTableDataLoading] = useState(false);
+  const [tableDataTotal, setTableDataTotal] = useState(0);
 
   // Secrets state
   const [secrets, setSecrets] = useState<Secret[]>([]);
@@ -342,6 +467,50 @@ export function ToolsTabs({
     }
     setGitLoading(false);
   };
+
+  // Load table data with pagination
+  const loadTableData = async (tableName: string, page: number = 0) => {
+    setTableDataLoading(true);
+    const limit = 20;
+    const offset = page * limit;
+    try {
+      // Get count first
+      const countRes = await fetch(`${API_BASE}/api/database/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, query: `SELECT COUNT(*) as count FROM "${tableName}"` })
+      });
+      const countData = await countRes.json();
+      if (countData.ok && countData.result?.[0]?.count) {
+        setTableDataTotal(parseInt(countData.result[0].count, 10));
+      }
+      
+      // Get data
+      const res = await fetch(`${API_BASE}/api/database/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, query: `SELECT * FROM "${tableName}" LIMIT ${limit} OFFSET ${offset}` })
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.result)) {
+        setTableData(data.result);
+        setTableDataPage(page);
+      }
+    } catch (e) {
+      console.error('Failed to load table data:', e);
+    }
+    setTableDataLoading(false);
+  };
+  
+  // When selectedTable changes, load its data
+  useEffect(() => {
+    if (selectedTable) {
+      loadTableData(selectedTable, 0);
+    } else {
+      setTableData([]);
+      setTableDataTotal(0);
+    }
+  }, [selectedTable]);
 
   // Database operations
   const handleRunQuery = async () => {
@@ -607,12 +776,20 @@ export function ToolsTabs({
         {activeTab === 'git' && (
           <div className="tab-content git-content">
             <div className="git-header">
-              <div className="git-branch-selector">
+              <div className="git-branch-selector" title="Current branch">
                 <span className="branch-icon">⎇</span>
                 <span className="branch-name">{gitStatus?.branch || 'main'}</span>
                 <span className="branch-dropdown">▾</span>
               </div>
               <div className="git-header-actions">
+                <button 
+                  className="git-fetch-btn" 
+                  onClick={loadGitStatus} 
+                  disabled={gitLoading}
+                  title="Fetch latest from remote"
+                >
+                  ↓ Fetch
+                </button>
                 <button className="refresh-btn" onClick={loadGitStatus} disabled={gitLoading}>
                   {gitLoading ? '...' : '↻'}
                 </button>
@@ -850,10 +1027,7 @@ export function ToolsTabs({
                         <div 
                           key={i} 
                           className={`table-item ${selectedTable === table.name ? 'selected' : ''}`}
-                          onClick={() => {
-                            setSelectedTable(table.name);
-                            setSqlQuery(`SELECT * FROM "${table.name}" LIMIT 100`);
-                          }}
+                          onClick={() => setSelectedTable(table.name)}
                         >
                           <span className="table-icon">🗃️</span>
                           <span className="table-name">{table.name}</span>
@@ -863,6 +1037,72 @@ export function ToolsTabs({
                     </div>
                   )}
                 </div>
+
+                {/* Table Data Viewer */}
+                {selectedTable && (
+                  <div className="table-data-section">
+                    <div className="table-data-header">
+                      <h4>📊 {selectedTable}</h4>
+                      <button 
+                        className="refresh-btn" 
+                        onClick={() => loadTableData(selectedTable, tableDataPage)}
+                        disabled={tableDataLoading}
+                      >
+                        {tableDataLoading ? '...' : '↻'}
+                      </button>
+                    </div>
+                    
+                    {tableDataLoading ? (
+                      <p className="loading-text">Loading data...</p>
+                    ) : tableData.length === 0 ? (
+                      <p className="no-data">No data in this table</p>
+                    ) : (
+                      <>
+                        <div className="data-table-wrapper">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                {Object.keys(tableData[0]).map((col, i) => (
+                                  <th key={i}>{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tableData.map((row, i) => (
+                                <tr key={i}>
+                                  {Object.values(row).map((val: any, j) => (
+                                    <td key={j}>{val === null ? <span className="null-value">NULL</span> : String(val).substring(0, 100)}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="table-pagination">
+                          <span className="pagination-info">
+                            Showing {tableDataPage * 20 + 1}-{Math.min((tableDataPage + 1) * 20, tableDataTotal)} of {tableDataTotal}
+                          </span>
+                          <div className="pagination-btns">
+                            <button 
+                              className="pagination-btn"
+                              onClick={() => loadTableData(selectedTable, tableDataPage - 1)}
+                              disabled={tableDataPage === 0 || tableDataLoading}
+                            >
+                              ← Prev
+                            </button>
+                            <button 
+                              className="pagination-btn"
+                              onClick={() => loadTableData(selectedTable, tableDataPage + 1)}
+                              disabled={(tableDataPage + 1) * 20 >= tableDataTotal || tableDataLoading}
+                            >
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 <div className="query-section">
                   <h4>RUN QUERY</h4>
@@ -973,24 +1213,18 @@ export function ToolsTabs({
         {activeTab === 'files' && (
           <div className="tab-content files-content">
             <div className="files-header">
-              <h3>Project Files</h3>
+              <h3>📁 Project Files</h3>
               <span className="file-count">{files.length} files</span>
             </div>
             <div className="files-tree">
               {files.length === 0 ? (
-                <div className="files-empty">No files generated yet</div>
+                <div className="files-empty">
+                  <span className="empty-icon">📂</span>
+                  <p>No files generated yet</p>
+                  <span className="empty-hint">Files will appear here as you build your project</span>
+                </div>
               ) : (
-                files.map((file, i) => (
-                  <div key={i} className="file-item">
-                    <span className="file-icon">
-                      {file.path.endsWith('.ts') ? '📘' :
-                       file.path.endsWith('.tsx') ? '⚛️' :
-                       file.path.endsWith('.css') ? '🎨' :
-                       file.path.endsWith('.json') ? '📋' : '📄'}
-                    </span>
-                    <span className="file-path">{file.path}</span>
-                  </div>
-                ))
+                <FileTree files={files} expandedFolders={expandedFolders} setExpandedFolders={setExpandedFolders} />
               )}
             </div>
           </div>
@@ -1027,43 +1261,88 @@ export function ToolsTabs({
         {activeTab === 'secrets' && (
           <div className="tab-content secrets-content">
             <div className="secrets-header">
-              <h3>Secrets</h3>
+              <h3>🔐 Secrets</h3>
               <button className="refresh-btn" onClick={loadSecrets} disabled={secretsLoading}>
                 {secretsLoading ? '...' : '↻'}
               </button>
             </div>
-            <p className="secrets-desc">Store sensitive information (like API keys) securely in your App</p>
+            <p className="secrets-desc">Store sensitive information (like API keys) securely in your App. Secrets are encrypted and only accessible to your app.</p>
             
             <div className="secrets-list">
               {secrets.length === 0 ? (
-                <p className="no-secrets">No secrets configured</p>
+                <div className="no-secrets-box">
+                  <span className="empty-icon">🔒</span>
+                  <p>No secrets configured</p>
+                  <span className="empty-hint">Add your first secret below</span>
+                </div>
               ) : (
                 secrets.map((secret, i) => (
                   <div key={i} className="secret-item">
-                    <span className="secret-key">{secret.key}</span>
-                    <span className="secret-value">{secret.masked}</span>
-                    <button className="secret-delete" onClick={() => handleDeleteSecret(secret.key)}>×</button>
+                    <div className="secret-info">
+                      <span className="secret-key">{secret.key}</span>
+                      <span className="secret-value">{revealedSecrets[secret.key] ? secret.masked.replace(/\*/g, 'x') : secret.masked}</span>
+                    </div>
+                    <div className="secret-actions">
+                      <button 
+                        className="secret-btn reveal" 
+                        onClick={() => setRevealedSecrets(prev => ({...prev, [secret.key]: !prev[secret.key]}))}
+                        title={revealedSecrets[secret.key] ? 'Hide' : 'Reveal'}
+                      >
+                        {revealedSecrets[secret.key] ? '👁️' : '👁️‍🗨️'}
+                      </button>
+                      <button 
+                        className="secret-btn copy"
+                        onClick={() => {
+                          navigator.clipboard.writeText(secret.key);
+                        }}
+                        title="Copy key name"
+                      >
+                        📋
+                      </button>
+                      <button 
+                        className="secret-btn delete"
+                        onClick={() => handleDeleteSecret(secret.key)}
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
             
-            <div className="add-secret-form">
-              <input
-                type="text"
-                value={newSecretKey}
-                onChange={e => setNewSecretKey(e.target.value)}
-                placeholder="KEY"
-              />
-              <input
-                type="password"
-                value={newSecretValue}
-                onChange={e => setNewSecretValue(e.target.value)}
-                placeholder="Value"
-              />
-              <button onClick={handleAddSecret} disabled={secretsLoading || !newSecretKey || !newSecretValue}>
-                Add
-              </button>
+            <div className="add-secret-section">
+              <h4>Add New Secret</h4>
+              <div className="add-secret-form">
+                <div className="form-row">
+                  <label>Key</label>
+                  <input
+                    type="text"
+                    value={newSecretKey}
+                    onChange={e => setNewSecretKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                    placeholder="API_KEY"
+                    className="secret-input"
+                  />
+                </div>
+                <div className="form-row">
+                  <label>Value</label>
+                  <input
+                    type="password"
+                    value={newSecretValue}
+                    onChange={e => setNewSecretValue(e.target.value)}
+                    placeholder="Enter secret value..."
+                    className="secret-input"
+                  />
+                </div>
+                <button 
+                  className="add-secret-btn"
+                  onClick={handleAddSecret} 
+                  disabled={secretsLoading || !newSecretKey || !newSecretValue}
+                >
+                  + Add Secret
+                </button>
+              </div>
             </div>
           </div>
         )}

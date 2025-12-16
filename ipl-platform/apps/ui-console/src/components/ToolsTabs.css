@@ -2320,3 +2320,421 @@
 .github-modal {
   border: 1px solid var(--border-color);
 }
+
+/* Git Fetch Button */
+.git-fetch-btn {
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.git-fetch-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+/* Improved Secrets Tab */
+.secrets-content .secrets-header h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.no-secrets-box {
+  text-align: center;
+  padding: 32px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.no-secrets-box .empty-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.no-secrets-box p {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.no-secrets-box .empty-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.secret-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.secret-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.secret-key {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.secret-value {
+  font-family: monospace;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.secret-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.secret-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.secret-btn:hover {
+  background: var(--bg-secondary);
+  opacity: 1;
+}
+
+.secret-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.add-secret-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.add-secret-section h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.add-secret-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-secret-form .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-secret-form .form-row label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.secret-input {
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: monospace;
+}
+
+.secret-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.add-secret-btn {
+  padding: 10px 16px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.add-secret-btn:hover {
+  opacity: 0.9;
+}
+
+.add-secret-btn:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* Hierarchical File Tree */
+.file-tree {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.file-tree-node {
+  padding: 4px 0;
+}
+
+.file-tree-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.file-tree-folder:hover {
+  background: var(--bg-tertiary);
+}
+
+.folder-toggle {
+  color: var(--text-muted);
+  font-size: 10px;
+  width: 16px;
+}
+
+.folder-icon {
+  font-size: 14px;
+}
+
+.folder-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.file-tree-children {
+  margin-left: 20px;
+  border-left: 1px solid var(--border-color);
+  padding-left: 8px;
+}
+
+.file-tree-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-tree-file:hover {
+  background: var(--bg-tertiary);
+}
+
+.file-name {
+  color: var(--text-secondary);
+}
+
+/* Database Table Data Viewer */
+.table-data-viewer {
+  margin-top: 16px;
+}
+
+.table-selector {
+  margin-bottom: 12px;
+}
+
+.table-selector select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.data-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  background: var(--bg-tertiary);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.data-table tr:hover td {
+  background: var(--bg-tertiary);
+}
+
+.table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.pagination-info {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.pagination-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.pagination-btn {
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empty files state */
+.files-empty {
+  text-align: center;
+  padding: 40px 20px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.files-empty .empty-icon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.files-empty p {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.files-empty .empty-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.files-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Table Data Section */
+.table-data-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.table-data-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.table-data-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.no-data {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.null-value {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Light Theme Override */
+.tools-panel.light-theme {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f1f3f5;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --border-color: #e2e8f0;
+  --accent-primary: #0066ff;
+}
+
+.tools-panel.light-theme .tabs-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tools-panel.light-theme .tab-item {
+  color: #4a5568;
+}
+
+.tools-panel.light-theme .tab-item.active {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+.tools-panel.light-theme .tab-content {
+  background: #ffffff;
+}
