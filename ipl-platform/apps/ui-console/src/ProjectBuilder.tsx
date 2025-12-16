@@ -89,7 +89,6 @@ export default function ProjectBuilder() {
   const [activeTab, setActiveTab] = useState<'console' | 'tables' | 'apis' | 'files' | 'preview'>('console');
   const [issueInput, setIssueInput] = useState('');
   const [appStatus, setAppStatus] = useState<{ status: string; port: number | null; logs: string[] }>({ status: 'not_running', port: null, logs: [] });
-  const [useAgenticMode, setUseAgenticMode] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
