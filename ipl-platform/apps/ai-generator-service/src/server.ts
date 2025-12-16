@@ -15,6 +15,9 @@ import {
   groqGenerateAuth,
   groqGenerateLoadTests,
   groqGenerateAPIDocs,
+  groqGenerateSecurity,
+  groqGenerateCostOptimization,
+  groqGenerateDocumentation,
 } from "./llm/providers/groq-devops.js";
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
@@ -575,7 +578,23 @@ app.post("/api/generate-load-tests", async (req, res) => {
 
 app.post("/api/security-scan", async (req, res) => {
   try {
-    const { domain, projectName, compliance, deploymentType } = req.body;
+    const { domain, projectName, compliance, deploymentType, cloudProvider, database, authentication, tables } = req.body;
+    
+    if (process.env.GROQ_API_KEY) {
+      console.log("Using AI-powered security analysis");
+      const aiConfig = {
+        domain: domain || "custom",
+        projectName: projectName || `${domain}-security`,
+        compliance: compliance || [],
+        deploymentType: (deploymentType || "cloud") as 'cloud' | 'on-premises' | 'hybrid',
+        cloudProvider: cloudProvider || "aws",
+        database: database || "postgresql",
+        authentication: authentication || "jwt",
+        tables: tables || [],
+      };
+      const aiResult = await groqGenerateSecurity(aiConfig);
+      return res.json({ ok: true, aiGenerated: true, ...aiResult });
+    }
     
     const ctx = {
       domain: domain || "custom",
@@ -596,7 +615,26 @@ app.post("/api/security-scan", async (req, res) => {
 
 app.post("/api/cost-optimization", async (req, res) => {
   try {
-    const { domain, tier, cloudProvider, currentCost, appServers, dbReplicas, cacheNodes, storageGB, monthlyEgressGB } = req.body;
+    const { domain, tier, cloudProvider, currentCost, appServers, dbReplicas, cacheNodes, storageGB, monthlyEgressGB, projectName, tables } = req.body;
+    
+    if (process.env.GROQ_API_KEY) {
+      console.log("Using AI-powered cost optimization");
+      const aiConfig = {
+        domain: domain || "custom",
+        projectName: projectName || `${domain}-optimization`,
+        cloudProvider: (cloudProvider || "aws") as 'aws' | 'azure' | 'gcp',
+        tier: tier || "Medium",
+        currentCost: currentCost || 5000,
+        appServers: appServers || 2,
+        dbReplicas: dbReplicas || 1,
+        cacheNodes: cacheNodes || 1,
+        storageGB: storageGB || 1000,
+        monthlyEgressGB: monthlyEgressGB || 500,
+        tables: tables || [],
+      };
+      const aiResult = await groqGenerateCostOptimization(aiConfig);
+      return res.json({ ok: true, aiGenerated: true, ...aiResult });
+    }
     
     const ctx = {
       domain: domain || "custom",
@@ -723,7 +761,26 @@ app.post("/api/generate-backend", async (req, res) => {
 
 app.post("/api/generate-documentation", async (req, res) => {
   try {
-    const { domain, projectName, requirements, infrastructure, techStack, tables, security, deploymentType, cloudProvider, compliance } = req.body;
+    const { domain, projectName, requirements, infrastructure, techStack, tables, security, deploymentType, cloudProvider, compliance, modules, screens } = req.body;
+    
+    if (process.env.GROQ_API_KEY) {
+      console.log("Using AI-powered documentation generation");
+      const aiConfig = {
+        domain: domain || "custom",
+        projectName: projectName || `${domain}-project`,
+        modules: modules || [],
+        screens: screens || [],
+        tables: tables || [],
+        techStack: techStack || {
+          frontend: "React",
+          backend: "Node.js/Express",
+          database: "PostgreSQL",
+          cloud: cloudProvider || "aws",
+        },
+      };
+      const aiResult = await groqGenerateDocumentation(aiConfig);
+      return res.json({ ok: true, aiGenerated: true, ...aiResult });
+    }
     
     const ctx = {
       domain: domain || "custom",

@@ -861,3 +861,222 @@ Return ONLY valid JSON. No markdown wrapper. Generate REAL OpenAPI specs with co
     clearTimeout(timeout);
   }
 }
+
+export interface SecurityConfig {
+  domain: string;
+  projectName: string;
+  compliance: string[];
+  deploymentType: 'cloud' | 'on-premises' | 'hybrid';
+  cloudProvider?: string;
+  database: string;
+  authentication: string;
+  dataClassification?: 'public' | 'internal' | 'confidential' | 'restricted';
+  tables: Array<{ name: string; columns: Array<{ name: string; type: string }> }>;
+}
+
+export interface GeneratedSecurity {
+  report: {
+    score: number;
+    grade: string;
+    issues: Array<{
+      severity: string;
+      category: string;
+      title: string;
+      description: string;
+      recommendation: string;
+      cwe?: string;
+      owasp?: string;
+    }>;
+    recommendations: string[];
+  };
+  files: Array<{
+    path: string;
+    content: string;
+    description: string;
+  }>;
+  instructions: string;
+}
+
+export async function groqGenerateSecurity(config: SecurityConfig): Promise<GeneratedSecurity> {
+  const client = getClient();
+
+  const tablesList = config.tables?.map(t => `- ${t.name}: ${t.columns.map(c => c.name).join(', ')}`).join('\n') || '';
+  const complianceList = config.compliance?.join(', ') || 'General security best practices';
+
+  const prompt = `Generate a comprehensive security analysis and security configuration for a ${config.domain.toUpperCase()} application.
+
+Project: ${config.projectName}
+Compliance Requirements: ${complianceList}
+Deployment Type: ${config.deploymentType}
+Cloud Provider: ${config.cloudProvider || 'N/A'}
+Database: ${config.database}
+Authentication: ${config.authentication}
+Data Classification: ${config.dataClassification || 'confidential'}
+
+DATABASE TABLES (analyze for sensitive data):
+${tablesList}
+
+Generate COMPLETE security analysis with:
+1. Security Report: score (0-100), grade (A-F), issues with severity/category/title/description/recommendation/CWE/OWASP
+2. Security config files: helmet-config.ts, rate-limiter.ts, cors-config.ts, input-validation.ts, encryption.ts, audit-logger.ts
+
+Return ONLY valid JSON:
+{
+  "report": {"score": 75, "grade": "B", "issues": [...], "recommendations": [...]},
+  "files": [{"path": "security/helmet-config.ts", "content": "...", "description": "..."}],
+  "instructions": "How to implement"
+}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    console.log("Generating security analysis with Groq AI...");
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: "You are a cybersecurity expert. Generate comprehensive security analyses and production-ready security configurations. Return ONLY valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 12000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export interface CostOptimizationConfig {
+  domain: string;
+  projectName: string;
+  cloudProvider: 'aws' | 'azure' | 'gcp';
+  tier: string;
+  currentCost: number;
+  appServers: number;
+  dbReplicas: number;
+  cacheNodes: number;
+  storageGB: number;
+  monthlyEgressGB: number;
+  tables: Array<{ name: string; columns: Array<{ name: string; type: string }> }>;
+}
+
+export interface GeneratedCostOptimization {
+  report: {
+    currentMonthlyCost: number;
+    optimizedMonthlyCost: number;
+    totalSavings: number;
+    savingsPercentage: number;
+    recommendations: Array<{
+      category: string;
+      title: string;
+      description: string;
+      estimatedSavings: number;
+      effort: string;
+      impact: string;
+      implementation: string[];
+    }>;
+    quickWins: string[];
+    longTermOptimizations: string[];
+  };
+  files: Array<{ path: string; content: string; description: string }>;
+  instructions: string;
+}
+
+export async function groqGenerateCostOptimization(config: CostOptimizationConfig): Promise<GeneratedCostOptimization> {
+  const client = getClient();
+
+  const prompt = `Generate cost optimization analysis for ${config.domain.toUpperCase()} on ${config.cloudProvider.toUpperCase()}.
+Current: $${config.currentCost}/month, ${config.appServers} servers, ${config.dbReplicas} DB replicas, ${config.storageGB}GB storage.
+
+Generate recommendations with category, title, savings estimate, effort level, and implementation steps.
+Return ONLY valid JSON with report (currentMonthlyCost, optimizedMonthlyCost, totalSavings, recommendations, quickWins, longTermOptimizations) and files.`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    console.log("Generating cost optimization with Groq AI...");
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: `You are a ${config.cloudProvider} cost optimization expert. Generate actionable cost reduction recommendations. Return ONLY valid JSON.` },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 12000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export interface DocumentationConfig {
+  domain: string;
+  projectName: string;
+  modules: Array<{ name: string; description: string }>;
+  screens: Array<{ name: string; type: string; description?: string }>;
+  tables: Array<{ name: string; columns: Array<{ name: string; type: string }> }>;
+  techStack?: { frontend?: string; backend?: string; database?: string; cloud?: string };
+}
+
+export interface GeneratedDocumentation {
+  files: Array<{ path: string; content: string; description: string }>;
+  instructions: string;
+}
+
+export async function groqGenerateDocumentation(config: DocumentationConfig): Promise<GeneratedDocumentation> {
+  const client = getClient();
+
+  const modulesList = config.modules?.map(m => `- ${m.name}: ${m.description}`).join('\n') || '';
+  const tablesList = config.tables?.map(t => `- ${t.name}: ${t.columns.map(c => c.name).join(', ')}`).join('\n') || '';
+
+  const prompt = `Generate comprehensive documentation for ${config.domain.toUpperCase()} project "${config.projectName}".
+Modules: ${modulesList}
+Tables: ${tablesList}
+Tech: ${config.techStack?.frontend || 'React'}, ${config.techStack?.backend || 'Node.js'}, ${config.techStack?.database || 'PostgreSQL'}
+
+Generate: README.md, ARCHITECTURE.md, INSTALLATION.md, API.md, USER_GUIDE.md, DEPLOYMENT.md
+Return ONLY valid JSON with files array.`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    console.log("Generating documentation with Groq AI...");
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: "You are a technical writing expert. Generate comprehensive project documentation. Return ONLY valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 16000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
