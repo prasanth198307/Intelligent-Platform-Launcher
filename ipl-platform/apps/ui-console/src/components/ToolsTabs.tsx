@@ -167,16 +167,11 @@ export function ToolsTabs({
     setGitLoading(false);
   }, [projectId]);
 
-  // Load database tables
-  const [showAllTables, setShowAllTables] = useState(true);
-  
+  // Load database tables - project-specific only
   const loadDbTables = useCallback(async () => {
     setDbLoading(true);
     try {
-      const url = showAllTables 
-        ? `${API_BASE}/api/database/tables?showAll=true`
-        : `${API_BASE}/api/database/tables?projectId=${projectId}`;
-      const res = await fetch(url);
+      const res = await fetch(`${API_BASE}/api/database/tables?projectId=${projectId}`);
       const data = await res.json();
       if (data.ok) {
         setDbTables(data.data || []);
@@ -185,7 +180,7 @@ export function ToolsTabs({
       console.error('Failed to load tables:', e);
     }
     setDbLoading(false);
-  }, [projectId, showAllTables]);
+  }, [projectId]);
 
   // Load secrets
   const loadSecrets = useCallback(async () => {
@@ -636,20 +631,6 @@ export function ToolsTabs({
                 </button>
                 <span className="db-status connected">PostgreSQL Connected</span>
               </div>
-            </div>
-            
-            <div className="db-filter">
-              <label className="filter-toggle">
-                <input 
-                  type="checkbox" 
-                  checked={showAllTables} 
-                  onChange={(e) => {
-                    setShowAllTables(e.target.checked);
-                    setTimeout(loadDbTables, 100);
-                  }}
-                />
-                <span>Show all tables</span>
-              </label>
             </div>
             
             <div className="database-tables">

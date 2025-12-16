@@ -310,19 +310,80 @@ export async function executeProjectQuery(
 ): Promise<{ rows: any[]; rowCount: number }> {
   try {
     const schemaPrefix = `ipl_${sanitizeName(projectId)}`;
-    
-    // Replace table names with prefixed versions if they match project tables
     let modifiedQuery = query;
-    const tables = await getProjectTables(projectId);
-    const tableNames = tables.map(t => t.replace(`${schemaPrefix}_`, ''));
     
-    // Simple table name replacement (for common patterns)
-    for (const tableName of tableNames) {
-      const regex = new RegExp(`\\b${tableName}\\b`, 'gi');
-      if (regex.test(modifiedQuery) && !modifiedQuery.includes(`${schemaPrefix}_${tableName}`)) {
-        modifiedQuery = modifiedQuery.replace(regex, `"${schemaPrefix}_${tableName.toLowerCase()}"`);
+    // Handle CREATE TABLE - automatically prefix the table name
+    const createTableMatch = modifiedQuery.match(/CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s*\(/i);
+    if (createTableMatch) {
+      const tableName = createTableMatch[2];
+      if (!tableName.startsWith('ipl_')) {
+        const prefixedName = `${schemaPrefix}_${sanitizeName(tableName)}`;
+        modifiedQuery = modifiedQuery.replace(
+          new RegExp(`(CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?)["']?${tableName}["']?`, 'i'),
+          `$1"${prefixedName}"`
+        );
+        // Also replace REFERENCES to other tables
+        modifiedQuery = modifiedQuery.replace(
+          /REFERENCES\s+["']?(\w+)["']?\s*\(/gi,
+          (match, refTable) => {
+            if (!refTable.startsWith('ipl_')) {
+              return `REFERENCES "${schemaPrefix}_${sanitizeName(refTable)}"(`;
+            }
+            return match;
+          }
+        );
       }
     }
+    
+    // Handle INSERT INTO - prefix the table name
+    const insertMatch = modifiedQuery.match(/INSERT\s+INTO\s+["']?(\w+)["']?\s*\(/i);
+    if (insertMatch) {
+      const tableName = insertMatch[1];
+      if (!tableName.startsWith('ipl_')) {
+        const prefixedName = `${schemaPrefix}_${sanitizeName(tableName)}`;
+        modifiedQuery = modifiedQuery.replace(
+          new RegExp(`(INSERT\\s+INTO\\s+)["']?${tableName}["']?`, 'i'),
+          `$1"${prefixedName}"`
+        );
+      }
+    }
+    
+    // Handle SELECT FROM - prefix the table name
+    modifiedQuery = modifiedQuery.replace(
+      /FROM\s+["']?(\w+)["']?(?=\s|$|,|\))/gi,
+      (match, tableName) => {
+        if (!tableName.startsWith('ipl_') && !['information_schema', 'pg_catalog'].includes(tableName.toLowerCase())) {
+          return `FROM "${schemaPrefix}_${sanitizeName(tableName)}"`;
+        }
+        return match;
+      }
+    );
+    
+    // Handle UPDATE - prefix the table name
+    const updateMatch = modifiedQuery.match(/UPDATE\s+["']?(\w+)["']?\s+SET/i);
+    if (updateMatch) {
+      const tableName = updateMatch[1];
+      if (!tableName.startsWith('ipl_')) {
+        const prefixedName = `${schemaPrefix}_${sanitizeName(tableName)}`;
+        modifiedQuery = modifiedQuery.replace(
+          new RegExp(`(UPDATE\\s+)["']?${tableName}["']?(\\s+SET)`, 'i'),
+          `$1"${prefixedName}"$2`
+        );
+      }
+    }
+    
+    // Handle CREATE INDEX - prefix table name
+    modifiedQuery = modifiedQuery.replace(
+      /ON\s+["']?(\w+)["']?\s*\(/gi,
+      (match, tableName) => {
+        if (!tableName.startsWith('ipl_')) {
+          return `ON "${schemaPrefix}_${sanitizeName(tableName)}"(`;
+        }
+        return match;
+      }
+    );
+    
+    console.log('[executeProjectQuery] Modified query:', modifiedQuery.substring(0, 200));
     
     const result = await db.execute(sql.raw(modifiedQuery));
     return {
