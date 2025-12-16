@@ -66,13 +66,9 @@ interface Project {
   generatedFiles: Array<{ path: string; content: string; type: string }>;
 }
 
-interface ProjectBuilderProps {
-  onClose: () => void;
-}
-
 type Phase = 'setup' | 'benchmarking' | 'building' | 'preview' | 'infrastructure' | 'testing' | 'deployment';
 
-export default function ProjectBuilder({ onClose }: ProjectBuilderProps) {
+export default function ProjectBuilder() {
   const [phase, setPhase] = useState<Phase>('setup');
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [projectName, setProjectName] = useState('');
@@ -353,14 +349,16 @@ export default function ProjectBuilder({ onClose }: ProjectBuilderProps) {
   const allApis = completedModules.flatMap(m => m.apis || []);
 
   return (
-    <div className="project-builder-overlay">
+    <div className="project-builder-page">
       <div className="project-builder-container">
         <div className="project-builder-header">
           <div className="header-left">
-            <h1>AI Project Builder</h1>
-            <p>Build your application step by step with AI assistance</p>
+            <img src="/logo.png" alt="IPL" className="header-logo" />
+            <div>
+              <h1>Intelligent Platform Launcher</h1>
+              <p>Build production-ready applications with AI assistance</p>
+            </div>
           </div>
-          <button className="close-btn" onClick={onClose}>x</button>
         </div>
 
         <div className="phase-indicator">
