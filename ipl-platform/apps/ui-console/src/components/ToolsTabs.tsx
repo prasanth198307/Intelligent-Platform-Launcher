@@ -1021,7 +1021,7 @@ export function ToolsTabs({
             <div className="preview-frame">
               {appStatus.status === 'running' && appStatus.port ? (
                 <iframe 
-                  src={`http://localhost:${appStatus.port}`}
+                  src={`/api/projects/${projectId}/preview/`}
                   title="App Preview"
                 />
               ) : (

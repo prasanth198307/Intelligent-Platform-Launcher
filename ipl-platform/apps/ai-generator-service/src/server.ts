@@ -1684,6 +1684,58 @@ app.get("/api/projects/:projectId/logs", async (req, res) => {
   });
 });
 
+// Preview proxy - forwards requests to the running app
+app.all("/api/projects/:projectId/preview/*", async (req, res) => {
+  const { projectId } = req.params;
+  const running = runningProjects.get(projectId);
+  
+  if (!running || running.status !== 'running' || !running.port) {
+    return res.status(503).send(`
+      <html>
+        <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#fff;font-family:system-ui;">
+          <div style="text-align:center;">
+            <div style="font-size:48px;margin-bottom:16px;">🖥️</div>
+            <h2>App not running</h2>
+            <p style="color:#888;">Start your app to see the preview</p>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+  
+  try {
+    const targetPath = req.params[0] || '';
+    const targetUrl = `http://localhost:${running.port}/${targetPath}`;
+    
+    const proxyRes = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'Content-Type': req.get('Content-Type') || 'application/json',
+        'Accept': req.get('Accept') || '*/*'
+      },
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
+    });
+    
+    const contentType = proxyRes.headers.get('content-type') || 'text/html';
+    res.set('Content-Type', contentType);
+    
+    const body = await proxyRes.text();
+    res.status(proxyRes.status).send(body);
+  } catch (e: any) {
+    res.status(502).send(`
+      <html>
+        <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#fff;font-family:system-ui;">
+          <div style="text-align:center;">
+            <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+            <h2>Connection Error</h2>
+            <p style="color:#888;">${e?.message || 'Failed to connect to app'}</p>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+});
+
 // ============================================================
 // APPLICATION-FIRST WORKFLOW APIs
 // ============================================================
