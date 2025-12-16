@@ -74,6 +74,39 @@ function sanitizeName(name: string): string {
   return sanitized;
 }
 
+const ALLOWED_DEFAULT_FUNCTIONS = [
+  'now()', 'current_timestamp', 'current_date', 'current_time',
+  'gen_random_uuid()', 'uuid_generate_v4()'
+];
+
+function sanitizeDefaultValue(value: string | undefined, colType: string): string | null {
+  if (!value) return null;
+  
+  const trimmed = value.trim().toLowerCase();
+  
+  if (ALLOWED_DEFAULT_FUNCTIONS.includes(trimmed)) {
+    return value.trim();
+  }
+  
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    return value.trim();
+  }
+  
+  if (trimmed === 'true' || trimmed === 'false') {
+    return value.trim();
+  }
+  
+  if (/^'[^']*'$/.test(value.trim())) {
+    const inner = value.trim().slice(1, -1);
+    if (!/[;'"\-\-\\]/.test(inner) && inner.length <= 255) {
+      return `'${inner.replace(/'/g, "''")}'`;
+    }
+  }
+  
+  console.warn(`Rejected potentially unsafe DEFAULT value: "${value}"`);
+  return null;
+}
+
 export function generateCreateTableSQL(projectId: string, table: TableDefinition): string {
   const schemaPrefix = `ipl_${sanitizeName(projectId)}`;
   const tableName = `${schemaPrefix}_${sanitizeName(table.name)}`;
@@ -93,8 +126,9 @@ export function generateCreateTableSQL(projectId: string, table: TableDefinition
       def += ' NOT NULL';
     }
     
-    if (col.default) {
-      def += ` DEFAULT ${col.default}`;
+    const safeDefault = sanitizeDefaultValue(col.default, col.type);
+    if (safeDefault) {
+      def += ` DEFAULT ${safeDefault}`;
     }
     
     return def;
