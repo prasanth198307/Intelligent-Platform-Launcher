@@ -1538,12 +1538,60 @@ export interface ProjectAgentResponse {
   nextSteps?: string[];
 }
 
+import { runAgentLoop, createAgentSystemPrompt } from "../agent-executor.js";
+
 export async function groqProjectAgent(request: ProjectAgentRequest): Promise<ProjectAgentResponse> {
   const client = getClient();
 
   const completedModules = request.project.modules.filter(m => m.status === 'completed');
   const plannedModules = request.project.modules.filter(m => m.status === 'planned');
   const existingTables = completedModules.flatMap(m => m.tables);
+
+  // Detect if this is a build command that should use the agentic loop
+  const buildPatterns = [/^build\s/i, /^create\s/i, /^generate\s/i, /^add\s/i, /^make\s/i];
+  const isBuildCommand = buildPatterns.some(p => p.test(request.userMessage.trim()));
+  
+  // Use agentic loop for build commands - allows the agent to check existing code/tables first
+  if (isBuildCommand) {
+    console.log(`[groqProjectAgent] Using agentic loop for build command: "${request.userMessage}"`);
+    
+    const systemPrompt = createAgentSystemPrompt({
+      name: request.project.name || 'Unnamed Project',
+      domain: request.project.domain || 'custom',
+      database: request.project.database || 'postgresql',
+      existingModules: completedModules.map(m => m.name),
+      existingTables: existingTables.map(t => t.name)
+    });
+    
+    const userPrompt = `USER REQUEST: "${request.userMessage}"
+
+${request.conversationHistory?.length ? `CONVERSATION CONTEXT:\n${request.conversationHistory.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n')}` : ''}
+
+INSTRUCTIONS:
+1. First, use get_project_info and get_domain_knowledge tools to understand the context
+2. Then build the requested module with proper tables, foreign keys, APIs, and screens
+3. Make sure to reference existing tables where appropriate
+4. Return the complete module specification as JSON`;
+
+    try {
+      const result = await runAgentLoop(systemPrompt, userPrompt, {
+        projectId: request.project.id,
+        domain: request.project.domain
+      });
+      
+      console.log(`[groqProjectAgent] Agentic loop completed: ${result.iterations} iterations, tools used: ${result.toolsUsed.join(', ')}`);
+      
+      return {
+        message: result.message + (result.toolsUsed.length > 0 ? `\n\n(I checked: ${result.toolsUsed.join(', ')})` : ''),
+        action: result.action as any || 'built_module',
+        updatedProject: result.updatedProject,
+        nextSteps: result.updatedProject?.nextSteps || ['Build related modules']
+      };
+    } catch (e: any) {
+      console.error(`[groqProjectAgent] Agentic loop failed:`, e);
+      // Fall through to regular processing
+    }
+  }
 
   // Get domain-specific context from domain pack
   const domainContext = getDomainContext(request.project.domain || '', request.userMessage);
@@ -1588,16 +1636,6 @@ Screens to create:
 ${moduleSpec.screens?.map((s: any) => `- ${s.name} (${s.type}) at ${s.route}`).join('\n') || 'None specified'}
 ` : '';
 
-  // Detect if user is giving a BUILD command - these should execute immediately
-  const buildPatterns = [
-    /^build\s/i,
-    /^create\s/i,
-    /^generate\s/i,
-    /^add\s/i,
-    /^make\s/i
-  ];
-  const isBuildCommand = buildPatterns.some(p => p.test(request.userMessage.trim()));
-  
   // Only ask questions for genuine questions (ends with ?) or very vague requests
   const isQuestion = request.userMessage.trim().endsWith('?');
   const isVeryVague = /^(i need|help|what should)/i.test(request.userMessage.trim()) && request.userMessage.split(' ').length < 5;
