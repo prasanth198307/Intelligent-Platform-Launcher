@@ -1150,6 +1150,69 @@ app.delete("/api/projects/:projectId", async (req, res) => {
   }
 });
 
+// Materialize project code - generates actual runnable files
+app.post("/api/projects/:projectId/materialize", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const modules = (project.modules as any) || [];
+    if (modules.length === 0) {
+      return res.status(400).json({ error: "No modules to materialize. Build some modules first." });
+    }
+    
+    const { materializeProject } = await import("./generators/code-materializer.js");
+    
+    const result = await materializeProject({
+      projectId: project.projectId,
+      projectName: project.name || "IPL Project",
+      domain: project.domain || "custom",
+      database: project.database || "postgresql",
+      modules: modules,
+    });
+    
+    // Store generated files in database
+    const generatedFiles = result.files.map(f => ({
+      path: f.path,
+      content: f.content,
+      type: f.type,
+    }));
+    
+    await db.update(projects)
+      .set({
+        generatedFiles: generatedFiles as any,
+        status: "materialized",
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.projectId, req.params.projectId));
+    
+    res.json({
+      ok: true,
+      projectDir: result.projectDir,
+      filesCount: result.files.length,
+      files: result.files.map(f => ({ path: f.path, type: f.type })),
+      commands: result.commands,
+    });
+  } catch (e: any) {
+    console.error("Materialize project failed:", e);
+    res.status(500).json({ error: "Failed to materialize project", details: e?.message || String(e) });
+  }
+});
+
+// Get materialized project files
+app.get("/api/projects/:projectId/materialized-files", async (req, res) => {
+  try {
+    const { getProjectFiles } = await import("./generators/code-materializer.js");
+    const files = await getProjectFiles(req.params.projectId);
+    res.json({ ok: true, files });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get materialized files", details: e?.message || String(e) });
+  }
+});
+
 // ============================================================
 // APPLICATION-FIRST WORKFLOW APIs
 // ============================================================

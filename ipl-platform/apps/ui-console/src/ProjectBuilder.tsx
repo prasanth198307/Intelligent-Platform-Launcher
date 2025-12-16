@@ -66,7 +66,7 @@ interface Project {
   generatedFiles: Array<{ path: string; content: string; type: string }>;
 }
 
-type Phase = 'setup' | 'benchmarking' | 'building' | 'infrastructure' | 'testing' | 'deployment';
+type Phase = 'setup' | 'benchmarking' | 'building' | 'preview' | 'infrastructure' | 'testing' | 'deployment';
 
 export default function ProjectBuilder() {
   const [phase, setPhase] = useState<Phase>('setup');
@@ -325,6 +325,39 @@ export default function ProjectBuilder() {
     } catch (e) {
       console.error('Failed to get infrastructure recommendations:', e);
     }
+  };
+
+  const materializeCode = async () => {
+    if (!project) return;
+    setLoading(true);
+    addLog('Generating runnable code files...');
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${project.projectId}/materialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        addLog(`Generated ${data.filesCount} files`);
+        addLog(`Project directory: ${data.projectDir}`);
+        data.files.forEach((f: any) => addLog(`  + ${f.path}`));
+        addLog('');
+        addLog('To run the project:');
+        addLog(`  1. ${data.commands.install}`);
+        addLog(`  2. ${data.commands.migrate}`);
+        addLog(`  3. ${data.commands.start}`);
+        await refreshProject();
+        setActiveTab('files');
+      } else {
+        setError(data.error);
+        addLog(`ERROR: ${data.error}`);
+      }
+    } catch (e: any) {
+      setError(e.message);
+      addLog(`ERROR: ${e.message}`);
+    }
+    setLoading(false);
   };
 
   const formatNumber = (num: number) => {
@@ -617,9 +650,14 @@ export default function ProjectBuilder() {
                     ))}
                   </div>
                   {completedModules.length > 0 && (
-                    <button className="primary-btn full-width" onClick={verifyApplication} disabled={loading}>
-                      App Works - Get Infrastructure
-                    </button>
+                    <div className="action-buttons">
+                      <button className="secondary-btn full-width" onClick={materializeCode} disabled={loading}>
+                        Generate Code Files
+                      </button>
+                      <button className="primary-btn full-width" onClick={verifyApplication} disabled={loading}>
+                        App Works - Get Infrastructure
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -757,7 +795,7 @@ export default function ProjectBuilder() {
               </div>
               <div className="phase-actions">
                 <button className="secondary-btn" onClick={() => setPhase('testing')}>Back</button>
-                <button className="primary-btn" onClick={onClose}>Complete & Close</button>
+                <button className="primary-btn" onClick={() => { addLog('Project completed!'); setPhase('setup'); setProject(null); }}>Complete & Close</button>
               </div>
             </div>
           )}

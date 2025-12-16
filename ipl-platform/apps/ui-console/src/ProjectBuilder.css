@@ -447,3 +447,8 @@ h4 { color: #808090; margin: 0 0 8px; font-size: 0.9rem; }
 .testing-card, .deployment-card { background: #1a1a2e; border-radius: 8px; padding: 20px; }
 .testing-card h3, .deployment-card h3 { color: #e0e0e0; margin-bottom: 8px; }
 .testing-card p, .deployment-card p { color: #808090; font-size: 0.85rem; margin-bottom: 12px; }
+
+.action-buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.action-buttons .full-width { width: 100%; }
+.action-buttons .secondary-btn { background: #2a2a4a; border: 1px solid #667eea; }
+.action-buttons .secondary-btn:hover { background: #3a3a5a; }
