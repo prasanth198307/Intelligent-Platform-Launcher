@@ -1,0 +1,9 @@
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'users.create', 'users', 'create', 'Create users' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'users.create');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'users.update', 'users', 'update', 'Update users' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'users.update');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'users.delete', 'users', 'delete', 'Delete users' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'users.delete');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'roles.read', 'roles', 'read', 'View roles' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'roles.read');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'roles.create', 'roles', 'create', 'Create roles' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'roles.create');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'roles.update', 'roles', 'update', 'Update roles' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'roles.update');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'roles.delete', 'roles', 'delete', 'Delete roles' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'roles.delete');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'permissions.read', 'permissions', 'read', 'View permissions' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'permissions.read');
+INSERT INTO permissions (name, resource, action_type, description) SELECT 'permissions.create', 'permissions', 'create', 'Create permissions' WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = 'permissions.create');

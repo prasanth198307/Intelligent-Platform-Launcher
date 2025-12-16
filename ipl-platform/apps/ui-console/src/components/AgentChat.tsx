@@ -256,29 +256,13 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
           </div>
         ))}
 
-        {/* Tool Call Cards */}
-        {events.filter(e => e.type === 'tool_call').slice(-3).map((event, i) => (
-          <div key={`tool-${i}`} className="tool-call-card">
-            <div className="tool-call-header">
-              <div className="tool-call-icon">T</div>
-              <span className="tool-call-name">{event.data.tool}</span>
-              <span className="tool-call-status running">Running</span>
-            </div>
-          </div>
-        ))}
-
-        {/* Thinking Stream */}
+        {/* Simple thinking indicator like Replit */}
         {currentThinking && (
-          <div className="agent-thinking-stream">
-            <div className="thinking-avatar">A</div>
-            <div className="thinking-content">
-              <div className="thinking-label">
-                {currentThinking}
-                <div className="thinking-dots">
-                  <span></span><span></span><span></span>
-                </div>
-              </div>
-            </div>
+          <div className="agent-thinking-simple">
+            <span className="thinking-text">{currentThinking}</span>
+            <span className="thinking-dots-inline">
+              <span></span><span></span><span></span>
+            </span>
           </div>
         )}
         <div ref={messagesEndRef} />
