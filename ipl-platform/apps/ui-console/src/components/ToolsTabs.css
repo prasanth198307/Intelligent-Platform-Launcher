@@ -376,6 +376,34 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.db-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.db-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.db-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.db-tab.active {
+  background: var(--accent-primary);
+  color: white;
 }
 
 .db-controls {
@@ -385,14 +413,200 @@
 }
 
 .db-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
 }
 
+.db-status .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
 .db-status.connected {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.15);
   color: #10b981;
+}
+
+.table-item.selected {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.table-item.selected .row-count {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+/* Database Settings */
+.db-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-section h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  letter-spacing: 0.5px;
+}
+
+.connection-info {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.connection-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.connection-row:last-child {
+  border-bottom: none;
+}
+
+.connection-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+.connection-value {
+  flex: 1;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-btn {
+  padding: 4px 10px;
+  background: var(--accent-primary);
+  border: none;
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  opacity: 0.9;
+}
+
+.provider-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.provider-logo {
+  font-size: 32px;
+}
+
+.provider-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.provider-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.provider-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.usage-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.usage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.usage-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.usage-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Result table */
+.result-table-container {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.result-table th,
+.result-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.result-table th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.result-table td {
+  color: var(--text-primary);
+  font-family: monospace;
+}
+
+.result-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.result-truncated {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+}
+
+.result-json {
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  overflow-x: auto;
 }
 
 .db-filter {

@@ -102,6 +102,8 @@ export function ToolsTabs({
   const [dbLoading, setDbLoading] = useState(false);
   const [sqlQuery, setSqlQuery] = useState('SELECT * FROM ');
   const [queryResult, setQueryResult] = useState<any>(null);
+  const [dbActiveTab, setDbActiveTab] = useState<'data' | 'settings'>('data');
+  const [selectedTable, setSelectedTable] = useState<string>('');
 
   // Secrets state
   const [secrets, setSecrets] = useState<Secret[]>([]);
@@ -798,56 +800,162 @@ export function ToolsTabs({
         {activeTab === 'database' && (
           <div className="tab-content database-content">
             <div className="database-header">
-              <h3>Database</h3>
+              <div className="db-tabs">
+                <button 
+                  className={`db-tab ${dbActiveTab === 'data' ? 'active' : ''}`}
+                  onClick={() => setDbActiveTab('data')}
+                >
+                  My Data
+                </button>
+                <button 
+                  className={`db-tab ${dbActiveTab === 'settings' ? 'active' : ''}`}
+                  onClick={() => setDbActiveTab('settings')}
+                >
+                  Settings
+                </button>
+              </div>
               <div className="db-controls">
                 <button className="refresh-btn" onClick={loadDbTables} disabled={dbLoading}>
                   {dbLoading ? '...' : '↻'}
                 </button>
-                <span className="db-status connected">PostgreSQL Connected</span>
+                <span className="db-status connected">
+                  <span className="status-dot"></span>
+                  PostgreSQL Connected
+                </span>
               </div>
             </div>
             
-            <div className="database-tables">
-              <h4>Tables ({dbTables.length})</h4>
-              {dbLoading ? (
-                <p>Loading tables...</p>
-              ) : dbTables.length === 0 ? (
-                <p className="no-tables">No tables found. Click refresh to load tables.</p>
-              ) : (
-                <div className="tables-list">
-                  {dbTables.map((table, i) => (
-                    <div key={i} className="table-item" onClick={() => setSqlQuery(`SELECT * FROM "${table.name}" LIMIT 100`)}>
-                      <span className="table-icon">📋</span>
-                      <span className="table-name">{table.name}</span>
-                      <span className="row-count">{table.rowCount} rows</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="query-section">
-              <h4>Run Query</h4>
-              <textarea
-                value={sqlQuery}
-                onChange={e => setSqlQuery(e.target.value)}
-                placeholder="SELECT * FROM ..."
-                className="query-input"
-              />
-              <button className="db-btn" onClick={handleRunQuery} disabled={dbLoading}>
-                Run Query
-              </button>
-              
-              {queryResult && (
-                <div className="query-result">
-                  {queryResult.error ? (
-                    <div className="query-error">{queryResult.error}</div>
+            {dbActiveTab === 'data' && (
+              <>
+                <div className="database-tables">
+                  <h4>TABLES ({dbTables.length})</h4>
+                  {dbLoading ? (
+                    <p className="loading-text">Loading tables...</p>
+                  ) : dbTables.length === 0 ? (
+                    <p className="no-tables">No tables found. Click refresh to load tables.</p>
                   ) : (
-                    <pre>{JSON.stringify(queryResult, null, 2)}</pre>
+                    <div className="tables-list">
+                      {dbTables.map((table, i) => (
+                        <div 
+                          key={i} 
+                          className={`table-item ${selectedTable === table.name ? 'selected' : ''}`}
+                          onClick={() => {
+                            setSelectedTable(table.name);
+                            setSqlQuery(`SELECT * FROM "${table.name}" LIMIT 100`);
+                          }}
+                        >
+                          <span className="table-icon">🗃️</span>
+                          <span className="table-name">{table.name}</span>
+                          <span className="row-count">{table.rowCount} rows</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+
+                <div className="query-section">
+                  <h4>RUN QUERY</h4>
+                  <textarea
+                    value={sqlQuery}
+                    onChange={e => setSqlQuery(e.target.value)}
+                    placeholder="SELECT * FROM ..."
+                    className="query-input"
+                    rows={4}
+                  />
+                  <button className="db-btn primary" onClick={handleRunQuery} disabled={dbLoading}>
+                    Run Query
+                  </button>
+                  
+                  {queryResult && (
+                    <div className="query-result">
+                      {queryResult.error ? (
+                        <div className="query-error">{queryResult.error}</div>
+                      ) : Array.isArray(queryResult) ? (
+                        <div className="result-table-container">
+                          <table className="result-table">
+                            <thead>
+                              <tr>
+                                {queryResult.length > 0 && Object.keys(queryResult[0]).map((col, i) => (
+                                  <th key={i}>{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {queryResult.slice(0, 50).map((row: any, i: number) => (
+                                <tr key={i}>
+                                  {Object.values(row).map((val: any, j: number) => (
+                                    <td key={j}>{val === null ? 'NULL' : String(val)}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {queryResult.length > 50 && (
+                            <p className="result-truncated">Showing 50 of {queryResult.length} rows</p>
+                          )}
+                        </div>
+                      ) : (
+                        <pre className="result-json">{JSON.stringify(queryResult, null, 2)}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            
+            {dbActiveTab === 'settings' && (
+              <div className="db-settings">
+                <div className="settings-section">
+                  <h4>Connection Details</h4>
+                  <div className="connection-info">
+                    <div className="connection-row">
+                      <span className="connection-label">DATABASE_URL</span>
+                      <code className="connection-value">postgresql://***@neon.tech/neondb</code>
+                      <button className="copy-btn" onClick={() => navigator.clipboard.writeText('DATABASE_URL')}>
+                        Copy
+                      </button>
+                    </div>
+                    <div className="connection-row">
+                      <span className="connection-label">PGHOST</span>
+                      <code className="connection-value">neon.tech</code>
+                    </div>
+                    <div className="connection-row">
+                      <span className="connection-label">PGDATABASE</span>
+                      <code className="connection-value">neondb</code>
+                    </div>
+                    <div className="connection-row">
+                      <span className="connection-label">PGPORT</span>
+                      <code className="connection-value">5432</code>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="settings-section">
+                  <h4>Database Provider</h4>
+                  <div className="provider-info">
+                    <span className="provider-logo">🐘</span>
+                    <div className="provider-details">
+                      <span className="provider-name">Neon PostgreSQL</span>
+                      <span className="provider-desc">Serverless Postgres with autoscaling</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="settings-section">
+                  <h4>Usage</h4>
+                  <div className="usage-stats">
+                    <div className="usage-item">
+                      <span className="usage-label">Tables</span>
+                      <span className="usage-value">{dbTables.length}</span>
+                    </div>
+                    <div className="usage-item">
+                      <span className="usage-label">Storage</span>
+                      <span className="usage-value">~0.1 MB</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
