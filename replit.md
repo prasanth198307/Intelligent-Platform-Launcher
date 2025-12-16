@@ -103,9 +103,30 @@ ipl-platform/
 - **Cross-Domain Features**: Includes CI/CD Pipeline integration, API Gateway configurations, Monitoring & Observability setups, Backup & Disaster Recovery strategies, Notification & Alert systems, Documentation Generation, Performance SLAs, Data Migration Strategies, and Version Control Workflow guidance.
 - **Specification Features**: Multi-tenant configurations, multi-lingual support, payment and 3rd party integration detection, and source code scaffolding previews.
 
+## Database Isolation (Neon Branching)
+Each project can have its own isolated database using Neon database branching, similar to how Replit provides separate databases per project.
+
+**How it works:**
+- When a new project is created, the system automatically creates a dedicated Neon database branch
+- Each branch is a full copy-on-write clone of the main database, providing complete isolation
+- Tables created by the AI agent are isolated to that project's branch
+- If Neon is not configured, the system falls back to table name prefixing (`ipl_projectId_tablename`)
+
+**Required Environment Variables (for full isolation):**
+- `NEON_API_KEY` - Your Neon API key (from Neon console → Account Settings → API Keys)
+- `NEON_PROJECT_ID` - Your Neon project ID (from Neon console → Project Settings)
+- `NEON_DATABASE_NAME` - Database name (default: `neondb`)
+- `NEON_ROLE_NAME` - Database role/user (default: `neondb_owner`)
+- `NEON_ROLE_PASSWORD` - Password for the database role
+
+**Database schema additions (projects table):**
+- `neon_branch_id` - The Neon branch ID for this project
+- `neon_branch_name` - The branch name (format: `ipl-{projectId}`)
+- `neon_connection_string` - Dedicated connection string for the project's database
+
 ## External Dependencies
 - **AI/LLM**: Claude (Anthropic via Replit AI Integrations) as primary, Groq (Llama 3.3 70B) as fallback. Uses Replit's built-in Anthropic integration - no separate API key needed. Falls back to Groq if Anthropic unavailable.
-- **Databases**: PostgreSQL (for workspace persistence), and support for integration with PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB.
+- **Databases**: PostgreSQL (for workspace persistence), Neon (for project database isolation via branching), and support for integration with PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB.
 - **Cloud Providers**: AWS, Azure, Google Cloud (for cost estimation and deployment).
 - **Frontend Framework**: React, Vite, TypeScript.
 - **Backend Framework**: Express.js.

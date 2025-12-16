@@ -33,6 +33,7 @@ import { db } from "./db/index.js";
 import { workspaces, chatSessions, projects } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import { provisionProjectDatabase, getProjectTables, getTableData, dropProjectTables, insertSampleData } from "./db/project-database.js";
+import { createProjectBranch, deleteProjectBranch, isNeonConfigured, executeOnProjectBranch, getProjectBranchTables } from "./db/neon-branches.js";
 import {
   generateTerraform,
   generateCloudFormation,
@@ -986,6 +987,26 @@ app.post("/api/projects", async (req, res) => {
     
     const projectId = `project-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     
+    // Try to create a Neon database branch for project isolation
+    let neonBranchId: string | null = null;
+    let neonBranchName: string | null = null;
+    let neonConnectionString: string | null = null;
+    
+    if (isNeonConfigured()) {
+      console.log(`[Project] Creating Neon branch for project ${projectId}...`);
+      const branchResult = await createProjectBranch(projectId, name);
+      if (branchResult) {
+        neonBranchId = branchResult.branchId;
+        neonBranchName = branchResult.branchName;
+        neonConnectionString = branchResult.connectionString;
+        console.log(`[Project] Neon branch created: ${branchResult.branchName}`);
+      } else {
+        console.log(`[Project] Neon branch creation failed, will use table prefixing fallback`);
+      }
+    } else {
+      console.log(`[Project] Neon not configured, using table prefixing for isolation`);
+    }
+    
     const [newProject] = await db.insert(projects).values({
       projectId,
       name,
@@ -997,9 +1018,16 @@ app.post("/api/projects", async (req, res) => {
       modules: [],
       generatedFiles: [],
       conversationHistory: [],
-    }).returning();
+      neonBranchId,
+      neonBranchName,
+      neonConnectionString,
+    } as any).returning();
     
-    res.json({ ok: true, project: newProject });
+    res.json({ 
+      ok: true, 
+      project: newProject,
+      databaseIsolation: neonBranchId ? 'neon_branch' : 'table_prefix'
+    });
   } catch (e: any) {
     console.error("Create project failed:", e);
     res.status(500).json({ error: "Failed to create project", details: e?.message || String(e) });
@@ -3716,44 +3744,23 @@ app.post("/api/git/pull", async (req, res) => {
 app.get("/api/database/tables", async (req, res) => {
   try {
     const projectId = req.query.projectId as string;
-    const showAll = req.query.showAll === 'true';
     
-    if (!projectId && !showAll) {
+    if (!projectId) {
       return res.status(400).json({ ok: false, error: "projectId required" });
     }
     
+    // Check if project has a Neon branch
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, projectId)).limit(1);
+    
     let tables: Array<{ name: string; columns: string[]; rowCount: number }> = [];
     
-    if (showAll || !projectId) {
-      // Get all public tables
-      const result = await db.execute(sql`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        ORDER BY table_name
-      `);
-      
-      for (const row of result.rows as any[]) {
-        const tableName = row.table_name;
-        try {
-          // Get columns
-          const colResult = await db.execute(sql`
-            SELECT column_name FROM information_schema.columns 
-            WHERE table_name = ${tableName} ORDER BY ordinal_position
-          `);
-          const columns = (colResult.rows as any[]).map(r => r.column_name);
-          
-          // Get row count
-          const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM "${tableName}"`));
-          const rowCount = parseInt((countResult.rows as any[])[0]?.count || '0');
-          
-          tables.push({ name: tableName, columns, rowCount });
-        } catch (e) {
-          tables.push({ name: tableName, columns: [], rowCount: 0 });
-        }
-      }
+    if (project?.neonConnectionString) {
+      // Use the project's dedicated Neon branch
+      console.log(`[Database] Fetching tables from Neon branch for ${projectId}`);
+      tables = await getProjectBranchTables(project.neonConnectionString);
     } else {
-      // Get project-specific tables
+      // Fallback to table prefixing
+      console.log(`[Database] Fetching prefixed tables for ${projectId}`);
       const projectTables = await getProjectTables(projectId);
       for (const tableName of projectTables) {
         try {
@@ -3766,14 +3773,20 @@ app.get("/api/database/tables", async (req, res) => {
           const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM "${tableName}"`));
           const rowCount = parseInt((countResult.rows as any[])[0]?.count || '0');
           
-          tables.push({ name: tableName, columns, rowCount });
+          // Remove prefix for display
+          const displayName = tableName.replace(/^ipl_[^_]+_/, '');
+          tables.push({ name: displayName, columns, rowCount });
         } catch (e) {
           tables.push({ name: tableName, columns: [], rowCount: 0 });
         }
       }
     }
     
-    res.json({ ok: true, data: tables });
+    res.json({ 
+      ok: true, 
+      data: tables,
+      isolation: project?.neonConnectionString ? 'neon_branch' : 'table_prefix'
+    });
   } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message || String(e) });
   }

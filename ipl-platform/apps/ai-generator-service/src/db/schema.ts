@@ -100,6 +100,10 @@ export const projects = pgTable("projects", {
     createdAt: string;
     fixedAt?: string;
   }>>().default([]),
+  // Neon database branch for project isolation
+  neonBranchId: varchar("neon_branch_id", { length: 100 }),
+  neonBranchName: varchar("neon_branch_name", { length: 100 }),
+  neonConnectionString: text("neon_connection_string"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
