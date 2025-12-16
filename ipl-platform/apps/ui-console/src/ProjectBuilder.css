@@ -11,29 +11,34 @@
 }
 
 .project-builder-header {
-  padding: 12px 20px;
+  padding: 14px 24px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 10;
 }
 
 .project-builder-header .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .project-builder-header .header-logo {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
 }
 
 .project-builder-header .header-left h1 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -46,9 +51,9 @@
 .phase-indicator {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
-  background: var(--bg-secondary);
+  gap: 8px;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
   border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
 }
@@ -56,44 +61,50 @@
 .phase-step {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: var(--bg-tertiary);
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
   border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xs);
 }
 
 .phase-step:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .phase-step.active {
-  background: var(--accent-primary);
+  background: var(--gradient-primary);
   color: white;
-  border-color: var(--accent-primary);
+  border-color: transparent;
+  box-shadow: var(--shadow-md);
 }
 
 .phase-step.completed {
-  background: var(--accent-green);
+  background: var(--gradient-success);
   color: white;
-  border-color: var(--accent-green);
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
 }
 
 .phase-number {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.7rem;
+  font-weight: 700;
+  font-size: 0.72rem;
 }
 
 .project-builder-content {
@@ -233,17 +244,18 @@ h4 { color: var(--text-muted); margin: 0 0 8px; font-size: 0.85rem; font-weight:
 .building-phase {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  height: calc(100vh - 140px);
-  padding: 0 16px 16px;
+  gap: 16px;
+  height: calc(100vh - 150px);
+  padding: 16px 20px;
 }
 
 .tools-panel-container {
   height: 100%;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .chat-panel {
@@ -251,46 +263,64 @@ h4 { color: var(--text-muted); margin: 0 0 8px; font-size: 0.85rem; font-weight:
   flex-direction: column;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
-  background: var(--bg-tertiary);
+  padding: 12px 16px;
+  background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   border-bottom: 1px solid var(--border-color);
 }
 
-.chat-header h3 { margin: 0; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
-.status-badge { background: var(--accent-green); padding: 3px 10px; border-radius: 10px; font-size: 0.7rem; color: white; font-weight: 500; }
+.chat-header h3 { margin: 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 600; }
+.status-badge { 
+  background: var(--gradient-success); 
+  padding: 4px 12px; 
+  border-radius: 12px; 
+  font-size: 0.72rem; 
+  color: white; 
+  font-weight: 600; 
+  box-shadow: var(--shadow-sm);
+  animation: statusPulse 2s infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
 
 .chat-mode-toggle {
   display: flex;
   gap: 2px;
   background: var(--bg-primary);
-  border-radius: 6px;
-  padding: 2px;
+  border-radius: var(--radius-md);
+  padding: 3px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
 }
 .chat-mode-toggle button {
-  padding: 4px 10px;
-  font-size: 0.7rem;
+  padding: 6px 12px;
+  font-size: 0.72rem;
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
-  font-weight: 500;
+  transition: all var(--transition-fast);
+  font-weight: 600;
 }
 .chat-mode-toggle button:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
 }
 .chat-mode-toggle button.active {
-  background: var(--accent-primary);
+  background: var(--gradient-primary);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .output-panel {
