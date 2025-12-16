@@ -403,12 +403,25 @@ Keep working until ALL tasks are complete, then use final_response.`;
       this.emit_event("thinking", { iteration: this.currentIteration, message: `Processing step ${this.currentIteration}...` });
 
       try {
+        console.log(`\n[Agent Step ${this.currentIteration}] Calling LLM...`);
         const { content, toolCalls } = await this.callLLM(messages, allTools);
         
         // Reset rate limit counter on success
         this.rateLimitRetries = 0;
+        
+        // Debug: Log LLM response
+        console.log(`[Agent Step ${this.currentIteration}] LLM responded with ${toolCalls?.length || 0} tool calls`);
+        if (content) {
+          console.log(`[Agent Step ${this.currentIteration}] Content: ${content.slice(0, 200)}...`);
+        }
 
         if (toolCalls && toolCalls.length > 0) {
+          // Log all tool calls for debugging
+          console.log(`[Agent Step ${this.currentIteration}] Tool calls:`);
+          toolCalls.forEach((tc: any, i: number) => {
+            console.log(`  ${i + 1}. ${tc.function.name}`);
+          });
+          
           messages.push({
             role: "assistant",
             content: content || "",
@@ -423,6 +436,13 @@ Keep working until ALL tasks are complete, then use final_response.`;
               toolArgs = JSON.parse(toolCall.function.arguments || "{}");
             } catch (e) {
               console.error("Failed to parse tool args:", toolCall.function.arguments);
+            }
+            
+            // Highlight save_module calls
+            if (toolName === "save_module") {
+              console.log(`\n*** [Agent] SAVE_MODULE CALLED! ***`);
+              console.log(`  Tables: ${JSON.stringify(toolArgs.tables?.map((t: any) => t.name) || [])}`);
+              console.log(`  APIs: ${JSON.stringify(toolArgs.apis?.map((a: any) => a.path) || [])}`);
             }
 
             this.emit_event("tool_call", { tool: toolName, args: toolArgs });
