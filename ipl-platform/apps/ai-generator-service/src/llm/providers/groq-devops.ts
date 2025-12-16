@@ -1522,12 +1522,16 @@ export interface Project {
 export interface ProjectAgentRequest {
   project: Project;
   userMessage: string;
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 export interface ProjectAgentResponse {
   message: string;
-  action: 'created_project' | 'recommended_modules' | 'built_module' | 'updated_module' | 'generated_code' | 'answered_question' | 'listed_status';
+  action: 'created_project' | 'recommended_modules' | 'built_module' | 'updated_module' | 'generated_code' | 'answered_question' | 'listed_status' | 'clarify' | 'info';
   updatedProject?: Partial<Project>;
+  suggestedModules?: string[];
+  questions?: string[];
+  suggestions?: string[];
   generatedCode?: {
     files: Array<{ path: string; content: string; description: string }>;
   };
@@ -1584,31 +1588,72 @@ Screens to create:
 ${moduleSpec.screens?.map((s: any) => `- ${s.name} (${s.type}) at ${s.route}`).join('\n') || 'None specified'}
 ` : '';
 
-  const prompt = `You are an AI development agent helping build a software project incrementally.
+  // Detect if this is a vague or conversational request that needs clarification
+  const vaguePatterns = [
+    /^(i need|i want|build me|create|make)\s+(a|an|the)?\s*\w+\s*(system|app|application|module)?$/i,
+    /^(help|can you|please)\s/i,
+    /^what\s+(should|can|do)/i,
+    /\?$/
+  ];
+  const isVagueRequest = vaguePatterns.some(p => p.test(request.userMessage.trim())) && !moduleSpec;
+  const hasMultipleModuleMatches = availableModules.filter(m => 
+    request.userMessage.toLowerCase().includes(m.name?.toLowerCase().split(' ')[0])
+  ).length > 1;
+
+  const prompt = `You are a friendly, flexible AI development agent helping build a software project incrementally.
+You should be conversational, helpful, and ask clarifying questions when needed.
 
 ${projectSummary}
 ${domainContext}
 ${moduleSpecContext}
 
 USER REQUEST: "${request.userMessage}"
+${request.conversationHistory ? `\nPREVIOUS CONVERSATION:\n${request.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}` : ''}
 
-Based on the request, determine the action and provide structured data.
+BEHAVIOR RULES:
+1. BE FLEXIBLE: Understand user intent even with typos or vague language
+2. ASK QUESTIONS: If the request is vague or could mean multiple things, ask clarifying questions
+3. SUGGEST OPTIONS: When multiple modules could match, offer choices
+4. BE CONVERSATIONAL: Respond naturally, not robotically
+5. REMEMBER CONTEXT: Use the conversation history to understand follow-up requests
+
+WHEN TO ASK CLARIFYING QUESTIONS:
+- User says something vague like "I need a management system" without specifying what to manage
+- User's request could match multiple modules
+- User is asking a question rather than giving a command
+- Important details are missing (scale, specific features, integrations)
 
 DOMAIN UNDERSTANDING:
-- If user mentions domain-specific terms, use the domain context above to understand what they mean
-- For AMI: "Head End System" = meter communication hub, "MDM" = meter data management
+- If user mentions domain-specific terms, use the domain context above
+- For AMI: "Head End System" = meter communication hub, "MDM" = meter data management, "MDMS" = Meter Data Management System
 - For Healthcare: "EMR" = electronic medical records, "HL7" = health data exchange
-- Always use the DOMAIN MODULE SPECIFICATION if provided
+- Match fuzzy terms: "meter management" could mean "Meter Data Management" or "Device Management"
 
-For building a module, you MUST provide complete table schemas with:
-- Primary keys (id with serial or uuid type)
-- All necessary columns with proper types
-- Foreign keys referencing existing tables where appropriate
-- Proper enum values for status fields
+${isVagueRequest ? `
+NOTE: This appears to be a vague request. Consider asking what specific functionality they need.
+Example clarifying questions:
+- "What specific data do you want to manage?"
+- "Do you need [Option A] or [Option B]?"
+- "What features are most important for your use case?"
+` : ''}
 
-Return ONLY valid JSON (no code, no special characters):
+${hasMultipleModuleMatches ? `
+NOTE: Multiple modules might match this request. Offer the user options.
+` : ''}
+
+Return ONLY valid JSON. Choose the appropriate action:
+
+FOR CLARIFYING QUESTIONS (when request is vague):
 {
-  "message": "Human-friendly explanation of what was done",
+  "message": "I'd be happy to help! Could you tell me more about [specific question]?",
+  "action": "clarify",
+  "suggestedModules": ["Module A", "Module B"],
+  "questions": ["What specific data do you want to manage?", "Do you need real-time or batch processing?"]
+}
+
+FOR BUILDING A MODULE (when request is clear):
+{
+  "message": "Great! I'll build the [Module Name] for you. This will include...",
   "action": "built_module",
   "updatedProject": {
     "modules": [
@@ -1625,6 +1670,13 @@ Return ONLY valid JSON (no code, no special characters):
     ]
   },
   "nextSteps": ["Build X module next", "Add authentication"]
+}
+
+FOR ANSWERING QUESTIONS:
+{
+  "message": "Based on your project, I recommend...",
+  "action": "info",
+  "suggestions": ["You could add X", "Consider Y for better performance"]
 }`;
 
   const controller = new AbortController();
@@ -1638,7 +1690,23 @@ Return ONLY valid JSON (no code, no special characters):
         messages: [
           { 
             role: "system", 
-            content: `You are an expert software architect and full-stack developer. Help users build applications module by module, generating production-ready code. Always maintain proper relationships between modules. Return ONLY valid JSON.` 
+            content: `You are a friendly, conversational AI development assistant - like a senior developer helping a colleague. 
+You help users build applications incrementally, module by module.
+
+Your personality:
+- Be warm and helpful, not robotic
+- Ask clarifying questions when things are unclear
+- Offer suggestions and alternatives
+- Explain your recommendations briefly
+- Use natural language in your messages
+
+Technical skills:
+- Generate production-ready database schemas with proper relationships
+- Create RESTful APIs with CRUD operations
+- Design user-friendly screens (list, form, detail, dashboard views)
+- Understand domain-specific terminology
+
+Always return ONLY valid JSON in the specified format.` 
           },
           { role: "user", content: prompt }
         ],

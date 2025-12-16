@@ -81,7 +81,7 @@ export default function ProjectBuilder() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState<Array<{ role: string; message: string; timestamp?: string }>>([]);
+  const [chatHistory, setChatHistory] = useState<Array<{ role: string; message: string; timestamp?: string; suggestedModules?: string[] }>>([]);
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [infrastructureRec, setInfrastructureRec] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'console' | 'tables' | 'apis' | 'files'>('console');
@@ -172,10 +172,10 @@ export default function ProjectBuilder() {
     setLoading(false);
   };
 
-  const sendMessage = async () => {
-    if (!chatInput.trim() || !project) return;
-    const message = chatInput;
-    setChatInput('');
+  const sendMessage = async (overrideMessage?: string) => {
+    const message = overrideMessage || chatInput.trim();
+    if (!message || !project) return;
+    if (!overrideMessage) setChatInput('');
     const timestamp = new Date().toLocaleTimeString();
     setChatHistory(prev => [...prev, { role: 'user', message, timestamp }]);
     addLog(`User: ${message}`);
@@ -189,8 +189,41 @@ export default function ProjectBuilder() {
       });
       const data = await res.json();
       if (data.ok) {
-        setChatHistory(prev => [...prev, { role: 'assistant', message: data.message, timestamp: new Date().toLocaleTimeString() }]);
+        // Build rich message with suggestions if available
+        let richMessage = data.message;
+        
+        // Handle clarify action - show suggested modules as options
+        if (data.action === 'clarify' && data.suggestedModules?.length) {
+          richMessage += '\n\n**Suggested modules:**';
+          data.suggestedModules.forEach((mod: string) => {
+            richMessage += `\n• ${mod}`;
+          });
+        }
+        
+        // Show questions if any
+        if (data.questions?.length) {
+          richMessage += '\n\n**Questions to consider:**';
+          data.questions.forEach((q: string) => {
+            richMessage += `\n• ${q}`;
+          });
+        }
+        
+        // Show suggestions for info action
+        if (data.action === 'info' && data.suggestions?.length) {
+          richMessage += '\n\n**Suggestions:**';
+          data.suggestions.forEach((s: string) => {
+            richMessage += `\n• ${s}`;
+          });
+        }
+        
+        setChatHistory(prev => [...prev, { 
+          role: 'assistant', 
+          message: richMessage, 
+          timestamp: new Date().toLocaleTimeString(),
+          suggestedModules: data.suggestedModules
+        }]);
         addLog(`AI: ${data.message}`);
+        
         if (data.nextSteps) {
           data.nextSteps.forEach((step: string) => addLog(`  → ${step}`));
         }
@@ -537,7 +570,25 @@ export default function ProjectBuilder() {
                   {chatHistory.map((msg, i) => (
                     <div key={i} className={`chat-message ${msg.role}`}>
                       <div className="message-time">{msg.timestamp}</div>
-                      <div className="message-content">{msg.message}</div>
+                      <div className="message-content">
+                        {msg.message.split('\n').map((line, j) => (
+                          <span key={j}>{line}{j < msg.message.split('\n').length - 1 && <br />}</span>
+                        ))}
+                      </div>
+                      {msg.suggestedModules && msg.suggestedModules.length > 0 && (
+                        <div className="suggested-modules">
+                          {msg.suggestedModules.map((mod, j) => (
+                            <button 
+                              key={j} 
+                              className="module-suggestion-btn"
+                              onClick={() => sendMessage(`Build the ${mod} module`)}
+                              disabled={loading}
+                            >
+                              Build {mod}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {loading && <div className="chat-message assistant loading">Thinking...</div>}
@@ -552,7 +603,7 @@ export default function ProjectBuilder() {
                     placeholder="Tell the AI what to build or report issues..."
                     disabled={loading}
                   />
-                  <button onClick={sendMessage} disabled={loading || !chatInput.trim()}>Send</button>
+                  <button onClick={() => sendMessage()} disabled={loading || !chatInput.trim()}>Send</button>
                 </div>
               </div>
 

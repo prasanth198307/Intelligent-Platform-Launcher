@@ -473,3 +473,11 @@ h4 { color: #808090; margin: 0 0 8px; font-size: 0.9rem; }
 .code-view code { color: #e0e0e0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; white-space: pre; }
 
 .no-file-selected { display: flex; align-items: center; justify-content: center; height: 100%; color: #808090; }
+
+.suggested-modules { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #3a3a5a; }
+.module-suggestion-btn { padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 6px; color: white; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+.module-suggestion-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+.module-suggestion-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.message-content { white-space: pre-wrap; }
+.message-content strong { color: #667eea; font-weight: 600; }

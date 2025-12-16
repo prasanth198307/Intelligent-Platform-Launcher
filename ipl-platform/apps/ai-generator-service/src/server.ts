@@ -1071,9 +1071,16 @@ app.post("/api/projects/:projectId/agent", async (req, res) => {
     };
     
     console.log(`Project Agent [${dbProject.name}]: "${message.substring(0, 50)}..."`);
+    
+    // Convert conversation history for the agent (last 10 messages for context)
+    const conversationForAgent = projectForAgent.conversationHistory
+      .slice(-10)
+      .map(h => ({ role: h.role, content: h.message }));
+    
     const result = await groqProjectAgent({
       project: projectForAgent,
       userMessage: message,
+      conversationHistory: conversationForAgent,
     });
     
     // Update project with changes
@@ -1107,6 +1114,9 @@ app.post("/api/projects/:projectId/agent", async (req, res) => {
       message: result.message,
       generatedCode: result.generatedCode,
       nextSteps: result.nextSteps,
+      suggestedModules: result.suggestedModules,
+      questions: result.questions,
+      suggestions: result.suggestions,
       project: {
         projectId: updatedProject.projectId,
         name: updatedProject.name,
