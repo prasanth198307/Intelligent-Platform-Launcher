@@ -1588,72 +1588,69 @@ Screens to create:
 ${moduleSpec.screens?.map((s: any) => `- ${s.name} (${s.type}) at ${s.route}`).join('\n') || 'None specified'}
 ` : '';
 
-  // Detect if this is a vague or conversational request that needs clarification
-  const vaguePatterns = [
-    /^(i need|i want|build me|create|make)\s+(a|an|the)?\s*\w+\s*(system|app|application|module)?$/i,
-    /^(help|can you|please)\s/i,
-    /^what\s+(should|can|do)/i,
-    /\?$/
+  // Detect if user is giving a BUILD command - these should execute immediately
+  const buildPatterns = [
+    /^build\s/i,
+    /^create\s/i,
+    /^generate\s/i,
+    /^add\s/i,
+    /^make\s/i
   ];
-  const isVagueRequest = vaguePatterns.some(p => p.test(request.userMessage.trim())) && !moduleSpec;
-  const hasMultipleModuleMatches = availableModules.filter(m => 
-    request.userMessage.toLowerCase().includes(m.name?.toLowerCase().split(' ')[0])
-  ).length > 1;
+  const isBuildCommand = buildPatterns.some(p => p.test(request.userMessage.trim()));
+  
+  // Only ask questions for genuine questions (ends with ?) or very vague requests
+  const isQuestion = request.userMessage.trim().endsWith('?');
+  const isVeryVague = /^(i need|help|what should)/i.test(request.userMessage.trim()) && request.userMessage.split(' ').length < 5;
 
-  const prompt = `You are a friendly, flexible AI development agent helping build a software project incrementally.
-You should be conversational, helpful, and ask clarifying questions when needed.
+  // AMI Network Hierarchy context
+  const amiNetworkContext = request.project.domain?.toLowerCase().includes('ami') || request.project.domain?.toLowerCase().includes('meter') ? `
+AMI NETWORK HIERARCHY (use these exact relationships):
+- SUBSTATIONS: High-level network nodes, have name, code, voltage_level, capacity, location
+- FEEDERS: Connected to substations (substation_id FK), have name, code, capacity, status
+- TRANSFORMERS: Connected to feeders (feeder_id FK), have name, code, capacity, type, location
+- METERS: Connected to transformers (transformer_id FK), have meter_number, meter_type, installation_date, status
+- CONSUMERS: Connected to meters (meter_id FK), have consumer_number, name, address, phone, email, consumer_type
+
+Always create proper foreign key relationships in this hierarchy.
+` : '';
+
+  const prompt = `You are an ACTION-ORIENTED AI development agent. When users say "build X", you BUILD IT immediately.
 
 ${projectSummary}
 ${domainContext}
+${amiNetworkContext}
 ${moduleSpecContext}
 
 USER REQUEST: "${request.userMessage}"
 ${request.conversationHistory ? `\nPREVIOUS CONVERSATION:\n${request.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}` : ''}
 
-BEHAVIOR RULES:
-1. BE FLEXIBLE: Understand user intent even with typos or vague language
-2. ASK QUESTIONS: If the request is vague or could mean multiple things, ask clarifying questions
-3. SUGGEST OPTIONS: When multiple modules could match, offer choices
-4. BE CONVERSATIONAL: Respond naturally, not robotically
-5. REMEMBER CONTEXT: Use the conversation history to understand follow-up requests
+CRITICAL BEHAVIOR RULES:
+1. ${isBuildCommand ? 'BUILD IMMEDIATELY: User gave a build command - DO NOT ask questions, BUILD the module NOW' : ''}
+2. BE DECISIVE: When user says "build network management" or "build meter module", CREATE IT with reasonable defaults
+3. USE DOMAIN KNOWLEDGE: For AMI, you KNOW what substations, feeders, transformers, meters, and consumers are - use proper schemas
+4. COMBINE REQUESTS: If user asks for "network hierarchy from substation to meter", build ALL related tables in ONE module
+5. FOREIGN KEYS: Always create proper relationships (feeder -> substation, transformer -> feeder, meter -> transformer, consumer -> meter)
 
-WHEN TO ASK CLARIFYING QUESTIONS:
-- User says something vague like "I need a management system" without specifying what to manage
-- User's request could match multiple modules
-- User is asking a question rather than giving a command
-- Important details are missing (scale, specific features, integrations)
-
-DOMAIN UNDERSTANDING:
-- If user mentions domain-specific terms, use the domain context above
-- For AMI: "Head End System" = meter communication hub, "MDM" = meter data management, "MDMS" = Meter Data Management System
-- For Healthcare: "EMR" = electronic medical records, "HL7" = health data exchange
-- Match fuzzy terms: "meter management" could mean "Meter Data Management" or "Device Management"
-
-${isVagueRequest ? `
-NOTE: This appears to be a vague request. Consider asking what specific functionality they need.
-Example clarifying questions:
-- "What specific data do you want to manage?"
-- "Do you need [Option A] or [Option B]?"
-- "What features are most important for your use case?"
+${isBuildCommand ? `
+*** THIS IS A BUILD COMMAND - EXECUTE IMMEDIATELY ***
+User said: "${request.userMessage}"
+DO NOT ask clarifying questions. CREATE the module with:
+- Appropriate tables based on what they asked for
+- Proper columns for the domain (AMI has substations, feeders, transformers, meters, consumers)
+- Foreign key relationships between related tables
+- Standard APIs (CRUD operations)
+- Standard screens (list, form, detail views)
 ` : ''}
 
-${hasMultipleModuleMatches ? `
-NOTE: Multiple modules might match this request. Offer the user options.
-` : ''}
+${isQuestion ? 'This is a QUESTION - answer it helpfully.' : ''}
+${isVeryVague && !isBuildCommand ? 'This request is vague - ask ONE clarifying question only.' : ''}
 
-Return ONLY valid JSON. Choose the appropriate action:
+Return ONLY valid JSON.
 
-FOR CLARIFYING QUESTIONS (when request is vague):
+${isBuildCommand ? `
+YOU MUST USE THIS FORMAT - BUILD THE MODULE NOW:
 {
-  "message": "I'd be happy to help! Could you tell me more about [specific question]?",
-  "action": "clarify",
-  "suggestedModules": ["Module A", "Module B"],
-  "questions": ["What specific data do you want to manage?", "Do you need real-time or batch processing?"]
-}
-
-FOR BUILDING A MODULE (when request is clear):
-{
-  "message": "Great! I'll build the [Module Name] for you. This will include...",
+  "message": "I'll build the [Module Name] for you. This includes [tables] with [relationships].",
   "action": "built_module",
   "updatedProject": {
     "modules": [
@@ -1662,22 +1659,53 @@ FOR BUILDING A MODULE (when request is clear):
         "description": "What this module does",
         "status": "completed",
         "tables": [
-          {"name": "table_name", "columns": [{"name": "id", "type": "serial", "primaryKey": true}, {"name": "meter_id", "type": "varchar(50)", "references": "meters.meter_id"}]}
+          {"name": "substations", "columns": [{"name": "id", "type": "serial", "primaryKey": true}, {"name": "name", "type": "varchar(100)"}, {"name": "code", "type": "varchar(50)"}]},
+          {"name": "feeders", "columns": [{"name": "id", "type": "serial", "primaryKey": true}, {"name": "substation_id", "type": "integer", "references": "substations.id"}, {"name": "name", "type": "varchar(100)"}]}
         ],
-        "apis": [{"method": "GET", "path": "/api/meters", "description": "List all meters"}],
-        "screens": [{"name": "MeterList", "type": "list", "route": "/meters"}]
+        "apis": [{"method": "GET", "path": "/api/substations", "description": "List all substations"}],
+        "screens": [{"name": "SubstationList", "type": "list", "route": "/substations"}]
       }
     ]
   },
-  "nextSteps": ["Build X module next", "Add authentication"]
+  "nextSteps": ["Build related module next"]
+}
+` : `
+Choose the appropriate action:
+
+FOR CLARIFYING QUESTIONS (only if request is genuinely unclear):
+{
+  "message": "I'd be happy to help! Could you tell me more about [ONE specific question]?",
+  "action": "clarify",
+  "suggestedModules": ["Module A", "Module B"],
+  "questions": ["One clarifying question only"]
+}
+
+FOR BUILDING A MODULE:
+{
+  "message": "I'll build the [Module Name] for you. This includes...",
+  "action": "built_module",
+  "updatedProject": {
+    "modules": [
+      {
+        "name": "Module Name",
+        "description": "What this module does",
+        "status": "completed",
+        "tables": [{"name": "table_name", "columns": [{"name": "id", "type": "serial", "primaryKey": true}]}],
+        "apis": [{"method": "GET", "path": "/api/resource", "description": "List all"}],
+        "screens": [{"name": "ResourceList", "type": "list", "route": "/resources"}]
+      }
+    ]
+  },
+  "nextSteps": ["Build X module next"]
 }
 
 FOR ANSWERING QUESTIONS:
 {
   "message": "Based on your project, I recommend...",
   "action": "info",
-  "suggestions": ["You could add X", "Consider Y for better performance"]
-}`;
+  "suggestions": ["You could add X", "Consider Y"]
+}
+`}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180000);
@@ -1690,21 +1718,22 @@ FOR ANSWERING QUESTIONS:
         messages: [
           { 
             role: "system", 
-            content: `You are a friendly, conversational AI development assistant - like a senior developer helping a colleague. 
-You help users build applications incrementally, module by module.
+            content: `You are an ACTION-ORIENTED AI development assistant. Your job is to BUILD things, not ask endless questions.
 
-Your personality:
-- Be warm and helpful, not robotic
-- Ask clarifying questions when things are unclear
-- Offer suggestions and alternatives
-- Explain your recommendations briefly
-- Use natural language in your messages
+CORE PRINCIPLE: When user says "build X", you BUILD X immediately with sensible defaults.
 
-Technical skills:
+Your behavior:
+- BUILD immediately when given a build/create/generate command
+- Use domain knowledge to create proper schemas (AMI = substations, feeders, transformers, meters, consumers)
+- Create foreign key relationships automatically (meter -> transformer -> feeder -> substation)
+- Only ask questions if the request is genuinely unclear (less than 3 words or ends with ?)
+- ONE clarifying question maximum, then build with defaults
+
+Technical capabilities:
 - Generate production-ready database schemas with proper relationships
 - Create RESTful APIs with CRUD operations
-- Design user-friendly screens (list, form, detail, dashboard views)
-- Understand domain-specific terminology
+- Design screens (list, form, detail views)
+- Understand AMI/utility domain terminology
 
 Always return ONLY valid JSON in the specified format.` 
           },
