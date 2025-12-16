@@ -393,6 +393,37 @@ export default function ProjectBuilder() {
     setLoading(false);
   };
 
+  const provisionDatabase = async () => {
+    if (!project) return;
+    setLoading(true);
+    addLog('Provisioning database...');
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${project.projectId}/database/provision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        addLog(`Database provisioned successfully!`);
+        addLog(`Created ${data.tables.length} tables:`);
+        data.tables.forEach((t: string) => addLog(`  - ${t}`));
+        if (data.errors?.length > 0) {
+          addLog('Warnings:');
+          data.errors.forEach((e: string) => addLog(`  ! ${e}`));
+        }
+        await refreshProject();
+      } else {
+        setError(data.error);
+        addLog(`ERROR: ${data.error}`);
+      }
+    } catch (e: any) {
+      setError(e.message);
+      addLog(`ERROR: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
   const formatNumber = (num: number) => {
     if (num >= 1000000000) return `${(num / 1000000000).toFixed(1)}B`;
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -703,6 +734,9 @@ export default function ProjectBuilder() {
                   </div>
                   {completedModules.length > 0 && (
                     <div className="action-buttons">
+                      <button className="secondary-btn full-width" onClick={provisionDatabase} disabled={loading}>
+                        Provision Database
+                      </button>
                       <button className="secondary-btn full-width" onClick={materializeCode} disabled={loading}>
                         Generate Code Files
                       </button>

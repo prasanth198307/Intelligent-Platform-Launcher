@@ -32,6 +32,7 @@ const projectSessions = new Map<string, ProjectSession>();
 import { db } from "./db/index.js";
 import { workspaces, chatSessions, projects } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
+import { provisionProjectDatabase, getProjectTables, getTableData, dropProjectTables, insertSampleData } from "./db/project-database.js";
 import {
   generateTerraform,
   generateCloudFormation,
@@ -1451,6 +1452,114 @@ app.put("/api/projects/:projectId/benchmarking", async (req, res) => {
     });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update benchmarking", details: e?.message || String(e) });
+  }
+});
+
+// Provision database for a project - creates real tables from module definitions
+app.post("/api/projects/:projectId/database/provision", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const modules = (project.modules as any) || [];
+    const completedModules = modules.filter((m: any) => m.status === 'completed' || m.tables?.length > 0);
+    
+    if (completedModules.length === 0) {
+      return res.status(400).json({ error: "No modules with tables found. Build modules first using the AI agent." });
+    }
+    
+    console.log(`Provisioning database for project ${project.name} with ${completedModules.length} modules...`);
+    
+    const result = await provisionProjectDatabase(req.params.projectId, completedModules);
+    
+    res.json({
+      ok: true,
+      provisioned: result.success,
+      tables: result.tables,
+      errors: result.errors,
+      message: result.success 
+        ? `Successfully created ${result.tables.length} tables in the database.`
+        : `Partially completed. Created ${result.tables.length} tables with ${result.errors.length} errors.`
+    });
+  } catch (e: any) {
+    console.error("Database provisioning failed:", e);
+    res.status(500).json({ error: "Failed to provision database", details: e?.message || String(e) });
+  }
+});
+
+// Get database status for a project
+app.get("/api/projects/:projectId/database", async (req, res) => {
+  try {
+    const [project] = await db.select().from(projects).where(eq(projects.projectId, req.params.projectId)).limit(1);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    const tables = await getProjectTables(req.params.projectId);
+    
+    res.json({
+      ok: true,
+      provisioned: tables.length > 0,
+      tables: tables.map(t => t.replace(`ipl_${req.params.projectId.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()}_`, '')),
+      rawTables: tables
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get database status", details: e?.message || String(e) });
+  }
+});
+
+// Get data from a specific table
+app.get("/api/projects/:projectId/database/:tableName", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const data = await getTableData(req.params.projectId, req.params.tableName, limit);
+    
+    res.json({
+      ok: true,
+      table: req.params.tableName,
+      columns: data.columns,
+      rows: data.rows,
+      count: data.rows.length
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to get table data", details: e?.message || String(e) });
+  }
+});
+
+// Insert sample data into a table
+app.post("/api/projects/:projectId/database/:tableName/data", async (req, res) => {
+  try {
+    const { data } = req.body;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ error: "data must be an array of records" });
+    }
+    
+    const result = await insertSampleData(req.params.projectId, req.params.tableName, data);
+    
+    res.json({
+      ok: true,
+      inserted: result.inserted,
+      success: result.success
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to insert data", details: e?.message || String(e) });
+  }
+});
+
+// Drop all project tables (cleanup)
+app.delete("/api/projects/:projectId/database", async (req, res) => {
+  try {
+    const result = await dropProjectTables(req.params.projectId);
+    
+    res.json({
+      ok: true,
+      dropped: result.dropped,
+      success: result.success
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to drop tables", details: e?.message || String(e) });
   }
 });
 
