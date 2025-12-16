@@ -63,14 +63,21 @@ ipl-platform/
 - **Deployment Flexibility**: Offers one-click cloud deployment, Docker Compose/Helm Charts for on-premises, and hybrid options.
 - **Mobile App Generation**: Generates iOS, Android, and PWA apps with features like offline sync, push notifications, and biometric authentication. Uses React Native/Expo for full project generation.
 - **AI Code Generation**: The `ai-generator-service` (LLM-ready) generates application modules, UI screens (list, form, detail, chart, map), database schemas (tables, columns, relationships), and comprehensive test cases (unit, integration, E2E, security).
-- **Agentic Mode**: Claude-like AI agent system with persistent loops, real-time streaming, and self-review capabilities:
-  - **Persistent Loop**: AgentOrchestrator runs up to 100 iterations (essentially unlimited) with task tracking and verification
+- **Agentic Mode**: Full Claude-like AI agent system with persistent loops, real-time streaming, computer use, and self-review capabilities:
+  - **Dual LLM Support**: Uses Claude (Anthropic) as primary with Groq as fallback
+  - **Extended Context**: Maintains 200 message history (matching Claude's large context window)
+  - **Streaming Thinking**: Real-time display of Claude's reasoning as it works
+  - **Extended Thinking**: Deep reasoning mode for complex problems
+  - **Persistent Loop**: AgentOrchestrator runs up to 100 iterations with task tracking and verification
   - **Streaming UI**: Server-Sent Events (SSE) endpoint streams real-time agent activity (tool calls, thinking, task updates)
-  - **21 Tools**: 
+  - **35+ Tools**:
     - Reading: get_project_info, list_database_tables, get_table_data, list_project_files, read_file, read_any_file, list_directory, get_domain_knowledge
     - Verification: run_typescript_check, test_api_endpoint, read_app_logs, check_file_syntax, get_app_status
-    - Write: write_file, write_any_file, execute_sql, create_directory, delete_file
+    - Write: write_file, write_any_file, execute_sql, create_directory, delete_file, batch_file_operations
     - Git & Packages: install_package, git_status, git_commit, glob_files, grep_search
+    - **Computer Use (Puppeteer)**: computer_screenshot (real browser screenshots with element detection), computer_click (pixel-precise and selector-based), computer_type (keyboard simulation with Enter support)
+    - **Vision**: analyze_screenshot (Claude vision API for image understanding)
+    - **MCP Integrations**: mcp_list_integrations, mcp_connect, mcp_execute (GitHub, Slack, Notion, PostgreSQL, HTTP, Filesystem)
   - **Separate Architect Agent**: Independent code reviewer that reads actual files, checks project context, and grades work (A-F)
   - **Task Management**: create_tasks, update_task tools for progress tracking visible in the UI
   - **Claude-Level Advanced Tools**:
@@ -80,7 +87,6 @@ ipl-platform/
     - get_lsp_diagnostics: Get detailed TypeScript errors with line numbers
     - spawn_subagent: Delegate tasks to parallel sub-agents
     - run_command: Execute any npm scripts, builds, or tests
-  - **Full Conversation Context**: Maintains 50 message history with older conversation summary
 - **Workspace Management**: Allows users to save, load, and delete project configurations, persisting data in a PostgreSQL database.
 - **DevOps & Automation Panel**: Unified panel with generators for Infrastructure as Code (Terraform, CloudFormation, Docker), CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins), API Documentation (OpenAPI), Database Migrations, Authentication Templates (JWT, OAuth), Load Testing (k6, JMeter), Security Scanning, and Cost Optimization.
 - **App Benchmarking**: Executes live performance tests against API endpoints, providing metrics (response times, latency percentiles, throughput), performance grading, and AI-powered optimization recommendations.
@@ -98,7 +104,7 @@ ipl-platform/
 - **Specification Features**: Multi-tenant configurations, multi-lingual support, payment and 3rd party integration detection, and source code scaffolding previews.
 
 ## External Dependencies
-- **AI/LLM**: Groq (free tier with Llama 3.1) or OpenAI (configurable). Set `LLM_PROVIDER=groq` for free Groq API or `LLM_PROVIDER=openai` for OpenAI. Falls back to mock data if no API key is set.
+- **AI/LLM**: Claude (Anthropic via Replit AI Integrations) as primary, Groq (Llama 3.3 70B) as fallback. Uses Replit's built-in Anthropic integration - no separate API key needed. Falls back to Groq if Anthropic unavailable.
 - **Databases**: PostgreSQL (for workspace persistence), and support for integration with PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, TimescaleDB, Cassandra, DynamoDB.
 - **Cloud Providers**: AWS, Azure, Google Cloud (for cost estimation and deployment).
 - **Frontend Framework**: React, Vite, TypeScript.
