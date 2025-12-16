@@ -1,24 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import './AgentChat.css';
 
-interface AgentTask {
+interface ToolCall {
+  name: string;
+  status: 'running' | 'completed' | 'error';
+  timestamp: number;
+}
+
+interface ConversationGroup {
   id: string;
-  content: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  result?: string;
-}
-
-interface AgentEvent {
-  type: 'thinking' | 'tool_call' | 'tool_result' | 'task_update' | 'message' | 'review' | 'complete' | 'error' | 'done';
-  data: any;
-  timestamp: number;
-}
-
-interface Message {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-  attachments?: Array<{ name: string; type: string }>;
+  userMessage: string;
+  assistantMessage: string;
+  toolCalls: ToolCall[];
+  startTime: number;
+  endTime?: number;
+  isExpanded: boolean;
 }
 
 interface AgentChatProps {
@@ -27,46 +23,64 @@ interface AgentChatProps {
 }
 
 export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [tasks, setTasks] = useState<AgentTask[]>([]);
-  const [events, setEvents] = useState<AgentEvent[]>([]);
+  const [conversations, setConversations] = useState<ConversationGroup[]>([]);
   const [input, setInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
-  const [currentThinking, setCurrentThinking] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string>('');
   const [sessionId] = useState(() => `session_${Date.now()}`);
   const [showBuildMenu, setShowBuildMenu] = useState(false);
   const [mode, setMode] = useState<'build' | 'plan'>('build');
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [workStartTime, setWorkStartTime] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const eventsEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentConversationRef = useRef<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, events]);
+  }, [conversations, currentStatus]);
+
+  const formatDuration = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds} seconds`;
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+  };
+
+  const toggleExpand = (id: string) => {
+    setConversations(prev => prev.map(c => 
+      c.id === id ? { ...c, isExpanded: !c.isExpanded } : c
+    ));
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isRunning) return;
 
     const userMessage = input.trim();
+    const conversationId = `conv_${Date.now()}`;
+    currentConversationRef.current = conversationId;
+    
     const currentAttachments = attachments.map(f => ({ name: f.name, type: f.type }));
     setInput('');
     setAttachments([]);
     setIsRunning(true);
-    setEvents([]);
-    setCurrentThinking(null);
+    setCurrentStatus('Starting...');
+    setWorkStartTime(Date.now());
 
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: userMessage,
-      timestamp: Date.now(),
-      attachments: currentAttachments.length > 0 ? currentAttachments : undefined
-    }]);
+    const newConversation: ConversationGroup = {
+      id: conversationId,
+      userMessage,
+      assistantMessage: '',
+      toolCalls: [],
+      startTime: Date.now(),
+      isExpanded: true
+    };
+
+    setConversations(prev => [...prev, newConversation]);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-stream`, {
@@ -97,8 +111,8 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
-              const event: AgentEvent = JSON.parse(line.slice(6));
-              handleEvent(event);
+              const event = JSON.parse(line.slice(6));
+              handleEvent(event, conversationId);
             } catch (e) {
               console.error('Failed to parse event:', line);
             }
@@ -107,63 +121,69 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
       }
     } catch (e: any) {
       console.error('Agent error:', e);
-      setMessages(prev => [...prev, {
-        role: 'system',
-        content: `Error: ${e?.message || 'Failed to communicate with agent'}`,
-        timestamp: Date.now()
-      }]);
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId 
+          ? { ...c, assistantMessage: `Error: ${e?.message || 'Failed to communicate with agent'}`, endTime: Date.now() }
+          : c
+      ));
     } finally {
       setIsRunning(false);
-      setCurrentThinking(null);
+      setCurrentStatus('');
+      setWorkStartTime(null);
+      currentConversationRef.current = null;
+      
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId 
+          ? { ...c, endTime: Date.now() }
+          : c
+      ));
     }
   };
 
-  const handleEvent = (event: AgentEvent) => {
-    setEvents(prev => [...prev, event]);
-
+  const handleEvent = (event: any, conversationId: string) => {
     switch (event.type) {
       case 'thinking':
-        setCurrentThinking(event.data.message);
+        setCurrentStatus(event.data.message || 'Thinking...');
         break;
 
       case 'tool_call':
-        setCurrentThinking(`Calling ${event.data.tool}...`);
+        setCurrentStatus(`${event.data.tool}`);
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId 
+            ? { ...c, toolCalls: [...c.toolCalls, { name: event.data.tool, status: 'running', timestamp: Date.now() }] }
+            : c
+        ));
         break;
 
       case 'tool_result':
+        setConversations(prev => prev.map(c => {
+          if (c.id !== conversationId) return c;
+          const updatedCalls = [...c.toolCalls];
+          const lastCall = updatedCalls[updatedCalls.length - 1];
+          if (lastCall) lastCall.status = 'completed';
+          return { ...c, toolCalls: updatedCalls };
+        }));
         break;
 
       case 'task_update':
-        if (event.data.action === 'added') {
-          setTasks(prev => [...prev, event.data.task]);
-        } else if (event.data.action === 'updated') {
-          setTasks(prev => prev.map(t => 
-            t.id === event.data.task.id ? event.data.task : t
-          ));
-        }
         break;
 
       case 'message':
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: event.data.message,
-          timestamp: Date.now()
-        }]);
-        break;
-
-      case 'review':
-        setCurrentThinking('Reviewing work...');
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId 
+            ? { ...c, assistantMessage: event.data.message }
+            : c
+        ));
         break;
 
       case 'complete':
-        if (event.data.message && !messages.find(m => m.content === event.data.message)) {
-          setMessages(prev => [...prev, {
-            role: 'assistant',
-            content: event.data.message,
-            timestamp: Date.now()
-          }]);
+        if (event.data.message) {
+          setConversations(prev => prev.map(c => 
+            c.id === conversationId 
+              ? { ...c, assistantMessage: event.data.message }
+              : c
+          ));
         }
-        // Check if modules were built and notify parent
         if (event.data.modules && onModuleBuilt) {
           event.data.modules.forEach((mod: any) => {
             if (mod.status === 'completed') {
@@ -171,135 +191,110 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
             }
           });
         }
-        setCurrentThinking(null);
+        setCurrentStatus('');
         break;
 
       case 'error':
-        setMessages(prev => [...prev, {
-          role: 'system',
-          content: `Error: ${event.data.error}`,
-          timestamp: Date.now()
-        }]);
-        setCurrentThinking(null);
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId 
+            ? { ...c, assistantMessage: `Error: ${event.data.error}` }
+            : c
+        ));
+        setCurrentStatus('');
         break;
 
       case 'done':
-        setCurrentThinking(null);
+        setCurrentStatus('');
         break;
-    }
-  };
-
-  const getTaskIcon = (status: AgentTask['status']) => {
-    switch (status) {
-      case 'pending': return '○';
-      case 'in_progress': return '◐';
-      case 'completed': return '●';
-      case 'failed': return '✕';
-    }
-  };
-
-  const getEventIcon = (type: AgentEvent['type']) => {
-    switch (type) {
-      case 'thinking': return '🤔';
-      case 'tool_call': return '🔧';
-      case 'tool_result': return '📋';
-      case 'task_update': return '📝';
-      case 'message': return '💬';
-      case 'review': return '🔍';
-      case 'complete': return '✅';
-      case 'error': return '❌';
-      default: return '•';
     }
   };
 
   return (
     <div className="agent-chat">
-      {tasks.length > 0 && (
-        <div className="agent-tasks-bar">
-          {tasks.map(task => (
-            <div key={task.id} className={`agent-task-chip agent-task-${task.status}`}>
-              <span className="task-icon">{getTaskIcon(task.status)}</span>
-              <span className="task-text">{task.content}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="agent-activity">
-        {messages.length === 0 && events.length === 0 && (
+        {conversations.length === 0 && !isRunning && (
           <div className="agent-welcome">
             <h3>AI Development Agent</h3>
             <p>Tell me what to build. For example:</p>
             <ul>
-              <li>"Build the user management module"</li>
-              <li>"Create a REST API for products"</li>
-              <li>"Add authentication with JWT"</li>
+              <li onClick={() => setInput('Build the user management module')}>"Build the user management module"</li>
+              <li onClick={() => setInput('Create a REST API for products')}>"Create a REST API for products"</li>
+              <li onClick={() => setInput('Add authentication with JWT')}>"Add authentication with JWT"</li>
             </ul>
           </div>
         )}
         
-        {messages.map((msg, i) => (
-          <div key={`msg-${i}`} className={`activity-item activity-${msg.role}`}>
-            <div className="activity-icon">
-              {msg.role === 'user' ? 'Y' : msg.role === 'assistant' ? 'A' : '!'}
+        {conversations.map((conv) => (
+          <div key={conv.id} className="conversation-group">
+            {/* User message */}
+            <div className="user-message-row">
+              <div className="user-bubble">{conv.userMessage}</div>
+              <div className="user-avatar">Y</div>
             </div>
-            <div className="activity-content">
-              {msg.attachments && msg.attachments.length > 0 && (
-                <div className="message-attachments">
-                  {msg.attachments.map((att, idx) => (
-                    <span key={idx} className="attachment-chip-inline">{att.name}</span>
-                  ))}
+
+            {/* Collapsible work session */}
+            {conv.toolCalls.length > 0 && (
+              <div className="work-session">
+                <div 
+                  className="work-session-header"
+                  onClick={() => toggleExpand(conv.id)}
+                >
+                  <span className="expand-icon">{conv.isExpanded ? '▼' : '▶'}</span>
+                  <span className="work-session-summary">
+                    {conv.toolCalls.length} action{conv.toolCalls.length > 1 ? 's' : ''}
+                  </span>
+                  {conv.endTime && (
+                    <span className="work-duration">
+                      Worked for {formatDuration(conv.endTime - conv.startTime)}
+                    </span>
+                  )}
                 </div>
-              )}
-              <div className="activity-text">{msg.content}</div>
-            </div>
+                
+                {conv.isExpanded && (
+                  <div className="work-session-details">
+                    {conv.toolCalls.map((tool, i) => (
+                      <div key={i} className="tool-call-row">
+                        <span className="tool-status-icon">
+                          {tool.status === 'completed' ? '✓' : '↻'}
+                        </span>
+                        <span className="tool-name">{tool.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Assistant response */}
+            {conv.assistantMessage && (
+              <div className="assistant-message">
+                <div className="assistant-avatar">A</div>
+                <div className="assistant-content">
+                  {conv.assistantMessage}
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
-        {/* Activity log like Replit - shows what agent is doing */}
-        {events.length > 0 && (
-          <div className="agent-activity-log">
-            {events.slice(-10).map((event, i) => (
-              <div key={`event-${i}`} className="activity-log-item">
-                {event.type === 'tool_call' && (
-                  <>
-                    <span className="activity-icon-small">↻</span>
-                    <span className="activity-log-text">{event.data.tool}</span>
-                  </>
-                )}
-                {event.type === 'tool_result' && (
-                  <>
-                    <span className="activity-icon-small">✓</span>
-                    <span className="activity-log-text">Completed {event.data.tool || 'task'}</span>
-                  </>
-                )}
-                {event.type === 'thinking' && (
-                  <>
-                    <span className="activity-icon-small">◐</span>
-                    <span className="activity-log-text">{event.data.message}</span>
-                  </>
-                )}
-                {event.type === 'task_update' && (
-                  <>
-                    <span className="activity-icon-small">◉</span>
-                    <span className="activity-log-text">{event.data.task?.content || 'Task updated'}</span>
-                  </>
-                )}
+        {/* Current working indicator */}
+        {isRunning && (
+          <div className="working-indicator">
+            <div className="working-status">
+              <span className="working-icon">◐</span>
+              <span className="working-text">{currentStatus || 'Working...'}</span>
+              <span className="working-dots">
+                <span></span><span></span><span></span>
+              </span>
+            </div>
+            {workStartTime && (
+              <div className="working-timer">
+                Working for {formatDuration(Date.now() - workStartTime)}
               </div>
-            ))}
+            )}
           </div>
         )}
 
-        {/* Current thinking indicator */}
-        {currentThinking && (
-          <div className="agent-thinking-simple">
-            <span className="activity-icon-small">◐</span>
-            <span className="thinking-text">{currentThinking}</span>
-            <span className="thinking-dots-inline">
-              <span></span><span></span><span></span>
-            </span>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -377,7 +372,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
                 sendMessage();
               }
             }}
-            placeholder={isRunning ? 'Agent is working...' : 'Ask the agent to build something...'}
+            placeholder={isRunning ? 'Agent is working...' : 'Make, test, iterate...'}
             disabled={isRunning}
             rows={1}
           />

@@ -1,5 +1,5 @@
 /* =========================================
-   EXACT REPLIT AGENT CHAT CLONE
+   REPLIT-EXACT AGENT CHAT
    ========================================= */
 
 .agent-chat {
@@ -11,11 +11,6 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
-/* Hide the colorful tasks bar - Replit doesn't have this */
-.agent-tasks-bar {
-  display: none;
-}
-
 /* Main chat area */
 .agent-activity {
   flex: 1;
@@ -23,11 +18,11 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 16px;
   background: #ffffff;
 }
 
-/* Welcome screen - minimal like Replit */
+/* Welcome screen */
 .agent-welcome {
   display: flex;
   flex-direction: column;
@@ -79,237 +74,186 @@
   border-color: #d5d5d5;
 }
 
-/* Message items - Replit exact style */
-.activity-item {
+/* Conversation groups */
+.conversation-group {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
 }
 
-.activity-item:last-of-type {
-  border-bottom: none;
+/* User message row */
+.user-message-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.activity-icon {
+.user-bubble {
+  background: #0066ff;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 18px 18px 4px 18px;
+  font-size: 14px;
+  max-width: 70%;
+  line-height: 1.4;
+}
+
+.user-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  background: #0066ff;
+  color: white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-  background: #f5f5f5;
-}
-
-.activity-item.activity-user .activity-icon {
-  background: #0066ff;
-  color: white;
   font-size: 12px;
-}
-
-.activity-item.activity-assistant .activity-icon {
-  background: #1a1a1a;
-  color: white;
-}
-
-.activity-item.activity-system .activity-icon {
-  background: #ff6b00;
-  color: white;
-}
-
-.activity-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.activity-header {
-  margin-bottom: 4px;
-}
-
-.activity-sender {
-  font-size: 13px;
   font-weight: 600;
-  color: #1a1a1a;
+  flex-shrink: 0;
 }
 
-.activity-text {
-  font-size: 14px;
-  color: #333333;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* User messages - right aligned like Replit */
-.activity-item.activity-user {
-  flex-direction: row-reverse;
-}
-
-.activity-item.activity-user .activity-content {
-  text-align: right;
-}
-
-.activity-item.activity-user .activity-text {
-  display: inline-block;
-  background: #0066ff;
-  color: white;
-  padding: 10px 14px;
-  border-radius: 16px 16px 4px 16px;
-  text-align: left;
-}
-
-/* Tool call cards - Replit style collapsible */
-.tool-call-card {
-  background: #f9f9f9;
+/* Work session - collapsible like Replit */
+.work-session {
+  background: #fafafa;
   border: 1px solid #e5e5e5;
   border-radius: 8px;
-  margin: 8px 0;
   overflow: hidden;
 }
 
-.tool-call-header {
+.work-session-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   cursor: pointer;
   transition: background 0.1s;
+  font-size: 13px;
+  color: #666666;
 }
 
-.tool-call-header:hover {
+.work-session-header:hover {
   background: #f0f0f0;
 }
 
-.tool-call-icon {
-  width: 20px;
-  height: 20px;
-  background: #1a1a1a;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: white;
-}
-
-.tool-call-name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-  color: #1a1a1a;
-  font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
-}
-
-.tool-call-status {
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 4px;
-}
-
-.tool-call-status.running {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.tool-call-status.success {
-  background: #d4edda;
-  color: #155724;
-}
-
-.tool-call-status.error {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.tool-call-expand {
+.expand-icon {
   font-size: 10px;
   color: #999999;
-  transition: transform 0.2s;
+  width: 12px;
 }
 
-.tool-call-expand.expanded {
-  transform: rotate(180deg);
+.work-session-summary {
+  flex: 1;
+  font-weight: 500;
+  color: #333333;
 }
 
-.tool-call-body {
-  padding: 12px;
-  background: #1a1a1a;
-  font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+.work-duration {
   font-size: 12px;
-  color: #e5e5e5;
-  max-height: 200px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
+  color: #999999;
+}
+
+.work-session-details {
   border-top: 1px solid #e5e5e5;
-}
-
-/* Activity log - shows what agent is doing like Replit */
-.agent-activity-log {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   padding: 8px 0;
-  border-top: 1px solid #f0f0f0;
 }
 
-.activity-log-item {
+.tool-call-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
+  padding: 6px 14px 6px 34px;
   font-size: 13px;
+  color: #333333;
+}
+
+.tool-status-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #10b981;
+}
+
+.tool-name {
+  font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+  font-size: 12px;
   color: #1a1a1a;
-  transition: background 0.1s;
 }
 
-.activity-log-item:hover {
-  background: #fafafa;
+/* Assistant message */
+.assistant-message {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
 
-.activity-icon-small {
-  width: 20px;
-  height: 20px;
+.assistant-avatar {
+  width: 28px;
+  height: 28px;
+  background: #1a1a1a;
+  color: white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #666666;
-  background: #f5f5f5;
-  border-radius: 4px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.activity-log-text {
+.assistant-content {
   flex: 1;
-  color: #333333;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
-/* Simple thinking indicator */
-.agent-thinking-simple {
+/* Working indicator */
+.working-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fafafa;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+.working-status {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  color: #666666;
+  gap: 8px;
   font-size: 13px;
-}
-
-.agent-thinking-simple .thinking-text {
   color: #333333;
 }
 
-.thinking-dots-inline {
-  display: inline-flex;
-  gap: 3px;
-  margin-left: 4px;
+.working-icon {
+  font-size: 14px;
+  color: #0066ff;
+  animation: spin 1s linear infinite;
 }
 
-.thinking-dots-inline span {
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.working-text {
+  flex: 1;
+  font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.working-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.working-dots span {
   width: 4px;
   height: 4px;
   background: #999999;
@@ -317,34 +261,20 @@
   animation: dotPulse 1.4s ease-in-out infinite;
 }
 
-.thinking-dots-inline span:nth-child(2) { animation-delay: 0.2s; }
-.thinking-dots-inline span:nth-child(3) { animation-delay: 0.4s; }
+.working-dots span:nth-child(2) { animation-delay: 0.2s; }
+.working-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes dotPulse {
   0%, 60%, 100% { opacity: 0.4; }
   30% { opacity: 1; }
 }
 
-/* Message attachments */
-.message-attachments {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.attachment-chip-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
+.working-timer {
   font-size: 12px;
-  color: #666666;
+  color: #999999;
 }
 
-/* Input container - Replit exact style */
+/* Input container */
 .agent-input-container {
   display: flex;
   align-items: flex-end;
@@ -390,10 +320,6 @@
   background: #ecfdf5;
 }
 
-.build-icon {
-  font-size: 14px;
-}
-
 .dropdown-arrow {
   font-size: 10px;
   color: #999999;
@@ -435,10 +361,6 @@
   background: #f0f0f0;
 }
 
-.option-icon {
-  font-size: 16px;
-}
-
 .option-info {
   display: flex;
   flex-direction: column;
@@ -457,12 +379,12 @@
 }
 
 .attach-btn {
-  padding: 8px;
+  padding: 8px 12px;
   background: transparent;
   border: 1px solid #e5e5e5;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   color: #666666;
   transition: background 0.1s;
 }
@@ -502,7 +424,7 @@
   color: #999999;
   cursor: pointer;
   padding: 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -546,21 +468,6 @@
   gap: 4px;
 }
 
-.control-btn {
-  padding: 8px;
-  background: transparent;
-  border: 1px solid #e5e5e5;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #666666;
-  transition: background 0.1s;
-}
-
-.control-btn:hover {
-  background: #f5f5f5;
-}
-
 .agent-send-btn {
   width: 36px;
   height: 36px;
@@ -590,7 +497,7 @@
   background: #cccccc;
 }
 
-/* Scrollbar styling */
+/* Scrollbar */
 .agent-activity::-webkit-scrollbar {
   width: 6px;
 }
