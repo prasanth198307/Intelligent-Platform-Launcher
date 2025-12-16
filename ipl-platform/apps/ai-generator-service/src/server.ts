@@ -3716,11 +3716,63 @@ app.post("/api/git/pull", async (req, res) => {
 app.get("/api/database/tables", async (req, res) => {
   try {
     const projectId = req.query.projectId as string;
-    if (!projectId) {
+    const showAll = req.query.showAll === 'true';
+    
+    if (!projectId && !showAll) {
       return res.status(400).json({ ok: false, error: "projectId required" });
     }
     
-    const tables = await getProjectTables(projectId);
+    let tables: Array<{ name: string; columns: string[]; rowCount: number }> = [];
+    
+    if (showAll || !projectId) {
+      // Get all public tables
+      const result = await db.execute(sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        ORDER BY table_name
+      `);
+      
+      for (const row of result.rows as any[]) {
+        const tableName = row.table_name;
+        try {
+          // Get columns
+          const colResult = await db.execute(sql`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = ${tableName} ORDER BY ordinal_position
+          `);
+          const columns = (colResult.rows as any[]).map(r => r.column_name);
+          
+          // Get row count
+          const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM "${tableName}"`));
+          const rowCount = parseInt((countResult.rows as any[])[0]?.count || '0');
+          
+          tables.push({ name: tableName, columns, rowCount });
+        } catch (e) {
+          tables.push({ name: tableName, columns: [], rowCount: 0 });
+        }
+      }
+    } else {
+      // Get project-specific tables
+      const projectTables = await getProjectTables(projectId);
+      for (const tableName of projectTables) {
+        try {
+          const colResult = await db.execute(sql`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = ${tableName} ORDER BY ordinal_position
+          `);
+          const columns = (colResult.rows as any[]).map(r => r.column_name);
+          
+          const countResult = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM "${tableName}"`));
+          const rowCount = parseInt((countResult.rows as any[])[0]?.count || '0');
+          
+          tables.push({ name: tableName, columns, rowCount });
+        } catch (e) {
+          tables.push({ name: tableName, columns: [], rowCount: 0 });
+        }
+      }
+    }
+    
     res.json({ ok: true, data: tables });
   } catch (e: any) {
     res.status(500).json({ ok: false, error: e?.message || String(e) });

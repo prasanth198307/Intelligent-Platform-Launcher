@@ -168,10 +168,15 @@ export function ToolsTabs({
   }, [projectId]);
 
   // Load database tables
+  const [showAllTables, setShowAllTables] = useState(true);
+  
   const loadDbTables = useCallback(async () => {
     setDbLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/database/tables?projectId=${projectId}`);
+      const url = showAllTables 
+        ? `${API_BASE}/api/database/tables?showAll=true`
+        : `${API_BASE}/api/database/tables?projectId=${projectId}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.ok) {
         setDbTables(data.data || []);
@@ -180,7 +185,7 @@ export function ToolsTabs({
       console.error('Failed to load tables:', e);
     }
     setDbLoading(false);
-  }, [projectId]);
+  }, [projectId, showAllTables]);
 
   // Load secrets
   const loadSecrets = useCallback(async () => {
@@ -625,19 +630,38 @@ export function ToolsTabs({
           <div className="tab-content database-content">
             <div className="database-header">
               <h3>Database</h3>
-              <span className="db-status connected">PostgreSQL Connected</span>
+              <div className="db-controls">
+                <button className="refresh-btn" onClick={loadDbTables} disabled={dbLoading}>
+                  {dbLoading ? '...' : '↻'}
+                </button>
+                <span className="db-status connected">PostgreSQL Connected</span>
+              </div>
+            </div>
+            
+            <div className="db-filter">
+              <label className="filter-toggle">
+                <input 
+                  type="checkbox" 
+                  checked={showAllTables} 
+                  onChange={(e) => {
+                    setShowAllTables(e.target.checked);
+                    setTimeout(loadDbTables, 100);
+                  }}
+                />
+                <span>Show all tables</span>
+              </label>
             </div>
             
             <div className="database-tables">
               <h4>Tables ({dbTables.length})</h4>
               {dbLoading ? (
-                <p>Loading...</p>
+                <p>Loading tables...</p>
               ) : dbTables.length === 0 ? (
-                <p className="no-tables">No tables found</p>
+                <p className="no-tables">No tables found. Click refresh to load tables.</p>
               ) : (
                 <div className="tables-list">
                   {dbTables.map((table, i) => (
-                    <div key={i} className="table-item">
+                    <div key={i} className="table-item" onClick={() => setSqlQuery(`SELECT * FROM "${table.name}" LIMIT 100`)}>
                       <span className="table-icon">📋</span>
                       <span className="table-name">{table.name}</span>
                       <span className="row-count">{table.rowCount} rows</span>
