@@ -241,16 +241,13 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         {messages.map((msg, i) => (
           <div key={`msg-${i}`} className={`activity-item activity-${msg.role}`}>
             <div className="activity-icon">
-              {msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '⚠️'}
+              {msg.role === 'user' ? 'Y' : msg.role === 'assistant' ? 'A' : '!'}
             </div>
             <div className="activity-content">
-              <div className="activity-header">
-                <span className="activity-sender">{msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'Agent' : 'System'}</span>
-              </div>
               {msg.attachments && msg.attachments.length > 0 && (
                 <div className="message-attachments">
                   {msg.attachments.map((att, idx) => (
-                    <span key={idx} className="attachment-chip-inline">📎 {att.name}</span>
+                    <span key={idx} className="attachment-chip-inline">{att.name}</span>
                   ))}
                 </div>
               )}
@@ -259,34 +256,28 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
           </div>
         ))}
 
-        {/* Professional Tool Call Cards */}
+        {/* Tool Call Cards */}
         {events.filter(e => e.type === 'tool_call').slice(-3).map((event, i) => (
           <div key={`tool-${i}`} className="tool-call-card">
             <div className="tool-call-header">
-              <div className="tool-call-icon">🔧</div>
+              <div className="tool-call-icon">T</div>
               <span className="tool-call-name">{event.data.tool}</span>
               <span className="tool-call-status running">Running</span>
             </div>
-            {event.data.params && (
-              <div className="tool-call-body">
-                {JSON.stringify(event.data.params, null, 2)}
-              </div>
-            )}
           </div>
         ))}
 
-        {/* Professional Thinking Stream */}
+        {/* Thinking Stream */}
         {currentThinking && (
           <div className="agent-thinking-stream">
-            <div className="thinking-avatar">🤖</div>
+            <div className="thinking-avatar">A</div>
             <div className="thinking-content">
               <div className="thinking-label">
-                Thinking
+                {currentThinking}
                 <div className="thinking-dots">
                   <span></span><span></span><span></span>
                 </div>
               </div>
-              <div className="thinking-text">{currentThinking}</div>
             </div>
           </div>
         )}
@@ -300,7 +291,6 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
               className={`build-mode-btn ${mode}`}
               onClick={() => setShowBuildMenu(!showBuildMenu)}
             >
-              <span className="build-icon">{mode === 'build' ? '⚡' : '📋'}</span>
               <span>{mode === 'build' ? 'Build' : 'Plan'}</span>
               <span className="dropdown-arrow">▾</span>
             </button>
@@ -310,7 +300,6 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
                   className={`build-option ${mode === 'build' ? 'active' : ''}`}
                   onClick={() => { setMode('build'); setShowBuildMenu(false); }}
                 >
-                  <span className="option-icon">⚡</span>
                   <div className="option-info">
                     <strong>Build</strong>
                     <span>Agent builds and executes code</span>
@@ -320,7 +309,6 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
                   className={`build-option ${mode === 'plan' ? 'active' : ''}`}
                   onClick={() => { setMode('plan'); setShowBuildMenu(false); }}
                 >
-                  <span className="option-icon">📋</span>
                   <div className="option-info">
                     <strong>Plan</strong>
                     <span>Agent creates a plan without executing</span>
@@ -334,7 +322,7 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
             onClick={() => fileInputRef.current?.click()}
             title="Attach files"
           >
-            📎
+            +
           </button>
           <input
             ref={fileInputRef}
@@ -377,7 +365,6 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         </div>
         
         <div className="input-right-controls">
-          <button className="control-btn" title="Settings">⚙️</button>
           <button
             className="agent-send-btn"
             onClick={sendMessage}
