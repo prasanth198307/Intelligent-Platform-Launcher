@@ -141,6 +141,7 @@ CRITICAL BEHAVIORS:
    b) Create directories with create_directory
    c) Write code files with write_file
    d) Test with run_typescript_check
+   e) Call restart_app to start/restart the application so user can preview it
 
 5. SELF-CORRECTION: After building something:
    - Check for errors with run_typescript_check

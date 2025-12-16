@@ -1560,7 +1560,7 @@ export const agentTools: AgentTool[] = [
 
   {
     name: "restart_app",
-    description: "Restart the running application/server. Use after making code changes to see updates.",
+    description: "Restart the running application/server. Use after making code changes to see updates in the preview.",
     parameters: {
       type: "object",
       properties: {
@@ -1573,32 +1573,13 @@ export const agentTools: AgentTool[] = [
     },
     execute: async (params, context) => {
       try {
-        const projectDir = await getProjectDir(context.projectId);
-        if (!projectDir) {
-          return { success: false, error: "Project directory not found" };
-        }
+        // Use the internal run API to properly start the app with preview support
+        const runResponse = await fetch(`http://localhost:8080/api/projects/${context.projectId}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
         
-        // Kill any existing node processes for this project
-        try {
-          await execAsync(`pkill -f "node.*${context.projectId}" || true`, { timeout: 5000 });
-        } catch (e) {
-          // Ignore kill errors
-        }
-        
-        // Wait a moment
-        await new Promise(r => setTimeout(r, 1000));
-        
-        // Start the app in background
-        try {
-          await execAsync(`cd ${projectDir} && npm start &`, { timeout: 5000 });
-        } catch (e) {
-          // Start may not have npm start, try node
-          try {
-            await execAsync(`cd ${projectDir} && node src/index.js &`, { timeout: 5000 });
-          } catch (e2) {
-            // Ignore
-          }
-        }
+        const result = await runResponse.json();
         
         const waitTime = params.wait_seconds || 3;
         await new Promise(r => setTimeout(r, waitTime * 1000));
@@ -1606,7 +1587,9 @@ export const agentTools: AgentTool[] = [
         return {
           success: true,
           data: {
-            message: "App restart initiated",
+            message: "App started/restarted",
+            port: result.port,
+            status: result.status,
             waitedSeconds: waitTime
           }
         };
