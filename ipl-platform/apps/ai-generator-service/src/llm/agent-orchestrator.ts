@@ -234,9 +234,19 @@ Keep working until ALL tasks are complete, then use final_response.`;
 
     const allTools = [...toolDefinitions, ...orchestrationTools];
 
+    // Build messages with FULL conversation history (like Claude's large context window)
+    // Include up to 50 previous messages for full context
+    const recentHistory = this.session.conversationHistory.slice(-50);
+    
+    // Also include a summary of older history if there's more
+    const olderHistoryCount = this.session.conversationHistory.length - recentHistory.length;
+    const historySummary = olderHistoryCount > 0 
+      ? `[Previous conversation: ${olderHistoryCount} earlier messages about project development]\n\n`
+      : '';
+    
     const messages: any[] = [
-      { role: "system", content: this.getSystemPrompt() },
-      ...this.session.conversationHistory.map(m => ({
+      { role: "system", content: this.getSystemPrompt() + (historySummary ? `\n\nCONVERSATION CONTEXT: ${historySummary}` : '') },
+      ...recentHistory.map(m => ({
         role: m.role,
         content: m.content
       }))

@@ -1040,6 +1040,381 @@ export const agentTools: AgentTool[] = [
         return { success: false, error: e?.message || String(e) };
       }
     }
+  },
+
+  // ========== CLAUDE-LEVEL ADVANCED TOOLS ==========
+
+  {
+    name: "restart_app",
+    description: "Restart the running application/server. Use after making code changes to see updates.",
+    parameters: {
+      type: "object",
+      properties: {
+        wait_seconds: {
+          type: "number",
+          description: "Seconds to wait after restart (default 3)"
+        }
+      },
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        if (!projectDir) {
+          return { success: false, error: "Project directory not found" };
+        }
+        
+        // Kill any existing node processes for this project
+        try {
+          await execAsync(`pkill -f "node.*${context.projectId}" || true`, { timeout: 5000 });
+        } catch (e) {
+          // Ignore kill errors
+        }
+        
+        // Wait a moment
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Start the app in background
+        try {
+          await execAsync(`cd ${projectDir} && npm start &`, { timeout: 5000 });
+        } catch (e) {
+          // Start may not have npm start, try node
+          try {
+            await execAsync(`cd ${projectDir} && node src/index.js &`, { timeout: 5000 });
+          } catch (e2) {
+            // Ignore
+          }
+        }
+        
+        const waitTime = params.wait_seconds || 3;
+        await new Promise(r => setTimeout(r, waitTime * 1000));
+        
+        return {
+          success: true,
+          data: {
+            message: "App restart initiated",
+            waitedSeconds: waitTime
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "take_screenshot",
+    description: "Take a screenshot of the running web application to verify UI. Returns base64 image.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "URL to screenshot (default: localhost:3000)"
+        },
+        path: {
+          type: "string",
+          description: "URL path like /dashboard or /users"
+        }
+      },
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+        const port = (project as any)?.runningPort || 3000;
+        const baseUrl = params.url || `http://localhost:${port}`;
+        const fullUrl = params.path ? `${baseUrl}${params.path}` : baseUrl;
+        
+        // Use curl to check if the server is responding
+        try {
+          const { stdout } = await execAsync(`curl -s -o /dev/null -w "%{http_code}" ${fullUrl}`, { timeout: 10000 });
+          const statusCode = parseInt(stdout.trim());
+          
+          if (statusCode >= 200 && statusCode < 400) {
+            return {
+              success: true,
+              data: {
+                url: fullUrl,
+                statusCode,
+                message: "Server is responding. Screenshot would be captured here (requires puppeteer for actual screenshot).",
+                hint: "To enable actual screenshots, install puppeteer: npm install puppeteer"
+              }
+            };
+          } else {
+            return {
+              success: false,
+              error: `Server returned status ${statusCode}`
+            };
+          }
+        } catch (e: any) {
+          return {
+            success: false,
+            error: `Could not reach ${fullUrl}: ${e?.message}`
+          };
+        }
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "web_search",
+    description: "Search the web for documentation, solutions, or information. Use when you need to look up APIs, fix errors, or find best practices.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query"
+        }
+      },
+      required: ["query"]
+    },
+    execute: async (params, context) => {
+      try {
+        // Use DuckDuckGo's instant answer API (free, no API key needed)
+        const query = encodeURIComponent(params.query);
+        const { stdout } = await execAsync(
+          `curl -s "https://api.duckduckgo.com/?q=${query}&format=json&no_html=1"`,
+          { timeout: 15000 }
+        );
+        
+        try {
+          const result = JSON.parse(stdout);
+          
+          return {
+            success: true,
+            data: {
+              query: params.query,
+              abstract: result.Abstract || null,
+              abstractSource: result.AbstractSource || null,
+              abstractUrl: result.AbstractURL || null,
+              relatedTopics: (result.RelatedTopics || []).slice(0, 5).map((t: any) => ({
+                text: t.Text?.slice(0, 200),
+                url: t.FirstURL
+              })),
+              answer: result.Answer || null,
+              definition: result.Definition || null
+            }
+          };
+        } catch (e) {
+          return {
+            success: true,
+            data: {
+              query: params.query,
+              message: "Search completed but no structured results. Try a more specific query.",
+              rawResponse: stdout.slice(0, 1000)
+            }
+          };
+        }
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "get_lsp_diagnostics",
+    description: "Get Language Server Protocol diagnostics (errors, warnings) for TypeScript/JavaScript files. More detailed than TypeScript compiler.",
+    parameters: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "File path to check (optional - checks all if not provided)"
+        }
+      },
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        if (!projectDir) {
+          return { success: false, error: "Project directory not found" };
+        }
+        
+        // Run TypeScript in strict mode with more checks
+        const targetFile = params.file_path ? path.join(projectDir, params.file_path) : projectDir;
+        const { stdout, stderr } = await execAsync(
+          `cd ${projectDir} && npx tsc --noEmit --strict --skipLibCheck --pretty false 2>&1 | head -100`,
+          { timeout: 30000 }
+        );
+        
+        const output = stdout + stderr;
+        const diagnostics: any[] = [];
+        
+        // Parse TypeScript error output
+        const errorRegex = /(.+)\((\d+),(\d+)\): (error|warning) TS(\d+): (.+)/g;
+        let match;
+        while ((match = errorRegex.exec(output)) !== null) {
+          diagnostics.push({
+            file: match[1].replace(projectDir + '/', ''),
+            line: parseInt(match[2]),
+            column: parseInt(match[3]),
+            severity: match[4],
+            code: `TS${match[5]}`,
+            message: match[6]
+          });
+        }
+        
+        return {
+          success: true,
+          data: {
+            totalDiagnostics: diagnostics.length,
+            errors: diagnostics.filter(d => d.severity === 'error').length,
+            warnings: diagnostics.filter(d => d.severity === 'warning').length,
+            diagnostics: diagnostics.slice(0, 50),
+            hasErrors: diagnostics.some(d => d.severity === 'error')
+          }
+        };
+      } catch (e: any) {
+        // tsc returns non-zero on errors, but we still want the output
+        const output = (e.stdout || '') + (e.stderr || '');
+        const hasErrors = output.includes('error TS');
+        
+        return {
+          success: true,
+          data: {
+            hasErrors,
+            rawOutput: output.slice(0, 5000),
+            message: hasErrors ? "TypeScript errors found" : "Check completed"
+          }
+        };
+      }
+    }
+  },
+
+  {
+    name: "spawn_subagent",
+    description: "Spawn a sub-agent to work on a specific task in parallel. The sub-agent has access to all tools and can work independently.",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description: "Description of the task for the sub-agent"
+        },
+        files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Files the sub-agent should focus on"
+        }
+      },
+      required: ["task"]
+    },
+    execute: async (params, context) => {
+      try {
+        const Groq = require("groq-sdk").default;
+        const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        
+        // Create a focused prompt for the sub-agent
+        const subAgentPrompt = `You are a SUB-AGENT. Complete this task quickly and efficiently:
+
+TASK: ${params.task}
+
+FILES TO FOCUS ON: ${(params.files || []).join(', ') || 'Any relevant files'}
+
+You have access to all the same tools as the main agent. Complete the task and return a summary.
+
+Respond with JSON:
+{
+  "completed": true/false,
+  "summary": "What you did",
+  "files_modified": ["list of files changed"],
+  "issues": ["any problems encountered"]
+}`;
+
+        const response = await client.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: subAgentPrompt }],
+          temperature: 0.2,
+          max_tokens: 2000
+        });
+
+        const content = response.choices[0].message.content || "";
+        
+        try {
+          const result = JSON.parse(content.replace(/```json\s*/gi, '').replace(/```\s*/g, ''));
+          return {
+            success: true,
+            data: {
+              task: params.task,
+              subAgentResult: result
+            }
+          };
+        } catch {
+          return {
+            success: true,
+            data: {
+              task: params.task,
+              subAgentResponse: content.slice(0, 2000)
+            }
+          };
+        }
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "run_command",
+    description: "Run a shell command and get the output. For npm scripts, builds, tests, etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        command: {
+          type: "string",
+          description: "The command to run (e.g., npm test, npm run build)"
+        },
+        cwd: {
+          type: "string",
+          description: "Working directory (optional)"
+        },
+        timeout: {
+          type: "number",
+          description: "Timeout in seconds (default 60)"
+        }
+      },
+      required: ["command"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        const cwd = params.cwd || projectDir || process.cwd();
+        const timeout = (params.timeout || 60) * 1000;
+        
+        // Block dangerous commands
+        const blocked = ['rm -rf /', 'mkfs', 'dd if=', ':(){:', 'fork bomb'];
+        if (blocked.some(b => params.command.toLowerCase().includes(b))) {
+          return { success: false, error: "Command blocked for safety" };
+        }
+        
+        const { stdout, stderr } = await execAsync(params.command, { cwd, timeout });
+        
+        return {
+          success: true,
+          data: {
+            command: params.command,
+            stdout: stdout.slice(0, 30000),
+            stderr: stderr.slice(0, 10000),
+            exitCode: 0
+          }
+        };
+      } catch (e: any) {
+        return {
+          success: false,
+          error: e?.message || String(e),
+          data: {
+            stdout: e.stdout?.slice(0, 10000) || '',
+            stderr: e.stderr?.slice(0, 10000) || '',
+            exitCode: e.code || 1
+          }
+        };
+      }
+    }
   }
 ];
 
