@@ -303,3 +303,64 @@ export async function insertSampleData(
   
   return { success: inserted === data.length, inserted };
 }
+
+export async function executeProjectQuery(
+  projectId: string,
+  query: string
+): Promise<{ rows: any[]; rowCount: number }> {
+  try {
+    const schemaPrefix = `ipl_${sanitizeName(projectId)}`;
+    
+    // Replace table names with prefixed versions if they match project tables
+    let modifiedQuery = query;
+    const tables = await getProjectTables(projectId);
+    const tableNames = tables.map(t => t.replace(`${schemaPrefix}_`, ''));
+    
+    // Simple table name replacement (for common patterns)
+    for (const tableName of tableNames) {
+      const regex = new RegExp(`\\b${tableName}\\b`, 'gi');
+      if (regex.test(modifiedQuery) && !modifiedQuery.includes(`${schemaPrefix}_${tableName}`)) {
+        modifiedQuery = modifiedQuery.replace(regex, `"${schemaPrefix}_${tableName.toLowerCase()}"`);
+      }
+    }
+    
+    const result = await db.execute(sql.raw(modifiedQuery));
+    return {
+      rows: result.rows as any[],
+      rowCount: result.rowCount || (result.rows as any[]).length
+    };
+  } catch (e: any) {
+    throw new Error(`Query execution failed: ${e.message}`);
+  }
+}
+
+export async function getProjectTablesWithColumns(projectId: string): Promise<Array<{ tableName: string; columns: Array<{ name: string; type: string }> }>> {
+  const schemaPrefix = `ipl_${sanitizeName(projectId)}`;
+  
+  try {
+    const tables = await getProjectTables(projectId);
+    const result: Array<{ tableName: string; columns: Array<{ name: string; type: string }> }> = [];
+    
+    for (const table of tables) {
+      const colResult = await db.execute(sql`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = ${table}
+        ORDER BY ordinal_position
+      `);
+      
+      result.push({
+        tableName: table.replace(`${schemaPrefix}_`, ''),
+        columns: (colResult.rows as any[]).map(row => ({
+          name: row.column_name,
+          type: row.data_type
+        }))
+      });
+    }
+    
+    return result;
+  } catch (e) {
+    console.error('Failed to get project tables with columns:', e);
+    return [];
+  }
+}

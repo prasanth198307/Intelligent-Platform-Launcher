@@ -23,7 +23,7 @@ interface AgentExecutorResult {
   iterations: number;
 }
 
-const MAX_ITERATIONS = 5;
+const MAX_ITERATIONS = 8;
 
 export async function runAgentLoop(
   systemPrompt: string,
@@ -179,13 +179,33 @@ PROJECT CONTEXT:
 - Existing Modules: ${projectInfo.existingModules.join(', ') || 'None'}
 - Existing Tables: ${projectInfo.existingTables.join(', ') || 'None'}
 
-AVAILABLE TOOLS:
+AVAILABLE TOOLS (use them to be smart about what you build):
+
+READING TOOLS:
 - get_project_info: Get project details, modules, and existing tables
-- list_database_tables: See actual database tables
+- list_database_tables: See actual database tables with columns
 - get_table_data: Sample data from a table
 - list_project_files: See generated code files
 - read_file: Read a specific file
 - get_domain_knowledge: Get domain-specific table/relationship schemas
+
+VERIFICATION TOOLS (use to check your work):
+- run_typescript_check: Check generated code for type errors
+- test_api_endpoint: Call an API endpoint to verify it works
+- read_app_logs: Read application logs to check for errors
+- check_file_syntax: Check a specific file for syntax errors
+- get_app_status: Check if the app is running
+
+WRITE TOOLS (use to fix issues):
+- write_file: Create or update a file in the project
+- execute_sql: Run a SQL query on the project database
+
+SELF-CORRECTION WORKFLOW:
+1. After building a module, use run_typescript_check to verify code compiles
+2. If there are errors, use write_file to fix them
+3. Test the API endpoint with test_api_endpoint
+4. Read logs if something fails with read_app_logs
+5. Only return success when everything works
 
 After gathering information, return your response as JSON:
 {

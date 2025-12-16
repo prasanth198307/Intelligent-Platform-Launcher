@@ -1,8 +1,14 @@
 import { db } from "../db/index.js";
 import { projects } from "../db/schema.js";
-import { eq } from "drizzle-orm";
-import { getProjectTables, getTableData } from "../db/project-database.js";
-import { getProjectFiles } from "../generators/code-materializer.js";
+import { eq, sql } from "drizzle-orm";
+import { getProjectTables, getTableData, executeProjectQuery, getProjectTablesWithColumns } from "../db/project-database.js";
+import { getProjectFiles, writeProjectFile, getProjectDir } from "../generators/code-materializer.js";
+import { exec } from "child_process";
+import { promisify } from "util";
+import * as fs from "fs";
+import * as path from "path";
+
+const execAsync = promisify(exec);
 
 export interface ToolResult {
   success: boolean;
@@ -72,7 +78,7 @@ export const agentTools: AgentTool[] = [
   
   {
     name: "list_database_tables",
-    description: "List all tables that exist in the project's database schema",
+    description: "List all tables that exist in the project's database schema with their columns",
     parameters: {
       type: "object",
       properties: {},
@@ -80,13 +86,14 @@ export const agentTools: AgentTool[] = [
     },
     execute: async (params, context) => {
       try {
-        const tables = await getProjectTables(context.projectId);
+        const tables = await getProjectTablesWithColumns(context.projectId);
         return {
           success: true,
           data: {
+            tableCount: tables.length,
             tables: tables.map(t => ({
               name: t.tableName,
-              columns: t.columns
+              columns: t.columns.map(c => `${c.name} (${c.type})`).join(', ')
             }))
           }
         };
@@ -116,8 +123,9 @@ export const agentTools: AgentTool[] = [
           success: true,
           data: {
             table: params.table_name,
-            rowCount: data.length,
-            rows: data
+            columns: data.columns,
+            rowCount: data.rows.length,
+            rows: data.rows
           }
         };
       } catch (e: any) {
@@ -266,6 +274,336 @@ export const agentTools: AgentTool[] = [
         success: true,
         data: knowledge
       };
+    }
+  },
+
+  // ============ CODE VERIFICATION TOOLS ============
+  
+  {
+    name: "run_typescript_check",
+    description: "Run TypeScript compiler to check for type errors in the generated project code",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        if (!projectDir || !fs.existsSync(projectDir)) {
+          return { success: false, error: "Project directory not found" };
+        }
+        
+        try {
+          const { stdout, stderr } = await execAsync(`cd ${projectDir} && npx tsc --noEmit 2>&1 || true`, { timeout: 30000 });
+          const output = stdout + stderr;
+          const hasErrors = output.includes('error TS');
+          
+          return {
+            success: true,
+            data: {
+              hasErrors,
+              errors: hasErrors ? output.split('\n').filter(l => l.includes('error TS')).slice(0, 10) : [],
+              fullOutput: output.substring(0, 3000)
+            }
+          };
+        } catch (e: any) {
+          return {
+            success: true,
+            data: {
+              hasErrors: true,
+              errors: [e.message],
+              fullOutput: e.message
+            }
+          };
+        }
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "test_api_endpoint",
+    description: "Test an API endpoint of the running application to verify it works",
+    parameters: {
+      type: "object",
+      properties: {
+        method: {
+          type: "string",
+          description: "HTTP method (GET, POST, PUT, DELETE)",
+          enum: ["GET", "POST", "PUT", "DELETE"]
+        },
+        path: {
+          type: "string",
+          description: "API path (e.g., /api/meters)"
+        },
+        body: {
+          type: "object",
+          description: "Request body for POST/PUT requests"
+        }
+      },
+      required: ["method", "path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+        if (!project) {
+          return { success: false, error: "Project not found" };
+        }
+        
+        const appPort = (project as any).runningPort || 3001;
+        const url = `http://localhost:${appPort}${params.path}`;
+        
+        const options: RequestInit = {
+          method: params.method,
+          headers: { 'Content-Type': 'application/json' }
+        };
+        
+        if (params.body && ['POST', 'PUT'].includes(params.method)) {
+          options.body = JSON.stringify(params.body);
+        }
+        
+        const response = await fetch(url, options);
+        const responseText = await response.text();
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = responseText;
+        }
+        
+        return {
+          success: true,
+          data: {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            response: typeof responseData === 'string' ? responseData.substring(0, 2000) : responseData
+          }
+        };
+      } catch (e: any) {
+        return { 
+          success: false, 
+          error: e?.message || String(e),
+          hint: "The application may not be running. Check if the app has been started."
+        };
+      }
+    }
+  },
+
+  {
+    name: "read_app_logs",
+    description: "Read the application logs to check for runtime errors or issues",
+    parameters: {
+      type: "object",
+      properties: {
+        lines: {
+          type: "number",
+          description: "Number of log lines to read (default 50)"
+        }
+      },
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+        if (!project) {
+          return { success: false, error: "Project not found" };
+        }
+        
+        const logs = (project as any).appLogs || [];
+        const numLines = params.lines || 50;
+        const recentLogs = logs.slice(-numLines);
+        
+        const hasErrors = recentLogs.some((l: string) => 
+          l.toLowerCase().includes('error') || 
+          l.toLowerCase().includes('exception') ||
+          l.toLowerCase().includes('failed')
+        );
+        
+        return {
+          success: true,
+          data: {
+            hasErrors,
+            errorLines: recentLogs.filter((l: string) => 
+              l.toLowerCase().includes('error') || l.toLowerCase().includes('exception')
+            ).slice(-10),
+            logs: recentLogs
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  // ============ WRITE/EDIT TOOLS ============
+  
+  {
+    name: "write_file",
+    description: "Write or create a file in the project. Use this to fix code issues or add new files.",
+    parameters: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "The path of the file to write (e.g., src/routes/meters.ts)"
+        },
+        content: {
+          type: "string",
+          description: "The complete content to write to the file"
+        }
+      },
+      required: ["file_path", "content"]
+    },
+    execute: async (params, context) => {
+      try {
+        await writeProjectFile(context.projectId, params.file_path, params.content);
+        return {
+          success: true,
+          data: {
+            path: params.file_path,
+            bytesWritten: params.content.length,
+            message: `File written successfully: ${params.file_path}`
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "execute_sql",
+    description: "Execute a SQL query on the project database. Use for creating tables, inserting data, or fixing schema issues.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The SQL query to execute"
+        }
+      },
+      required: ["query"]
+    },
+    execute: async (params, context) => {
+      try {
+        // Safety check - block destructive operations without confirmation
+        const lowerQuery = params.query.toLowerCase().trim();
+        if (lowerQuery.startsWith('drop database') || lowerQuery.startsWith('truncate')) {
+          return { success: false, error: "Destructive operations like DROP DATABASE and TRUNCATE are not allowed" };
+        }
+        
+        const result = await executeProjectQuery(context.projectId, params.query);
+        return {
+          success: true,
+          data: {
+            rowCount: result?.rowCount || 0,
+            rows: result?.rows?.slice(0, 20) || [],
+            message: "Query executed successfully"
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "check_file_syntax",
+    description: "Check a TypeScript/JavaScript file for syntax errors without running the full project",
+    parameters: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "The path of the file to check"
+        }
+      },
+      required: ["file_path"]
+    },
+    execute: async (params, context) => {
+      try {
+        const projectDir = await getProjectDir(context.projectId);
+        if (!projectDir) {
+          return { success: false, error: "Project directory not found" };
+        }
+        
+        const fullPath = path.join(projectDir, params.file_path);
+        if (!fs.existsSync(fullPath)) {
+          return { success: false, error: `File not found: ${params.file_path}` };
+        }
+        
+        try {
+          const { stdout, stderr } = await execAsync(
+            `cd ${projectDir} && npx tsc --noEmit --skipLibCheck ${params.file_path} 2>&1 || true`,
+            { timeout: 15000 }
+          );
+          const output = stdout + stderr;
+          const hasErrors = output.includes('error TS');
+          
+          return {
+            success: true,
+            data: {
+              file: params.file_path,
+              hasErrors,
+              errors: hasErrors ? output.split('\n').filter(l => l.includes('error TS')) : [],
+              isValid: !hasErrors
+            }
+          };
+        } catch (e: any) {
+          return { success: true, data: { hasErrors: true, errors: [e.message] } };
+        }
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
+    }
+  },
+
+  {
+    name: "get_app_status",
+    description: "Get the current status of the running application including port, process status, and recent activity",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    },
+    execute: async (params, context) => {
+      try {
+        const [project] = await db.select().from(projects).where(eq(projects.projectId, context.projectId)).limit(1);
+        if (!project) {
+          return { success: false, error: "Project not found" };
+        }
+        
+        const appStatus = (project as any).appStatus || 'unknown';
+        const runningPort = (project as any).runningPort;
+        const appPid = (project as any).appPid;
+        
+        let isActuallyRunning = false;
+        if (appPid) {
+          try {
+            process.kill(appPid, 0);
+            isActuallyRunning = true;
+          } catch {
+            isActuallyRunning = false;
+          }
+        }
+        
+        return {
+          success: true,
+          data: {
+            status: appStatus,
+            isRunning: isActuallyRunning,
+            port: runningPort,
+            pid: appPid,
+            projectName: project.name,
+            domain: project.domain
+          }
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || String(e) };
+      }
     }
   }
 ];

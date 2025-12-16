@@ -927,3 +927,24 @@ export async function getProjectFiles(projectId: string): Promise<GeneratedFile[
   await readDir(projectDir);
   return files;
 }
+
+export async function getProjectDir(projectId: string): Promise<string | null> {
+  const projectDir = path.join(PROJECTS_DIR, projectId);
+  try {
+    await fs.access(projectDir);
+    return projectDir;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeProjectFile(projectId: string, filePath: string, content: string): Promise<void> {
+  const projectDir = path.join(PROJECTS_DIR, projectId);
+  const fullPath = path.join(projectDir, filePath);
+  
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  
+  // Write file
+  await fs.writeFile(fullPath, content, 'utf-8');
+}
