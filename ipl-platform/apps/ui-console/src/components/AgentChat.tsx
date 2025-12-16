@@ -18,6 +18,7 @@ interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  attachments?: Array<{ name: string; type: string }>;
 }
 
 interface AgentChatProps {
@@ -33,8 +34,12 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [currentThinking, setCurrentThinking] = useState<string | null>(null);
   const [sessionId] = useState(() => `session_${Date.now()}`);
+  const [showBuildMenu, setShowBuildMenu] = useState(false);
+  const [mode, setMode] = useState<'build' | 'plan'>('build');
+  const [attachments, setAttachments] = useState<File[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,7 +54,9 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
     if (!input.trim() || isRunning) return;
 
     const userMessage = input.trim();
+    const currentAttachments = attachments.map(f => ({ name: f.name, type: f.type }));
     setInput('');
+    setAttachments([]);
     setIsRunning(true);
     setEvents([]);
     setCurrentThinking(null);
@@ -57,14 +64,20 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
     setMessages(prev => [...prev, {
       role: 'user',
       content: userMessage,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      attachments: currentAttachments.length > 0 ? currentAttachments : undefined
     }]);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage, sessionId })
+        body: JSON.stringify({ 
+          message: userMessage, 
+          sessionId,
+          mode,
+          attachments: currentAttachments
+        })
       });
 
       const reader = response.body?.getReader();
@@ -208,6 +221,15 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
               <div className="agent-message-role">
                 {msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'Agent' : 'System'}
               </div>
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className="message-attachments">
+                  {msg.attachments.map((att, idx) => (
+                    <span key={idx} className="message-attachment-chip">
+                      📎 {att.name}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="agent-message-content">{msg.content}</div>
             </div>
           ))}
@@ -225,22 +247,98 @@ export function AgentChat({ projectId, onModuleBuilt }: AgentChatProps) {
         </div>
 
         <div className="agent-input-container">
-          <input
-            type="text"
-            className="agent-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder={isRunning ? 'Agent is working...' : 'Ask the agent to build something...'}
-            disabled={isRunning}
-          />
-          <button
-            className="agent-send-btn"
-            onClick={sendMessage}
-            disabled={isRunning || !input.trim()}
-          >
-            {isRunning ? 'Working...' : 'Send'}
-          </button>
+          <div className="input-left-controls">
+            <div className="build-menu-wrapper">
+              <button 
+                className={`build-mode-btn ${mode}`}
+                onClick={() => setShowBuildMenu(!showBuildMenu)}
+              >
+                <span className="build-icon">{mode === 'build' ? '⚡' : '📋'}</span>
+                <span>{mode === 'build' ? 'Build' : 'Plan'}</span>
+                <span className="dropdown-arrow">▾</span>
+              </button>
+              {showBuildMenu && (
+                <div className="build-menu">
+                  <button 
+                    className={`build-option ${mode === 'build' ? 'active' : ''}`}
+                    onClick={() => { setMode('build'); setShowBuildMenu(false); }}
+                  >
+                    <span className="option-icon">⚡</span>
+                    <div className="option-info">
+                      <strong>Build</strong>
+                      <span>Agent builds and executes code</span>
+                    </div>
+                  </button>
+                  <button 
+                    className={`build-option ${mode === 'plan' ? 'active' : ''}`}
+                    onClick={() => { setMode('plan'); setShowBuildMenu(false); }}
+                  >
+                    <span className="option-icon">📋</span>
+                    <div className="option-info">
+                      <strong>Plan</strong>
+                      <span>Agent creates a plan without executing</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+            <button 
+              className="attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach files"
+            >
+              📎
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                if (e.target.files) {
+                  setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+                }
+              }}
+            />
+          </div>
+          
+          <div className="input-main">
+            {attachments.length > 0 && (
+              <div className="attachments-preview">
+                {attachments.map((file, i) => (
+                  <div key={i} className="attachment-chip">
+                    <span>{file.name}</span>
+                    <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
+              className="agent-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+              placeholder={isRunning ? 'Agent is working...' : 'Ask the agent to build something...'}
+              disabled={isRunning}
+              rows={1}
+            />
+          </div>
+          
+          <div className="input-right-controls">
+            <button className="control-btn" title="Settings">⚙️</button>
+            <button
+              className="agent-send-btn"
+              onClick={sendMessage}
+              disabled={isRunning || !input.trim()}
+            >
+              ↑
+            </button>
+          </div>
         </div>
       </div>
 

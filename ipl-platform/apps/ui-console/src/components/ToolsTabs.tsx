@@ -39,16 +39,23 @@ interface DbTable {
 
 const AVAILABLE_TOOLS = [
   { id: 'preview', name: 'Preview', icon: '🖥️', description: 'Preview your App' },
-  { id: 'console', name: 'Console', icon: '⌨️', description: 'View terminal output' },
+  { id: 'console', name: 'Console', icon: '⌨️', description: 'View terminal output after running your code' },
+  { id: 'shell', name: 'Shell', icon: '💻', description: 'Directly access your App through a command line interface (CLI)' },
   { id: 'git', name: 'Git', icon: '⎇', description: 'Version control for your App' },
-  { id: 'database', name: 'Database', icon: '🗄️', description: 'Stores structured data' },
+  { id: 'database', name: 'Database', icon: '🗄️', description: 'Stores structured data such as user profiles, game scores, and product catalogs' },
+  { id: 'storage', name: 'App Storage', icon: '📦', description: 'Built-in object storage for images, videos, and documents' },
+  { id: 'kvstore', name: 'Key-Value Store', icon: '🔑', description: 'Easy-to-use store for unstructured data, caching, and session management' },
+  { id: 'auth', name: 'Auth', icon: '👤', description: 'Let users log in to your App using a prebuilt login page' },
   { id: 'files', name: 'Files', icon: '📁', description: 'Browse project files' },
-  { id: 'search', name: 'Code Search', icon: '🔍', description: 'Search through code' },
-  { id: 'secrets', name: 'Secrets', icon: '🔐', description: 'Store sensitive information' },
-  { id: 'security', name: 'Security Scanner', icon: '🛡️', description: 'Scan for vulnerabilities' },
-  { id: 'integrations', name: 'Integrations', icon: '🔗', description: 'Connect to services' },
-  { id: 'assistant', name: 'Assistant', icon: '🤖', description: 'AI answers and edits' },
-  { id: 'playground', name: 'Playground', icon: '🧪', description: 'Test agents and automations' },
+  { id: 'search', name: 'Code Search', icon: '🔍', description: 'Search through the text contents of your App' },
+  { id: 'secrets', name: 'Secrets', icon: '🔐', description: 'Store sensitive information like API keys securely in your App' },
+  { id: 'security', name: 'Security Scanner', icon: '🛡️', description: 'Scan your app for vulnerabilities' },
+  { id: 'integrations', name: 'Integrations', icon: '🔗', description: 'Connect to Replit-native and external services' },
+  { id: 'assistant', name: 'Assistant', icon: '✨', description: 'Assistant answers questions, refines code, and makes precise edits' },
+  { id: 'developer', name: 'Developer', icon: '⚙️', description: 'Advanced developer tools and configurations' },
+  { id: 'extensions', name: 'Extension Store', icon: '🧩', description: 'Find and install workspace extensions' },
+  { id: 'playground', name: 'Playground', icon: '▶️', description: 'View and test agents and automations created by Agent' },
+  { id: 'publishing', name: 'Publishing', icon: '🚀', description: 'Publish a live, stable, public version of your App' },
 ];
 
 export function ToolsTabs({ 
@@ -762,6 +769,159 @@ export function ToolsTabs({
             <p>View and test agents and automations created by the AI Agent.</p>
             <div className="playground-area">
               <p className="playground-hint">No automations created yet</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'shell' && (
+          <div className="tab-content shell-content">
+            <div className="shell-header">
+              <h3>Shell</h3>
+            </div>
+            <p className="tool-desc">Directly access your App through a command line interface (CLI)</p>
+            <div className="shell-terminal">
+              <div className="terminal-line">$ <span className="cursor">_</span></div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'storage' && (
+          <div className="tab-content storage-content">
+            <div className="storage-header">
+              <h3>App Storage</h3>
+              <button className="upload-btn">Upload Files</button>
+            </div>
+            <p className="tool-desc">Built-in object storage that lets your app easily host and save uploads like images, videos, and documents.</p>
+            <div className="storage-browser">
+              <div className="storage-empty">
+                <span className="empty-icon">📦</span>
+                <p>No files uploaded yet</p>
+                <button className="upload-btn-lg">Upload your first file</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'kvstore' && (
+          <div className="tab-content kvstore-content">
+            <div className="kvstore-header">
+              <h3>Key-Value Store</h3>
+              <button className="refresh-btn">↻</button>
+            </div>
+            <p className="tool-desc">Free, easy-to-use key-value store suitable for unstructured data, caching, session management, fast lookups, and flexible data models</p>
+            <div className="kv-list">
+              <div className="kv-empty">No keys stored yet</div>
+            </div>
+            <div className="add-kv-form">
+              <input type="text" placeholder="Key" className="kv-key-input" />
+              <input type="text" placeholder="Value" className="kv-value-input" />
+              <button className="add-kv-btn">Add</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'auth' && (
+          <div className="tab-content auth-content">
+            <div className="auth-header">
+              <h3>Auth</h3>
+            </div>
+            <p className="tool-desc">Let users log in to your App using a prebuilt login page</p>
+            <div className="auth-setup">
+              <div className="auth-option">
+                <span className="auth-icon">🔑</span>
+                <div className="auth-info">
+                  <strong>Email & Password</strong>
+                  <span>Classic email and password authentication</span>
+                </div>
+                <button className="enable-btn">Enable</button>
+              </div>
+              <div className="auth-option">
+                <span className="auth-icon">🔗</span>
+                <div className="auth-info">
+                  <strong>OAuth Providers</strong>
+                  <span>Google, GitHub, and more</span>
+                </div>
+                <button className="enable-btn">Configure</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'developer' && (
+          <div className="tab-content developer-content">
+            <div className="developer-header">
+              <h3>Developer Tools</h3>
+            </div>
+            <p className="tool-desc">Advanced developer tools and configurations</p>
+            <div className="dev-options">
+              <div className="dev-option">
+                <span className="dev-icon">📋</span>
+                <div className="dev-info">
+                  <strong>Environment Variables</strong>
+                  <span>Configure environment-specific settings</span>
+                </div>
+              </div>
+              <div className="dev-option">
+                <span className="dev-icon">🔧</span>
+                <div className="dev-info">
+                  <strong>Run Configuration</strong>
+                  <span>Customize how your app runs</span>
+                </div>
+              </div>
+              <div className="dev-option">
+                <span className="dev-icon">📦</span>
+                <div className="dev-info">
+                  <strong>Package Manager</strong>
+                  <span>Manage dependencies</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'extensions' && (
+          <div className="tab-content extensions-content">
+            <div className="extensions-header">
+              <h3>Extension Store</h3>
+              <input type="text" placeholder="Search extensions..." className="ext-search" />
+            </div>
+            <p className="tool-desc">Find and install workspace extensions</p>
+            <div className="extensions-list">
+              <div className="extension-item">
+                <span className="ext-icon">🎨</span>
+                <div className="ext-info">
+                  <strong>Theme Pack</strong>
+                  <span>Additional color themes for your workspace</span>
+                </div>
+                <button className="install-btn">Install</button>
+              </div>
+              <div className="extension-item">
+                <span className="ext-icon">📝</span>
+                <div className="ext-info">
+                  <strong>Markdown Preview</strong>
+                  <span>Live preview for Markdown files</span>
+                </div>
+                <button className="install-btn">Install</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'publishing' && (
+          <div className="tab-content publishing-content">
+            <div className="publishing-header">
+              <h3>Publishing</h3>
+            </div>
+            <p className="tool-desc">Publish a live, stable, public version of your App, unaffected by changes you make in the workspace.</p>
+            <div className="publishing-options">
+              <div className="publish-status">
+                <span className="status-icon">⚪</span>
+                <span>Not published</span>
+              </div>
+              <button className="publish-btn">Publish App</button>
+              <div className="publish-info">
+                <p>When you publish, your app will be available at a public URL.</p>
+              </div>
             </div>
           </div>
         )}
