@@ -1179,6 +1179,50 @@ app.delete("/api/projects/:projectId", async (req, res) => {
   }
 });
 
+// ===================== STREAMING AGENT ENDPOINT =====================
+// This provides Claude-like capabilities with real-time updates
+
+import { AgentOrchestrator, getSession } from "./llm/agent-orchestrator.js";
+
+app.post("/api/projects/:projectId/agent-stream", async (req, res) => {
+  const { message, sessionId } = req.body;
+  
+  if (!message) {
+    return res.status(400).json({ error: "message is required" });
+  }
+
+  // Set up SSE headers for streaming
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+
+  const orchestrator = new AgentOrchestrator(req.params.projectId, sessionId);
+
+  // Stream events to client
+  orchestrator.on("event", (event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  });
+
+  try {
+    await orchestrator.run(message);
+    res.write(`data: ${JSON.stringify({ type: "done", timestamp: Date.now() })}\n\n`);
+    res.end();
+  } catch (e: any) {
+    res.write(`data: ${JSON.stringify({ type: "error", data: { error: e?.message || String(e) }, timestamp: Date.now() })}\n\n`);
+    res.end();
+  }
+});
+
+// Get agent session state
+app.get("/api/projects/:projectId/agent-session/:sessionId", async (req, res) => {
+  const session = getSession(req.params.sessionId);
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+  res.json({ ok: true, session });
+});
+
 // Materialize project code - generates actual runnable files
 app.post("/api/projects/:projectId/materialize", async (req, res) => {
   try {

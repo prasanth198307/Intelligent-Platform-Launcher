@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './ProjectBuilder.css';
+import { AgentChat } from './components/AgentChat';
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8080' : '';
 
@@ -87,6 +88,7 @@ export default function ProjectBuilder() {
   const [activeTab, setActiveTab] = useState<'console' | 'tables' | 'apis' | 'files' | 'preview'>('console');
   const [issueInput, setIssueInput] = useState('');
   const [appStatus, setAppStatus] = useState<{ status: string; port: number | null; logs: string[] }>({ status: 'not_running', port: null, logs: [] });
+  const [useAgenticMode, setUseAgenticMode] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
@@ -669,8 +671,37 @@ export default function ProjectBuilder() {
               <div className="chat-panel">
                 <div className="chat-header">
                   <h3>Chat with AI Agent</h3>
+                  <div className="chat-mode-toggle">
+                    <button 
+                      className={useAgenticMode ? 'active' : ''} 
+                      onClick={() => setUseAgenticMode(true)}
+                      title="Claude-like agent with tools, tasks, and self-correction"
+                    >
+                      Agentic Mode
+                    </button>
+                    <button 
+                      className={!useAgenticMode ? 'active' : ''} 
+                      onClick={() => setUseAgenticMode(false)}
+                      title="Simple chat interface"
+                    >
+                      Classic
+                    </button>
+                  </div>
                   <span className="status-badge">{loading ? 'Thinking...' : 'Ready'}</span>
                 </div>
+
+                {useAgenticMode ? (
+                  <AgentChat projectId={project.projectId} onModuleBuilt={(mod) => {
+                    if (mod && project) {
+                      setProject({
+                        ...project,
+                        modules: [...project.modules, mod]
+                      });
+                      addLog(`Module built: ${mod.name}`);
+                    }
+                  }} />
+                ) : (
+                  <>
                 <div className="chat-messages">
                   {chatHistory.length === 0 && (
                     <div className="chat-welcome">
@@ -722,6 +753,8 @@ export default function ProjectBuilder() {
                   />
                   <button onClick={() => sendMessage()} disabled={loading || !chatInput.trim()}>Send</button>
                 </div>
+                  </>
+                )}
               </div>
 
               <div className="output-panel">

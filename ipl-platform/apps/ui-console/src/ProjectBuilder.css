@@ -214,6 +214,31 @@ h4 { color: #808090; margin: 0 0 8px; font-size: 0.9rem; }
 .chat-header h3 { margin: 0; color: white; font-size: 1rem; }
 .status-badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; color: white; }
 
+.chat-mode-toggle {
+  display: flex;
+  gap: 2px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 2px;
+}
+.chat-mode-toggle button {
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.chat-mode-toggle button:hover {
+  background: rgba(255,255,255,0.1);
+}
+.chat-mode-toggle button.active {
+  background: rgba(255,255,255,0.25);
+  color: white;
+}
+
 .output-panel {
   display: flex;
   flex-direction: column;
