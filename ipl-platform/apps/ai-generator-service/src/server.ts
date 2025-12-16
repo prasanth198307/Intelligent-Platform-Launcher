@@ -21,7 +21,12 @@ import {
   groqRecommendDomainModules,
   groqGenerateSingleModule,
   groqNLPAssistant,
+  groqConversationalAssistant,
+  type ProjectSession,
 } from "./llm/providers/groq-devops.js";
+
+// In-memory session storage (would use DB in production)
+const projectSessions = new Map<string, ProjectSession>();
 import { db } from "./db/index.js";
 import { workspaces } from "./db/schema.js";
 import { eq, desc } from "drizzle-orm";
@@ -827,6 +832,85 @@ app.post("/api/assistant", async (req, res) => {
     console.error("AI assistant failed:", e);
     res.status(500).json({ error: "AI assistant failed", details: e?.message || String(e) });
   }
+});
+
+// Conversational AI with Session Context - Incremental Development
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { sessionId, message, domain, database, cloudProvider } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: "message is required" });
+    }
+    
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: "AI chat requires GROQ_API_KEY" });
+    }
+    
+    // Get or create session
+    const sid = sessionId || `session-${Date.now()}`;
+    let session = projectSessions.get(sid);
+    
+    if (!session) {
+      session = {
+        sessionId: sid,
+        domain: domain || '',
+        database: database || 'postgresql',
+        cloudProvider: cloudProvider || 'aws',
+        modules: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      projectSessions.set(sid, session);
+    }
+    
+    // Update session with any new context
+    if (domain) session.domain = domain;
+    if (database) session.database = database;
+    if (cloudProvider) session.cloudProvider = cloudProvider;
+    
+    console.log(`Chat session ${sid}: "${message.substring(0, 50)}..."`);
+    const result = await groqConversationalAssistant({
+      sessionId: sid,
+      message,
+      projectContext: session,
+    });
+    
+    // Update session with any context changes from AI
+    if (result.updatedContext?.modules) {
+      session.modules = result.updatedContext.modules;
+    }
+    if (result.updatedContext?.domain) {
+      session.domain = result.updatedContext.domain;
+    }
+    session.updatedAt = new Date();
+    projectSessions.set(sid, session);
+    
+    res.json({ 
+      ok: true, 
+      aiGenerated: true, 
+      sessionId: sid,
+      projectState: {
+        domain: session.domain,
+        database: session.database,
+        completedModules: session.modules.filter(m => m.status === 'completed').map(m => m.name),
+        existingTables: session.modules.flatMap(m => m.tables?.map(t => t.name) || []),
+      },
+      ...result 
+    });
+  } catch (e: any) {
+    console.error("AI chat failed:", e);
+    res.status(500).json({ error: "AI chat failed", details: e?.message || String(e) });
+  }
+});
+
+// Get session state
+app.get("/api/chat/:sessionId", async (req, res) => {
+  const session = projectSessions.get(req.params.sessionId);
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+  res.json({ ok: true, session });
 });
 
 // AI-powered domain module recommendations

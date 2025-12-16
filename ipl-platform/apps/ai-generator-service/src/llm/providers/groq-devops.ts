@@ -1367,3 +1367,127 @@ Return ONLY valid JSON:
     clearTimeout(timeout);
   }
 }
+
+// Session-based context for incremental development
+export interface ProjectSession {
+  sessionId: string;
+  domain: string;
+  database: string;
+  cloudProvider: string;
+  modules: Array<{
+    name: string;
+    status: 'planned' | 'in_progress' | 'completed';
+    tables: Array<{ name: string; columns: Array<{ name: string; type: string; references?: string }> }>;
+    apis: string[];
+    screens: string[];
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ConversationalRequest {
+  sessionId: string;
+  message: string;
+  projectContext?: Partial<ProjectSession>;
+}
+
+export interface ConversationalResponse {
+  intent: string;
+  message: string;
+  data?: any;
+  updatedContext?: Partial<ProjectSession>;
+  nextSteps?: string[];
+}
+
+export async function groqConversationalAssistant(request: ConversationalRequest): Promise<ConversationalResponse> {
+  const client = getClient();
+
+  const existingModules = request.projectContext?.modules || [];
+  const existingTables = existingModules.flatMap(m => m.tables || []);
+  
+  const contextSummary = existingModules.length > 0 
+    ? `
+EXISTING PROJECT STATE:
+- Domain: ${request.projectContext?.domain || 'not set'}
+- Database: ${request.projectContext?.database || 'postgresql'}
+- Completed Modules: ${existingModules.filter(m => m.status === 'completed').map(m => m.name).join(', ') || 'none'}
+- In Progress: ${existingModules.filter(m => m.status === 'in_progress').map(m => m.name).join(', ') || 'none'}
+- Planned: ${existingModules.filter(m => m.status === 'planned').map(m => m.name).join(', ') || 'none'}
+- Existing Tables: ${existingTables.map(t => t.name).join(', ') || 'none'}
+`
+    : 'This is a NEW PROJECT - no modules built yet.';
+
+  const prompt = `You are an AI development assistant helping a user build an application incrementally, module by module.
+
+${contextSummary}
+
+USER MESSAGE: "${request.message}"
+
+Based on the message and existing project state:
+
+1. Understand what the user wants to do
+2. If building a new module, reference existing tables for foreign keys
+3. If this is the first module, help set up the project domain
+4. Provide actionable response with code/recommendations
+
+INTENTS:
+- "start_project": User wants to start a new project (e.g., "I want to build a healthcare app")
+- "build_module": User wants to build a specific module (e.g., "build patient management", "create the billing module")
+- "continue_module": User wants to continue/modify an existing module
+- "list_status": User asks what's built or project status
+- "generate_code": User wants specific code (API, screen, migration)
+- "question": User has a question about the project
+- "next_steps": User asks what to do next
+
+For "build_module", generate COMPLETE module with:
+- Tables (with foreign keys to existing tables where appropriate)
+- API endpoints (Express routes)
+- React screens (List, Form, Detail)
+- Migration SQL
+
+Return ONLY valid JSON:
+{
+  "intent": "build_module",
+  "message": "Human-friendly response explaining what you're doing",
+  "data": {
+    "moduleName": "Module Name",
+    "tables": [...],
+    "apis": [...],
+    "screens": [...],
+    "migration": "SQL..."
+  },
+  "updatedContext": {
+    "modules": [... updated module list with new module added ...]
+  },
+  "nextSteps": ["Suggested next action 1", "Suggested next action 2"]
+}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
+
+  try {
+    console.log(`Processing conversational request: "${request.message.substring(0, 50)}..."`);
+    const response = await client.chat.completions.create(
+      {
+        model: GROQ_MODEL,
+        messages: [
+          { 
+            role: "system", 
+            content: `You are an expert full-stack developer assistant. Help users build applications incrementally. When generating modules, create production-ready code that integrates with existing tables. Always return valid JSON.` 
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 16000
+      },
+      { signal: controller.signal }
+    );
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("Empty Groq response");
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+    return JSON.parse(jsonMatch[0]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
