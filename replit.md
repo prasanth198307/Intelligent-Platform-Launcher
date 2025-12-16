@@ -64,10 +64,14 @@ ipl-platform/
 - **Mobile App Generation**: Generates iOS, Android, and PWA apps with features like offline sync, push notifications, and biometric authentication. Uses React Native/Expo for full project generation.
 - **AI Code Generation**: The `ai-generator-service` (LLM-ready) generates application modules, UI screens (list, form, detail, chart, map), database schemas (tables, columns, relationships), and comprehensive test cases (unit, integration, E2E, security).
 - **Agentic Mode**: Claude-like AI agent system with persistent loops, real-time streaming, and self-review capabilities:
-  - **Persistent Loop**: AgentOrchestrator runs up to 15 iterations with task tracking and verification
+  - **Persistent Loop**: AgentOrchestrator runs up to 100 iterations (essentially unlimited) with task tracking and verification
   - **Streaming UI**: Server-Sent Events (SSE) endpoint streams real-time agent activity (tool calls, thinking, task updates)
-  - **12 Tools**: Reading (get_project_info, list_database_tables, read_file), Verification (run_typescript_check, test_api_endpoint, check_file_syntax), Write (write_file, execute_sql)
-  - **Self-Review**: Agent automatically reviews its work before responding, fixing issues it detects
+  - **21 Tools**: 
+    - Reading: get_project_info, list_database_tables, get_table_data, list_project_files, read_file, read_any_file, list_directory, get_domain_knowledge
+    - Verification: run_typescript_check, test_api_endpoint, read_app_logs, check_file_syntax, get_app_status
+    - Write: write_file, write_any_file, execute_sql, create_directory, delete_file
+    - Git & Packages: install_package, git_status, git_commit, glob_files, grep_search
+  - **Separate Architect Agent**: Independent code reviewer that reads actual files, checks project context, and grades work (A-F)
   - **Task Management**: create_tasks, update_task tools for progress tracking visible in the UI
 - **Workspace Management**: Allows users to save, load, and delete project configurations, persisting data in a PostgreSQL database.
 - **DevOps & Automation Panel**: Unified panel with generators for Infrastructure as Code (Terraform, CloudFormation, Docker), CI/CD Pipelines (GitHub Actions, GitLab CI, Jenkins), API Documentation (OpenAPI), Database Migrations, Authentication Templates (JWT, OAuth), Load Testing (k6, JMeter), Security Scanning, and Cost Optimization.
